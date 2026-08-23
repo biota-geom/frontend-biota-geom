@@ -1,16 +1,16 @@
 export type CompanyNavigationItem = {
-  attentionCount: number
-  city: string
-  compliance: number
-  id: string
-  licenseCount: number
-  name: string
-  segment: string
-  state: string
-  status: 'active' | 'inactive'
-  updatedAt: string
-  overdueCount: number
-}
+  attentionCount: number;
+  city: string;
+  compliance: number;
+  id: string;
+  licenseCount: number;
+  name: string;
+  segment: string;
+  state: string;
+  status: 'active' | 'inactive';
+  updatedAt: string;
+  overdueCount: number;
+};
 
 // TODO: Replace this mocked navigation seed with backend-provided companies.
 export const MOCK_COMPANY_NAVIGATION_ITEMS: CompanyNavigationItem[] = [
@@ -92,8 +92,10 @@ export const MOCK_COMPANY_NAVIGATION_ITEMS: CompanyNavigationItem[] = [
     updatedAt: 'Ontem',
     overdueCount: 0,
   },
-]
+];
 
 export function getMockCompanyById(companyId?: string) {
-  return MOCK_COMPANY_NAVIGATION_ITEMS.find((company) => company.id === companyId)
+  return MOCK_COMPANY_NAVIGATION_ITEMS.find(
+    (company) => company.id === companyId
+  );
 }

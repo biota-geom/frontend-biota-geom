@@ -1,14 +1,14 @@
-import logoMark from '../../assets/logos/biota-geom-mark.svg'
-import styles from './BiotaLogo.module.css'
+import logoMark from '../../assets/logos/biota-geom-mark.svg';
+import styles from './BiotaLogo.module.css';
 
-type BiotaLogoVariant = 'horizontal' | 'stacked'
+type BiotaLogoVariant = 'horizontal' | 'stacked';
 
 type BiotaLogoProps = {
-  className?: string
-  nameAs?: 'h1' | 'span'
-  tagline?: string
-  variant?: BiotaLogoVariant
-}
+  className?: string;
+  nameAs?: 'h1' | 'span';
+  tagline?: string;
+  variant?: BiotaLogoVariant;
+};
 
 export function BiotaLogo({
   className,
@@ -18,12 +18,12 @@ export function BiotaLogo({
 }: BiotaLogoProps) {
   const logoClassName = [styles.logo, styles[variant], className]
     .filter(Boolean)
-    .join(' ')
+    .join(' ');
   const brandName = (
     <>
       Biota<span className={styles.nameAccent}>Geom</span>
     </>
-  )
+  );
 
   return (
     <div className={logoClassName} aria-label="BiotaGeom">
@@ -37,5 +37,5 @@ export function BiotaLogo({
         <span className={styles.tagline}>{tagline}</span>
       </div>
     </div>
-  )
+  );
 }

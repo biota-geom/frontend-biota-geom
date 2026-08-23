@@ -1,9 +1,9 @@
-import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder'
-import { PageScaffold } from '../../../components/layout/PageScaffold'
-import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs'
+import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder';
+import { PageScaffold } from '../../../components/layout/PageScaffold';
+import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 
 export function CompanyObligationsPage() {
-  const breadcrumbs = useCompanyBreadcrumbs('Obrigações')
+  const breadcrumbs = useCompanyBreadcrumbs('Obrigações');
 
   return (
     <PageScaffold
@@ -14,5 +14,5 @@ export function CompanyObligationsPage() {
     >
       <RoutePlaceholder description="O monitor de obrigações ambientais será implementado em uma etapa futura. A criação deverá abrir modal nesta rota." />
     </PageScaffold>
-  )
+  );
 }

@@ -1,9 +1,9 @@
-import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder'
-import { PageScaffold } from '../../../components/layout/PageScaffold'
-import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs'
+import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder';
+import { PageScaffold } from '../../../components/layout/PageScaffold';
+import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 
 export function CompanyDashboardPage() {
-  const breadcrumbs = useCompanyBreadcrumbs('Painel')
+  const breadcrumbs = useCompanyBreadcrumbs('Painel');
 
   return (
     <PageScaffold
@@ -13,5 +13,5 @@ export function CompanyDashboardPage() {
     >
       <RoutePlaceholder description="O painel de controle da empresa será implementado em uma etapa futura." />
     </PageScaffold>
-  )
+  );
 }

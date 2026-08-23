@@ -1,5 +1,5 @@
-import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder'
-import { PageScaffold } from '../../../components/layout/PageScaffold'
+import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder';
+import { PageScaffold } from '../../../components/layout/PageScaffold';
 
 export function AdminLegislationPage() {
   return (
@@ -10,5 +10,5 @@ export function AdminLegislationPage() {
     >
       <RoutePlaceholder description="O catálogo global de legislação ambiental será implementado em uma etapa futura." />
     </PageScaffold>
-  )
+  );
 }

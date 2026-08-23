@@ -1,9 +1,9 @@
-import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder'
-import { PageScaffold } from '../../../components/layout/PageScaffold'
-import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs'
+import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder';
+import { PageScaffold } from '../../../components/layout/PageScaffold';
+import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 
 export function CompanyLegislationPage() {
-  const breadcrumbs = useCompanyBreadcrumbs('Legislação')
+  const breadcrumbs = useCompanyBreadcrumbs('Legislação');
 
   return (
     <PageScaffold
@@ -13,5 +13,5 @@ export function CompanyLegislationPage() {
     >
       <RoutePlaceholder description="A legislação aplicável ao contexto da empresa será implementada em uma etapa futura." />
     </PageScaffold>
-  )
+  );
 }

@@ -1,19 +1,19 @@
-import { type ReactNode } from 'react'
-import { BreadcrumbBar, type BreadcrumbItem } from './BreadcrumbBar'
-import styles from './PageScaffold.module.css'
+import { type ReactNode } from 'react';
+import { BreadcrumbBar, type BreadcrumbItem } from './BreadcrumbBar';
+import styles from './PageScaffold.module.css';
 
 type PageAction = {
-  icon?: 'plus' | 'none'
-  label: string
-}
+  icon?: 'plus' | 'none';
+  label: string;
+};
 
 type PageScaffoldProps = {
-  actions?: PageAction[]
-  breadcrumbs?: BreadcrumbItem[]
-  children: ReactNode
-  subtitle: string
-  title: string
-}
+  actions?: PageAction[];
+  breadcrumbs?: BreadcrumbItem[];
+  children: ReactNode;
+  subtitle: string;
+  title: string;
+};
 
 function PlusIcon() {
   return (
@@ -32,7 +32,7 @@ function PlusIcon() {
         strokeWidth="2.5"
       />
     </svg>
-  )
+  );
 }
 
 export function PageScaffold({
@@ -42,14 +42,14 @@ export function PageScaffold({
   subtitle,
   title,
 }: PageScaffoldProps) {
-  const breadcrumbItems = breadcrumbs ?? []
-  const hasBreadcrumbs = breadcrumbItems.length > 0
+  const breadcrumbItems = breadcrumbs ?? [];
+  const hasBreadcrumbs = breadcrumbItems.length > 0;
   const pageClassName = [
     styles.page,
     hasBreadcrumbs ? '' : styles.pageWithoutBreadcrumbs,
   ]
     .filter(Boolean)
-    .join(' ')
+    .join(' ');
 
   return (
     <>
@@ -87,5 +87,5 @@ export function PageScaffold({
         </div>
       </main>
     </>
-  )
+  );
 }

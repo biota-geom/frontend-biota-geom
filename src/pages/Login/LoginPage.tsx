@@ -1,6 +1,6 @@
-import { BiotaLogo } from '../../components/ui/BiotaLogo'
-import { LoginForm } from './components/LoginForm'
-import styles from './LoginPage.module.css'
+import { BiotaLogo } from '../../components/ui/BiotaLogo';
+import { LoginForm } from './components/LoginForm';
+import styles from './LoginPage.module.css';
 
 export function LoginPage() {
   return (
@@ -15,5 +15,5 @@ export function LoginPage() {
         <LoginForm />
       </section>
     </main>
-  )
+  );
 }

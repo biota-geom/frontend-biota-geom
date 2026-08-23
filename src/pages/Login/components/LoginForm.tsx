@@ -1,7 +1,7 @@
-import { type FormEvent, type MouseEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { APP_ROUTES } from '../../../app/router/routes'
-import styles from '../LoginPage.module.css'
+import { type FormEvent, type MouseEvent, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { APP_ROUTES } from '../../../app/router/routes';
+import styles from '../LoginPage.module.css';
 
 function MailIcon() {
   return (
@@ -28,7 +28,7 @@ function MailIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function LockIcon() {
@@ -56,7 +56,7 @@ function LockIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function EyeIcon() {
@@ -84,21 +84,21 @@ function EyeIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 export function LoginForm() {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
-  const navigate = useNavigate()
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const navigate = useNavigate();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+    event.preventDefault();
     // TODO: replace temporary navigation with backend authentication.
-    navigate(APP_ROUTES.admin.companies)
+    navigate(APP_ROUTES.admin.companies);
   }
 
   function handleForgotPasswordClick(event: MouseEvent<HTMLAnchorElement>) {
-    event.preventDefault()
+    event.preventDefault();
   }
 
   return (
@@ -167,5 +167,5 @@ export function LoginForm() {
         Segurança em conformidade com as normas ISO 27001 e LGPD.
       </p>
     </form>
-  )
+  );
 }

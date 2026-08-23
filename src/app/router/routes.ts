@@ -17,7 +17,7 @@ export const APP_ROUTES = {
     indicators: '/companies/:companyId/indicators',
     documents: '/companies/:companyId/documents',
   },
-} as const
+} as const;
 
 export const buildCompanyRoutes = {
   dashboard: (companyId: string) => `/companies/${companyId}/dashboard`,
@@ -28,4 +28,4 @@ export const buildCompanyRoutes = {
   legislation: (companyId: string) => `/companies/${companyId}/legislation`,
   indicators: (companyId: string) => `/companies/${companyId}/indicators`,
   documents: (companyId: string) => `/companies/${companyId}/documents`,
-} as const
+} as const;

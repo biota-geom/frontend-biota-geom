@@ -1,5 +1,5 @@
-import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder'
-import { PageScaffold } from '../../../components/layout/PageScaffold'
+import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder';
+import { PageScaffold } from '../../../components/layout/PageScaffold';
 
 export function AdminIndicatorsPage() {
   return (
@@ -10,5 +10,5 @@ export function AdminIndicatorsPage() {
     >
       <RoutePlaceholder description="A administração global de indicadores ESG será implementada em uma etapa futura." />
     </PageScaffold>
-  )
+  );
 }

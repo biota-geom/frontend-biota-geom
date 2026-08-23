@@ -1,18 +1,18 @@
-import { Link, NavLink } from 'react-router-dom'
-import { APP_ROUTES } from '../../app/router/routes'
-import { BiotaLogo } from '../ui/BiotaLogo'
-import styles from './AppHeader.module.css'
+import { Link, NavLink } from 'react-router-dom';
+import { APP_ROUTES } from '../../app/router/routes';
+import { BiotaLogo } from '../ui/BiotaLogo';
+import styles from './AppHeader.module.css';
 
 export type AppNavigationItem = {
-  end?: boolean
-  label: string
-  to: string
-}
+  end?: boolean;
+  label: string;
+  to: string;
+};
 
 type AppHeaderProps = {
-  contextLabel?: string
-  navItems: AppNavigationItem[]
-}
+  contextLabel?: string;
+  navItems: AppNavigationItem[];
+};
 
 function BuildingIcon() {
   return (
@@ -45,7 +45,7 @@ function BuildingIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function ChevronDownIcon() {
@@ -66,7 +66,7 @@ function ChevronDownIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function SettingsIcon() {
@@ -91,7 +91,7 @@ function SettingsIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function BellIcon() {
@@ -118,7 +118,7 @@ function BellIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
@@ -181,5 +181,5 @@ export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
         </div>
       </div>
     </header>
-  )
+  );
 }

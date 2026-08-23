@@ -1,9 +1,9 @@
-import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder'
-import { PageScaffold } from '../../../components/layout/PageScaffold'
-import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs'
+import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder';
+import { PageScaffold } from '../../../components/layout/PageScaffold';
+import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 
 export function CompanyDocumentsPage() {
-  const breadcrumbs = useCompanyBreadcrumbs('Documentos')
+  const breadcrumbs = useCompanyBreadcrumbs('Documentos');
 
   return (
     <PageScaffold
@@ -13,5 +13,5 @@ export function CompanyDocumentsPage() {
     >
       <RoutePlaceholder description="A área de documentos da empresa será implementada em uma etapa futura." />
     </PageScaffold>
-  )
+  );
 }

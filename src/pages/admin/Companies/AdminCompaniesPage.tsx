@@ -1,11 +1,11 @@
-import { Link } from 'react-router-dom'
-import { buildCompanyRoutes } from '../../../app/router/routes'
-import { PageScaffold } from '../../../components/layout/PageScaffold'
+import { Link } from 'react-router-dom';
+import { buildCompanyRoutes } from '../../../app/router/routes';
+import { PageScaffold } from '../../../components/layout/PageScaffold';
 import {
   MOCK_COMPANY_NAVIGATION_ITEMS,
   type CompanyNavigationItem,
-} from '../../../features/companies/companyNavigation.mock'
-import styles from './AdminCompaniesPage.module.css'
+} from '../../../features/companies/companyNavigation.mock';
+import styles from './AdminCompaniesPage.module.css';
 
 function SearchIcon() {
   return (
@@ -30,7 +30,7 @@ function SearchIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function ArrowRightIcon() {
@@ -51,7 +51,7 @@ function ArrowRightIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function EditIcon() {
@@ -78,7 +78,7 @@ function EditIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function TrashIcon() {
@@ -99,7 +99,7 @@ function TrashIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function ChevronDownIcon() {
@@ -120,23 +120,23 @@ function ChevronDownIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 function getComplianceTone(compliance: number) {
   if (compliance >= 90) {
-    return styles.good
+    return styles.good;
   }
 
   if (compliance >= 70) {
-    return styles.warning
+    return styles.warning;
   }
 
-  return styles.danger
+  return styles.danger;
 }
 
 function getStatusLabel(status: CompanyNavigationItem['status']) {
-  return status === 'active' ? 'Ativo' : 'Inativo'
+  return status === 'active' ? 'Ativo' : 'Inativo';
 }
 
 export function AdminCompaniesPage() {
@@ -169,7 +169,7 @@ export function AdminCompaniesPage() {
 
       <section aria-label="Empresas cadastradas" className={styles.grid}>
         {MOCK_COMPANY_NAVIGATION_ITEMS.map((company) => {
-          const complianceTone = getComplianceTone(company.compliance)
+          const complianceTone = getComplianceTone(company.compliance);
 
           return (
             <article
@@ -207,7 +207,7 @@ export function AdminCompaniesPage() {
                   <button
                     aria-label={`Excluir ${company.name}`}
                     className={[styles.iconButton, styles.deleteButton].join(
-                      ' ',
+                      ' '
                     )}
                     disabled
                     type="button"
@@ -264,9 +264,9 @@ export function AdminCompaniesPage() {
                 </Link>
               </footer>
             </article>
-          )
+          );
         })}
       </section>
     </PageScaffold>
-  )
+  );
 }

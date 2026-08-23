@@ -1,8 +1,8 @@
-import styles from './RoutePlaceholder.module.css'
+import styles from './RoutePlaceholder.module.css';
 
 type RoutePlaceholderProps = {
-  description: string
-}
+  description: string;
+};
 
 export function RoutePlaceholder({ description }: RoutePlaceholderProps) {
   return (
@@ -10,5 +10,5 @@ export function RoutePlaceholder({ description }: RoutePlaceholderProps) {
       <span className={styles.status}>Em preparação</span>
       <p>{description}</p>
     </section>
-  )
+  );
 }

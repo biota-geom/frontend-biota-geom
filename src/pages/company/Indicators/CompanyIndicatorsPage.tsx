@@ -1,9 +1,9 @@
-import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder'
-import { PageScaffold } from '../../../components/layout/PageScaffold'
-import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs'
+import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder';
+import { PageScaffold } from '../../../components/layout/PageScaffold';
+import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 
 export function CompanyIndicatorsPage() {
-  const breadcrumbs = useCompanyBreadcrumbs('Indicadores ESG')
+  const breadcrumbs = useCompanyBreadcrumbs('Indicadores ESG');
 
   return (
     <PageScaffold
@@ -14,5 +14,5 @@ export function CompanyIndicatorsPage() {
     >
       <RoutePlaceholder description="Os indicadores ESG vinculados à empresa serão implementados em uma etapa futura." />
     </PageScaffold>
-  )
+  );
 }

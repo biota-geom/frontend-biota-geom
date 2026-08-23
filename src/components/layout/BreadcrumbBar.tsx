@@ -1,14 +1,14 @@
-import { Link } from 'react-router-dom'
-import styles from './BreadcrumbBar.module.css'
+import { Link } from 'react-router-dom';
+import styles from './BreadcrumbBar.module.css';
 
 export type BreadcrumbItem = {
-  label: string
-  to?: string
-}
+  label: string;
+  to?: string;
+};
 
 type BreadcrumbBarProps = {
-  items: BreadcrumbItem[]
-}
+  items: BreadcrumbItem[];
+};
 
 function BackIcon() {
   return (
@@ -28,7 +28,7 @@ function BackIcon() {
         strokeWidth="2"
       />
     </svg>
-  )
+  );
 }
 
 export function BreadcrumbBar({ items }: BreadcrumbBarProps) {
@@ -39,7 +39,7 @@ export function BreadcrumbBar({ items }: BreadcrumbBarProps) {
           <BackIcon />
         </li>
         {items.map((item, index) => {
-          const isLast = index === items.length - 1
+          const isLast = index === items.length - 1;
 
           return (
             <li className={styles.item} key={`${item.label}-${index}`}>
@@ -51,9 +51,9 @@ export function BreadcrumbBar({ items }: BreadcrumbBarProps) {
                 <span className={styles.current}>{item.label}</span>
               )}
             </li>
-          )
+          );
         })}
       </ol>
     </nav>
-  )
+  );
 }

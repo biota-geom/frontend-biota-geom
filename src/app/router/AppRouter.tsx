@@ -4,30 +4,30 @@ import {
   Route,
   Routes,
   useParams,
-} from 'react-router-dom'
-import { AdminLayout } from '../../components/layout/AdminLayout'
-import { CompanyLayout } from '../../components/layout/CompanyLayout'
-import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage'
-import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage'
-import { AdminLegislationPage } from '../../pages/admin/Legislation/AdminLegislationPage'
-import { CompanyDashboardPage } from '../../pages/company/Dashboard/CompanyDashboardPage'
-import { CompanyDocumentsPage } from '../../pages/company/Documents/CompanyDocumentsPage'
-import { CompanyIndicatorsPage } from '../../pages/company/Indicators/CompanyIndicatorsPage'
-import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage'
-import { CompanyLegislationPage } from '../../pages/company/Legislation/CompanyLegislationPage'
-import { CompanyLicensesPage } from '../../pages/company/Licenses/CompanyLicensesPage'
-import { CompanyObligationsPage } from '../../pages/company/Obligations/CompanyObligationsPage'
-import { LoginPage } from '../../pages/Login/LoginPage'
-import { APP_ROUTES, buildCompanyRoutes } from './routes'
+} from 'react-router-dom';
+import { AdminLayout } from '../../components/layout/AdminLayout';
+import { CompanyLayout } from '../../components/layout/CompanyLayout';
+import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage';
+import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage';
+import { AdminLegislationPage } from '../../pages/admin/Legislation/AdminLegislationPage';
+import { CompanyDashboardPage } from '../../pages/company/Dashboard/CompanyDashboardPage';
+import { CompanyDocumentsPage } from '../../pages/company/Documents/CompanyDocumentsPage';
+import { CompanyIndicatorsPage } from '../../pages/company/Indicators/CompanyIndicatorsPage';
+import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
+import { CompanyLegislationPage } from '../../pages/company/Legislation/CompanyLegislationPage';
+import { CompanyLicensesPage } from '../../pages/company/Licenses/CompanyLicensesPage';
+import { CompanyObligationsPage } from '../../pages/company/Obligations/CompanyObligationsPage';
+import { LoginPage } from '../../pages/Login/LoginPage';
+import { APP_ROUTES, buildCompanyRoutes } from './routes';
 
 function CompanyRootRedirect() {
-  const { companyId } = useParams<{ companyId: string }>()
+  const { companyId } = useParams<{ companyId: string }>();
 
   if (!companyId) {
-    return <Navigate to={APP_ROUTES.admin.companies} replace />
+    return <Navigate to={APP_ROUTES.admin.companies} replace />;
   }
 
-  return <Navigate to={buildCompanyRoutes.dashboard(companyId)} replace />
+  return <Navigate to={buildCompanyRoutes.dashboard(companyId)} replace />;
 }
 
 export function AppRoutes() {
@@ -62,7 +62,7 @@ export function AppRoutes() {
 
       <Route path="*" element={<Navigate to={APP_ROUTES.login} replace />} />
     </Routes>
-  )
+  );
 }
 
 export function AppRouter() {
@@ -70,5 +70,5 @@ export function AppRouter() {
     <BrowserRouter>
       <AppRoutes />
     </BrowserRouter>
-  )
+  );
 }
