@@ -1,0 +1,18 @@
+html {
+  background: var(--color-background);
+}
+
+body {
+  color: var(--color-text-primary);
+  font-family: var(--font-family-sans);
+  letter-spacing: 0;
+  background: var(--color-background);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100svh;
+}

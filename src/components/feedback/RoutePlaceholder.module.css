@@ -1,0 +1,32 @@
+.panel {
+  padding: 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-control);
+}
+
+.status {
+  display: inline-flex;
+  margin-bottom: 16px;
+  padding: 6px 10px;
+  color: var(--color-primary-strong);
+  font-size: 13px;
+  font-weight: 700;
+  background: #d8f8ea;
+  border-radius: var(--radius-sm);
+}
+
+.panel p {
+  max-width: 580px;
+  margin: 12px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 24px;
+  }
+}
