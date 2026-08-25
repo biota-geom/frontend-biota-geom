@@ -1,5 +1,7 @@
 # frontend-biota-geom
 
+[![Quality](https://github.com/biota-geom/frontend-biota-geom/actions/workflows/quality.yml/badge.svg)](https://github.com/biota-geom/frontend-biota-geom/actions/workflows/quality.yml)
+
 Frontend do projeto **Biota Geom**, desenvolvido com **React** e **TypeScript**.
 
 ## Tecnologias configuradas até o momento
