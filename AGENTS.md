@@ -5,6 +5,7 @@
 - React, TypeScript, Vite, ESLint, Prettier and React Router DOM.
 - New source files must use TypeScript or TSX. Do not migrate code to JavaScript.
 - Do not recreate the Vite project or replace working configuration without a clear need.
+- Run `npm run check` (format check, lint, typecheck, tests, build) before considering any change done — this matches the CI workflow in `.github/workflows/quality.yml`.
 
 ## Architecture
 
