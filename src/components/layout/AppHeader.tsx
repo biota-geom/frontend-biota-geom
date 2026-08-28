@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { APP_ROUTES } from '../../app/router/routes';
+import { useAuth } from '../../features/auth/useAuth';
 import { BiotaLogo } from '../ui/BiotaLogo';
 import styles from './AppHeader.module.css';
 
@@ -121,7 +122,17 @@ function BellIcon() {
   );
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const initials =
+    parts.length > 1 ? [parts[0], parts[parts.length - 1]] : parts;
+  return initials.map((part) => part.charAt(0).toUpperCase()).join('');
+}
+
 export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
+  const user = useAuth((state) => state.user);
+  const logout = useAuth((state) => state.logout);
+
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
@@ -175,9 +186,20 @@ export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
             <span className={styles.notificationDot} />
           </button>
 
-          <span aria-label="Usuário administrador" className={styles.avatar}>
-            US
+          <span
+            aria-label={user ? user.name : 'Usuário administrador'}
+            className={styles.avatar}
+          >
+            {user ? getInitials(user.name) : 'US'}
           </span>
+
+          <button
+            className={styles.logoutButton}
+            onClick={logout}
+            type="button"
+          >
+            Sair
+          </button>
         </div>
       </div>
     </header>

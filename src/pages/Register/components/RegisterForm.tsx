@@ -1,10 +1,43 @@
-import { type FormEvent, type MouseEvent, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../app/router/routes';
 import { AUTH_MESSAGES } from '../../../features/auth/authMessages';
+import {
+  PASSWORD_RULES,
+  isPasswordStrongEnough,
+} from '../../../features/auth/passwordPolicy';
 import { useAuth } from '../../../features/auth/useAuth';
 import { ApiError } from '../../../services/api/apiError';
-import styles from '../LoginPage.module.css';
+import styles from '../../Login/LoginPage.module.css';
+import formStyles from './RegisterForm.module.css';
+
+function UserIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M12 12.25C14.0711 12.25 15.75 10.5711 15.75 8.5C15.75 6.42893 14.0711 4.75 12 4.75C9.92893 4.75 8.25 6.42893 8.25 8.5C8.25 10.5711 9.92893 12.25 12 12.25Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M4.75 19.25C4.75 15.9363 8.0233 13.75 12 13.75C15.9767 13.75 19.25 15.9363 19.25 19.25"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
 
 function MailIcon() {
   return (
@@ -90,21 +123,37 @@ function EyeIcon() {
   );
 }
 
-export function LoginForm() {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+export function RegisterForm() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const login = useAuth((state) => state.login);
+  const register = useAuth((state) => state.register);
+
+  const passwordsMatch =
+    password.length > 0 && password === passwordConfirmation;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+
+    if (!isPasswordStrongEnough(password)) {
+      setFormError(AUTH_MESSAGES.PASSWORD_WEAK);
+      return;
+    }
+
+    if (!passwordsMatch) {
+      setFormError(AUTH_MESSAGES.PASSWORD_CONFIRMATION_MISMATCH);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await login({ email, password });
+      await register({ name, email, password, passwordConfirmation });
       // No navigation here on purpose — PublicOnlyRoute redirects the moment
       // status flips to 'authenticated'.
     } catch (error) {
@@ -116,15 +165,33 @@ export function LoginForm() {
     }
   }
 
-  function handleForgotPasswordClick(event: MouseEvent<HTMLAnchorElement>) {
-    event.preventDefault();
-  }
-
   return (
     <form
       className={styles.form}
       onSubmit={(event) => void handleSubmit(event)}
     >
+      <div className={styles.fieldGroup}>
+        <label className={styles.label} htmlFor="name">
+          Nome completo
+        </label>
+        <div className={styles.inputShell}>
+          <span className={styles.inputIcon}>
+            <UserIcon />
+          </span>
+          <input
+            autoComplete="name"
+            className={styles.input}
+            id="name"
+            name="name"
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Maria Silva"
+            required
+            type="text"
+            value={name}
+          />
+        </div>
+      </div>
+
       <div className={styles.fieldGroup}>
         <label className={styles.label} htmlFor="email">
           E-mail corporativo
@@ -148,24 +215,15 @@ export function LoginForm() {
       </div>
 
       <div className={styles.fieldGroup}>
-        <div className={styles.labelRow}>
-          <label className={styles.label} htmlFor="password">
-            Senha de acesso
-          </label>
-          <a
-            className={styles.forgotPassword}
-            href="#"
-            onClick={handleForgotPasswordClick}
-          >
-            Esqueceu a senha?
-          </a>
-        </div>
+        <label className={styles.label} htmlFor="password">
+          Senha de acesso
+        </label>
         <div className={styles.inputShell}>
           <span className={styles.inputIcon}>
             <LockIcon />
           </span>
           <input
-            autoComplete="current-password"
+            autoComplete="new-password"
             className={styles.input}
             id="password"
             name="password"
@@ -185,6 +243,38 @@ export function LoginForm() {
             <EyeIcon />
           </button>
         </div>
+        <ul className={formStyles.passwordChecklist}>
+          {PASSWORD_RULES.map((rule) => (
+            <li
+              className={rule.test(password) ? formStyles.ruleMet : undefined}
+              key={rule.id}
+            >
+              {rule.label}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.label} htmlFor="password_confirmation">
+          Confirmar senha
+        </label>
+        <div className={styles.inputShell}>
+          <span className={styles.inputIcon}>
+            <LockIcon />
+          </span>
+          <input
+            autoComplete="new-password"
+            className={styles.input}
+            id="password_confirmation"
+            name="password_confirmation"
+            onChange={(event) => setPasswordConfirmation(event.target.value)}
+            placeholder="••••••••••••"
+            required
+            type={isPasswordVisible ? 'text' : 'password'}
+            value={passwordConfirmation}
+          />
+        </div>
       </div>
 
       {formError ? (
@@ -198,17 +288,13 @@ export function LoginForm() {
         disabled={isSubmitting}
         type="submit"
       >
-        {isSubmitting ? 'Entrando...' : 'Entrar na plataforma'}
+        {isSubmitting ? 'Criando conta...' : 'Criar conta'}
       </button>
 
-      <p className={styles.securityNote}>
-        Segurança em conformidade com as normas ISO 27001 e LGPD.
-      </p>
-
       <p className={styles.formFooter}>
-        Não possui conta?{' '}
-        <Link className={styles.forgotPassword} to={APP_ROUTES.register}>
-          Cadastre-se
+        Já possui uma conta?{' '}
+        <Link className={styles.forgotPassword} to={APP_ROUTES.login}>
+          Entrar
         </Link>
       </p>
     </form>
