@@ -59,9 +59,11 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 }));
 
-// Wired once, outside React: a refresh that fails permanently (dead/invalid
-// refresh token) must drop the app back to unauthenticated even though the
-// failure originates deep inside an unrelated fetch call, not a store action.
+/*
+ * Wired once, outside React: a refresh that fails permanently (dead/invalid
+ * refresh token) must drop the app back to unauthenticated even though the
+ * failure originates deep inside an unrelated fetch call, not a store action.
+ */
 setUnauthorizedHandler(() => {
   useAuth.setState({ user: null, status: 'unauthenticated' });
 });

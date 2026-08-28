@@ -4,8 +4,10 @@ export interface PasswordRule {
   test: (password: string) => boolean;
 }
 
-// Mirrors src/modules/auth/domain/password-policy.ts on the backend — keep
-// both in sync if either changes.
+/*
+ * Mirrors src/modules/auth/domain/password-policy.ts on the backend — keep
+ * both in sync if either changes.
+ */
 export const PASSWORD_RULES: PasswordRule[] = [
   {
     id: 'length',

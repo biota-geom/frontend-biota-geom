@@ -154,8 +154,10 @@ export function RegisterForm() {
 
     try {
       await register({ name, email, password, passwordConfirmation });
-      // No navigation here on purpose — PublicOnlyRoute redirects the moment
-      // status flips to 'authenticated'.
+      /*
+       * No navigation here on purpose — PublicOnlyRoute redirects the moment
+       * status flips to 'authenticated'.
+       */
     } catch (error) {
       setFormError(
         error instanceof ApiError ? error.message : AUTH_MESSAGES.GENERIC_ERROR

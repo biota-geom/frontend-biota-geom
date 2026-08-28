@@ -1,5 +1,7 @@
-// Wire shapes match the backend contract exactly (snake_case) — never rename
-// these fields, they're what actually crosses the network.
+/*
+ * Wire shapes match the backend contract exactly (snake_case) — never rename
+ * these fields, they're what actually crosses the network.
+ */
 export interface UserWire {
   id: string;
   name: string;
