@@ -9,7 +9,11 @@ vi.mock('../../services/api/authApi', () => ({
 }));
 
 const authApi = await import('../../services/api/authApi');
-const { useAuth } = await import('../../features/auth/useAuth');
+const { useAuth, registerAuthEventHandlers } =
+  await import('../../features/auth/useAuth');
+
+// Mirrors what main.tsx does once at app startup.
+registerAuthEventHandlers();
 
 function makeToken(payload: Record<string, unknown>): string {
   const header = btoa(JSON.stringify({ alg: 'none' }));
@@ -21,7 +25,9 @@ describe('useAuth store', () => {
   beforeEach(() => {
     localStorage.clear();
     useAuth.setState({ user: null, status: 'idle' });
-    vi.clearAllMocks();
+    // resetAllMocks (not just clearAllMocks) so a mockResolvedValue/
+    // mockRejectedValue configured in one test can never leak into the next.
+    vi.resetAllMocks();
     vi.restoreAllMocks();
   });
 
@@ -126,10 +132,39 @@ describe('useAuth store', () => {
     });
   });
 
+  it('updates the store user when a silent 401-triggered refresh returns an updated user', async () => {
+    const { request } = await import('../../services/api/http');
+    authStorage.setTokens('expired-access', 'refresh-1');
+    useAuth.setState({ user: MOCK_AUTH_USER, status: 'authenticated' });
+    const promotedUser = { ...MOCK_AUTH_USER, isAdmin: true };
+    vi.mocked(authApi.refresh).mockResolvedValue({
+      user: promotedUser,
+      accessToken: 'fresh-access',
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+      const headers = init?.headers as Record<string, string> | undefined;
+      if (headers?.Authorization === 'Bearer fresh-access') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: true }), { status: 200 })
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ message: 'expired' }), { status: 401 })
+      );
+    });
+
+    await request('/protected');
+
+    expect(useAuth.getState().user).toEqual(promotedUser);
+    expect(useAuth.getState().status).toBe('authenticated');
+  });
+
   it('drops the store to unauthenticated when the API layer reports the session died', async () => {
     const { request } = await import('../../services/api/http');
     authStorage.setTokens('expired-access', 'dead-refresh-token');
     useAuth.setState({ user: MOCK_AUTH_USER, status: 'authenticated' });
+    vi.mocked(authApi.refresh).mockRejectedValue(new Error('refresh failed'));
 
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ message: 'expired' }), { status: 401 })

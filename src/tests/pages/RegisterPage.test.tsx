@@ -71,10 +71,14 @@ describe('RegisterPage', () => {
     renderRegisterPage();
 
     const passwordInput = screen.getByLabelText(/^senha de acesso$/i);
+    const confirmationInput = screen.getByLabelText(/confirmar senha/i);
     expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(confirmationInput).toHaveAttribute('type', 'password');
 
     await user.click(screen.getByRole('button', { name: /exibir senha/i }));
+
     expect(passwordInput).toHaveAttribute('type', 'text');
+    expect(confirmationInput).toHaveAttribute('type', 'text');
   });
 
   it('never mentions the allowed email domain in any client-side copy', () => {

@@ -1,7 +1,15 @@
 import { authStorage } from '../../features/auth/authStorage';
+import type { AuthUser } from '../../features/auth/types';
 import { ApiError } from './apiError';
+/*
+ * authApi.ts imports request() from this module, so this is a circular
+ * import — it resolves cleanly because both request() and refresh() are
+ * hoisted function declarations only ever called well after both modules
+ * finish loading, never at module-evaluation time.
+ */
+import { refresh } from './authApi';
 import { API_BASE_URL } from './config';
-import type { ApiErrorWire, RefreshResponseWire } from './types';
+import type { ApiErrorWire } from './types';
 
 const NETWORK_ERROR_MESSAGE =
   'Não foi possível conectar ao servidor. Verifique sua conexão.';
@@ -25,6 +33,15 @@ export function setUnauthorizedHandler(handler: () => void): void {
   unauthorizedHandler = handler;
 }
 
+let sessionRefreshedHandler: ((user: AuthUser) => void) | null = null;
+
+/** Registered once by the auth store so a silent refresh's updated user (e.g. a role/permission change made server-side mid-session) reaches app state, not just the stored access token. */
+export function setSessionRefreshedHandler(
+  handler: (user: AuthUser) => void
+): void {
+  sessionRefreshedHandler = handler;
+}
+
 let refreshPromise: Promise<void> | null = null;
 
 function ensureRefreshed(): Promise<void> {
@@ -41,14 +58,10 @@ async function performRefresh(): Promise<void> {
     throw new ApiError(401, SESSION_EXPIRED_MESSAGE);
   }
 
-  const response = await request<RefreshResponseWire>('/auth/refresh', {
-    method: 'POST',
-    body: { refresh_token: refreshToken },
-    requiresAuth: false,
-    skipAuthRefresh: true,
-  });
+  const { user, accessToken } = await refresh(refreshToken);
 
-  authStorage.setAccessToken(response.access_token);
+  authStorage.setAccessToken(accessToken);
+  sessionRefreshedHandler?.(user);
 }
 
 function isApiErrorWire(value: unknown): value is ApiErrorWire {

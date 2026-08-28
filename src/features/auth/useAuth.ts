@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import * as authApi from '../../services/api/authApi';
-import { setUnauthorizedHandler } from '../../services/api/http';
+import {
+  setSessionRefreshedHandler,
+  setUnauthorizedHandler,
+} from '../../services/api/http';
 import { authStorage } from './authStorage';
 import { isTokenExpired } from './authTokens';
 import type { AuthStatus, AuthUser, LoginInput, RegisterInput } from './types';
@@ -60,10 +63,24 @@ export const useAuth = create<AuthState>((set, get) => ({
 }));
 
 /*
- * Wired once, outside React: a refresh that fails permanently (dead/invalid
- * refresh token) must drop the app back to unauthenticated even though the
- * failure originates deep inside an unrelated fetch call, not a store action.
+ * Wires http.ts's low-level session events to the store. Called explicitly
+ * from main.tsx (the app's single true entry point) rather than as a
+ * module-load side effect here, so the wiring can't silently go missing if
+ * some future code path talks to the API without importing this module first.
  */
-setUnauthorizedHandler(() => {
-  useAuth.setState({ user: null, status: 'unauthenticated' });
-});
+export function registerAuthEventHandlers(): void {
+  setUnauthorizedHandler(() => {
+    useAuth.setState({ user: null, status: 'unauthenticated' });
+  });
+
+  /*
+   * A silent 401-triggered refresh (as opposed to the boot-time one above,
+   * which sets `user` itself) only updates the stored access token in
+   * http.ts — without this, a role/permission change made server-side
+   * mid-session would stay invisible in the UI until the user logs out and
+   * back in, even though the refresh response already carries the new user.
+   */
+  setSessionRefreshedHandler((user) => {
+    useAuth.setState({ user });
+  });
+}

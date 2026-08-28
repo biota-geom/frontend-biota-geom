@@ -5,8 +5,13 @@ export interface PasswordRule {
 }
 
 /*
- * Mirrors src/modules/auth/domain/password-policy.ts on the backend — keep
- * both in sync if either changes.
+ * Mirrors backend-biota-geom's src/modules/auth/domain/password-policy.ts —
+ * the backend is the source of truth and the final arbiter (this only gates
+ * the UI early). Current contract: min 8 / max 128 chars, at least one
+ * lowercase, one uppercase, one digit, one special character. If either side
+ * changes, update both — see passwordPolicy.test.ts, which pins this exact
+ * rule set so a one-sided change fails loudly here instead of silently
+ * diverging from what the server actually accepts.
  */
 export const PASSWORD_RULES: PasswordRule[] = [
   {

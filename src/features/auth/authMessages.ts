@@ -4,8 +4,6 @@
  * validation and the generic fallback when an error carries no message at all.
  */
 export const AUTH_MESSAGES = {
-  NAME_REQUIRED: 'Informe seu nome completo.',
-  EMAIL_REQUIRED: 'Informe um e-mail válido.',
   PASSWORD_WEAK: 'A senha não atende aos requisitos mínimos de segurança.',
   PASSWORD_CONFIRMATION_MISMATCH: 'A confirmação de senha não confere.',
   GENERIC_ERROR:
