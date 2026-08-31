@@ -2,164 +2,120 @@
 
 [![Quality](https://github.com/biota-geom/frontend-biota-geom/actions/workflows/quality.yml/badge.svg)](https://github.com/biota-geom/frontend-biota-geom/actions/workflows/quality.yml)
 
-Frontend do projeto **Biota Geom**, desenvolvido com **React** e **TypeScript**.
+Base do frontend da plataforma **BiotaGeom**, construída com React, TypeScript,
+Vite e Tailwind CSS.
 
-## Tecnologias configuradas até o momento
+## Escopo atual
 
-- React
-- TypeScript
+O projeto ainda é um esqueleto de navegação e identidade visual. Nesta etapa:
+
+- o login apenas redireciona para a área administrativa;
+- a listagem de empresas usa dados explicitamente mockados;
+- as demais páginas exibem cabeçalho, navegação, breadcrumbs e placeholders;
+- ações de criação e edição ainda não possuem comportamento;
+- não existem autenticação real, integração com API, persistência ou regras de
+  autorização.
+
+## Tecnologias
+
+- React 19
+- TypeScript com modo estrito
 - Vite
-- ESLint
-- Prettier
+- Tailwind CSS 4 pelo plugin oficial para Vite
 - React Router DOM
+- Vitest, Testing Library e jsdom
+- ESLint e Prettier
+- Husky, lint-staged e Commitlint
 
 ## Instalação
-
-Clone o repositório:
-
-```bash
-git clone <URL_DO_REPOSITORIO>
-```
-
-Entre na pasta do projeto:
-
-```bash
-cd frontend-biota-geom
-```
-
-Instale as dependências:
 
 ```bash
 npm install
 ```
 
-## Executar o projeto
-
-Para iniciar o ambiente de desenvolvimento:
+## Desenvolvimento
 
 ```bash
 npm run dev
 ```
 
-O endereço local será informado pelo Vite no terminal, normalmente:
+O Vite inicia o servidor local e abre a aplicação automaticamente no navegador,
+normalmente em `http://localhost:5173`.
+
+## Scripts
+
+```bash
+npm run dev             # inicia o ambiente de desenvolvimento
+npm run build           # valida os tipos e gera o build de produção
+npm run typecheck       # valida apenas os tipos
+npm run lint            # executa o ESLint
+npm run format          # formata os arquivos com Prettier
+npm run format:check    # verifica a formatação sem alterar arquivos
+npm test                # executa os testes uma vez
+npm run test:coverage   # executa os testes com cobertura
+npm run preview         # serve localmente o build de produção
+```
+
+## Tailwind CSS
+
+Tailwind é o padrão exclusivo para estilos de componentes e páginas. As classes
+utilitárias ficam diretamente no JSX/TSX.
+
+O arquivo `src/styles/global.css` é a única folha global da aplicação e contém:
+
+- `@import 'tailwindcss'`;
+- tokens compartilhados definidos com `@theme`;
+- somente os estilos base necessários para `html`, `body` e `#root`.
+
+O projeto usa a configuração CSS-first do Tailwind 4, portanto não precisa de um
+arquivo `tailwind.config.js`. Não devem ser criados CSS Modules nem folhas CSS por
+componente.
+
+## Rotas preparadas
+
+- `/login`
+- `/admin/companies`
+- `/admin/legislation`
+- `/admin/indicators`
+- `/companies/:companyId/dashboard`
+- `/companies/:companyId/licenses`
+- `/companies/:companyId/licenses/:licenseId`
+- `/companies/:companyId/obligations`
+- `/companies/:companyId/legislation`
+- `/companies/:companyId/indicators`
+- `/companies/:companyId/documents`
+
+Fluxos de criação serão modais abertos nas páginas de contexto. Não existem rotas
+`/new` nesta base.
+
+## Dados mockados
+
+Dados temporários usados apenas para navegação e composição visual devem ser
+identificados por `.mock.ts` no nome do arquivo e `MOCK_` no nome da exportação.
+Isso evita que sejam confundidos com integração real de backend.
+
+## Estrutura principal
 
 ```text
-http://localhost:5173
+src/
+├── app/          # configuração global e rotas
+├── assets/       # imagens, ícones e logos
+├── components/   # componentes compartilhados
+├── features/     # código organizado por domínio
+├── pages/        # páginas associadas às rotas
+├── services/     # estrutura reservada para integrações futuras
+├── styles/       # entrada global e tema do Tailwind
+└── tests/        # testes da aplicação
 ```
 
-## Scripts disponíveis
+## Commits
 
-```bash
-npm run dev
-```
-
-Inicia o servidor de desenvolvimento.
-
-```bash
-npm run build
-```
-
-Gera a versão de produção do projeto.
-
-```bash
-npm run lint
-```
-
-Executa a verificação de lint no código.
-
-```bash
-npm run preview
-```
-
-Executa localmente uma prévia da versão gerada para produção.
-
-## Formatação de código
-
-O projeto utiliza **Prettier** para padronização da formatação do código.
-
-Configuração atual do arquivo `.prettierrc`:
-
-```json
-{
-  "semi": true,
-  "trailingComma": "es5",
-  "singleQuote": true,
-  "printWidth": 80,
-  "tabWidth": 2,
-  "useTabs": false
-}
-```
-
-## Rotas
-
-O projeto possui o **React Router DOM** instalado para gerenciamento das rotas e navegação entre as páginas da aplicação.
-
-## Convenção de commits
-
-Os commits devem seguir um padrão simples baseado em **Conventional Commits**:
+Use Conventional Commits, em inglês, com mensagens curtas e objetivas:
 
 ```text
-tipo: descrição da alteração
+feat: add login page
+refactor: migrate styles to tailwind
+docs: update frontend guidelines
 ```
 
-Principais tipos utilizados:
-
-```text
-feat: nova funcionalidade
-fix: correção de bug
-chore: configuração ou manutenção do projeto
-docs: alteração de documentação
-refactor: refatoração de código sem alteração de comportamento
-style: alteração de formatação ou estilo
-test: criação ou alteração de testes
-```
-
-Exemplos:
-
-```bash
-git commit -m "chore: configure prettier"
-```
-
-```bash
-git commit -m "chore: install react router dom"
-```
-
-```bash
-git commit -m "docs: add project readme"
-```
-
-```bash
-git commit -m "feat: add login page"
-```
-
-As mensagens devem ser curtas, objetivas e escritas em inglês.
-
-## Estrutura atual
-
-O projeto foi inicializado com **Vite**, utilizando o template:
-
-```text
-React + TypeScript
-```
-
-Os principais arquivos de configuração incluem:
-
-```text
-frontend-biota-geom/
-├── public/
-├── src/
-├── .gitignore
-├── .prettierrc
-├── eslint.config.js
-├── index.html
-├── package.json
-├── package-lock.json
-├── tsconfig.json
-├── tsconfig.app.json
-├── tsconfig.node.json
-└── vite.config.ts
-```
-
-## Status
-
-Projeto em fase inicial de configuração.
+Consulte `AGENTS.md` para as regras de arquitetura e implementação.
