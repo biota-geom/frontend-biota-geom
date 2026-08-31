@@ -5,17 +5,6 @@
 Base do frontend da plataforma **BiotaGeom**, construída com React, TypeScript,
 Vite e Tailwind CSS.
 
-## Escopo atual
-
-O projeto ainda é um esqueleto de navegação e identidade visual. Nesta etapa:
-
-- o login apenas redireciona para a área administrativa;
-- a listagem de empresas usa dados explicitamente mockados;
-- as demais páginas exibem cabeçalho, navegação, breadcrumbs e placeholders;
-- ações de criação e edição ainda não possuem comportamento;
-- não existem autenticação real, integração com API, persistência ou regras de
-  autorização.
-
 ## Tecnologias
 
 - React 19
@@ -28,6 +17,20 @@ O projeto ainda é um esqueleto de navegação e identidade visual. Nesta etapa:
 - Husky, lint-staged e Commitlint
 
 ## Instalação
+
+Clone o repositório:
+
+```bash
+git clone <URL_DO_REPOSITORIO>
+```
+
+Entre na pasta do frontend:
+
+```bash
+cd frontend-biota-geom
+```
+
+Instale as dependências:
 
 ```bash
 npm install
@@ -45,16 +48,39 @@ normalmente em `http://localhost:5173`.
 ## Scripts
 
 ```bash
-npm run dev             # inicia o ambiente de desenvolvimento
-npm run build           # valida os tipos e gera o build de produção
-npm run typecheck       # valida apenas os tipos
-npm run lint            # executa o ESLint
-npm run format          # formata os arquivos com Prettier
-npm run format:check    # verifica a formatação sem alterar arquivos
-npm test                # executa os testes uma vez
-npm run test:coverage   # executa os testes com cobertura
-npm run preview         # serve localmente o build de produção
+npm run dev              # inicia o ambiente de desenvolvimento
+npm run build            # valida os tipos e gera o build de produção
+npm run typecheck        # valida apenas os tipos
+npm run lint             # executa o ESLint
+npm run format           # formata os arquivos com Prettier
+npm run format:check     # verifica a formatação sem alterar arquivos
+npm test                 # executa os testes uma vez
+npm run test:coverage    # executa os testes com cobertura
+npm run coverage:changed # valida a cobertura dos arquivos alterados
+npm run preview          # serve localmente o build de produção
 ```
+
+O script `prepare` configura os hooks do Husky automaticamente durante o
+`npm install`.
+
+## Formatação de código
+
+O projeto utiliza **Prettier** para padronizar a formatação. A configuração atual
+do arquivo `.prettierrc` é:
+
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false
+}
+```
+
+Antes de enviar alterações, use `npm run format:check`. Para corrigir a
+formatação automaticamente, use `npm run format`.
 
 ## Tailwind CSS
 
@@ -72,6 +98,10 @@ arquivo `tailwind.config.js`. Não devem ser criados CSS Modules nem folhas CSS 
 componente.
 
 ## Rotas preparadas
+
+O projeto utiliza **React Router DOM** para a navegação entre as áreas
+administrativa e de empresa. Os caminhos ficam centralizados em
+`src/app/router/routes.ts`.
 
 - `/login`
 - `/admin/companies`
@@ -96,21 +126,56 @@ Isso evita que sejam confundidos com integração real de backend.
 
 ## Estrutura principal
 
+O projeto foi inicializado com o template **React + TypeScript** do Vite. A
+organização principal é:
+
 ```text
-src/
-├── app/          # configuração global e rotas
-├── assets/       # imagens, ícones e logos
-├── components/   # componentes compartilhados
-├── features/     # código organizado por domínio
-├── pages/        # páginas associadas às rotas
-├── services/     # estrutura reservada para integrações futuras
-├── styles/       # entrada global e tema do Tailwind
-└── tests/        # testes da aplicação
+frontend-biota-geom/
+├── .github/       # workflows e template de pull request
+├── public/        # arquivos públicos e favicon
+├── scripts/       # scripts auxiliares de qualidade
+├── src/
+│   ├── app/       # configuração global e rotas
+│   ├── assets/    # imagens, ícones e logos
+│   ├── components/ # componentes compartilhados
+│   ├── features/  # código organizado por domínio
+│   ├── pages/     # páginas associadas às rotas
+│   ├── services/  # estrutura para integrações futuras
+│   ├── styles/    # entrada global e tema do Tailwind
+│   └── tests/     # testes da aplicação
+├── .gitignore
+├── .prettierrc
+├── AGENTS.md
+├── commitlint.config.js
+├── eslint.config.js
+├── index.html
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
 ```
 
-## Commits
+## Convenção de commits
 
-Use Conventional Commits, em inglês, com mensagens curtas e objetivas:
+Os commits devem seguir **Conventional Commits**, com mensagens curtas,
+objetivas e escritas em inglês:
+
+```text
+tipo: descrição da alteração
+```
+
+Tipos principais:
+
+```text
+feat: nova funcionalidade
+fix: correção de bug
+chore: configuração ou manutenção do projeto
+docs: alteração de documentação
+refactor: refatoração sem alteração de comportamento
+style: alteração de formatação ou estilo
+test: criação ou alteração de testes
+```
+
+Exemplos:
 
 ```text
 feat: add login page
@@ -119,3 +184,9 @@ docs: update frontend guidelines
 ```
 
 Consulte `AGENTS.md` para as regras de arquitetura e implementação.
+
+## Status
+
+Projeto em fase inicial. A arquitetura, a navegação e a identidade visual estão
+preparadas, mas as funcionalidades de negócio e a integração com o backend ainda
+serão implementadas.
