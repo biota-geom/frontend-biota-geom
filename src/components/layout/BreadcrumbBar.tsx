@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import styles from './BreadcrumbBar.module.css';
 
 export type BreadcrumbItem = {
   label: string;
@@ -33,22 +32,31 @@ function BackIcon() {
 
 export function BreadcrumbBar({ items }: BreadcrumbBarProps) {
   return (
-    <nav aria-label="Breadcrumb" className={styles.bar}>
-      <ol className={styles.list}>
-        <li className={styles.backIcon}>
+    <nav
+      aria-label="Breadcrumb"
+      className="flex min-h-12 items-center border-b border-border bg-surface-muted"
+    >
+      <ol className="m-0 flex w-full list-none items-center gap-2.5 p-0 max-[640px]:overflow-x-auto">
+        <li className="inline-flex text-primary-strong">
           <BackIcon />
         </li>
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
 
           return (
-            <li className={styles.item} key={`${item.label}-${index}`}>
+            <li
+              className="inline-flex items-center gap-2.5 text-sm font-bold text-text-primary after:font-medium after:text-text-muted after:content-['/'] last:after:hidden max-[640px]:shrink-0"
+              key={`${item.label}-${index}`}
+            >
               {item.to && !isLast ? (
-                <Link className={styles.link} to={item.to}>
+                <Link
+                  className="text-primary-strong underline underline-offset-2"
+                  to={item.to}
+                >
                   {item.label}
                 </Link>
               ) : (
-                <span className={styles.current}>{item.label}</span>
+                <span className="text-text-primary">{item.label}</span>
               )}
             </li>
           );

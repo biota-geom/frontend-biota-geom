@@ -1,6 +1,5 @@
 import { type ReactNode } from 'react';
 import { BreadcrumbBar, type BreadcrumbItem } from './BreadcrumbBar';
-import styles from './PageScaffold.module.css';
 
 type PageAction = {
   icon?: 'plus' | 'none';
@@ -45,32 +44,34 @@ export function PageScaffold({
   const breadcrumbItems = breadcrumbs ?? [];
   const hasBreadcrumbs = breadcrumbItems.length > 0;
   const pageClassName = [
-    styles.page,
-    hasBreadcrumbs ? '' : styles.pageWithoutBreadcrumbs,
-  ]
-    .filter(Boolean)
-    .join(' ');
+    hasBreadcrumbs ? 'min-h-[calc(100svh-121px)]' : 'min-h-[calc(100svh-72px)]',
+    'bg-background px-10 pt-[42px] pb-16 max-[720px]:px-4 max-[720px]:pt-8 max-[720px]:pb-12',
+  ].join(' ');
 
   return (
     <>
       {hasBreadcrumbs ? (
-        <div className={styles.breadcrumbWrap}>
+        <div className="border-b border-border bg-surface-muted px-10 max-[720px]:px-4">
           <BreadcrumbBar items={breadcrumbItems} />
         </div>
       ) : null}
       <main className={pageClassName}>
-        <div className={styles.inner}>
-          <header className={styles.header}>
+        <div className="mx-auto w-full">
+          <header className="mb-8 flex items-start justify-between gap-6 max-[720px]:flex-col">
             <div>
-              <h1>{title}</h1>
-              <p>{subtitle}</p>
+              <h1 className="m-0 text-3xl leading-[1.2] font-bold text-text-primary">
+                {title}
+              </h1>
+              <p className="mt-1.5 mb-0 text-[15px] leading-[1.45] text-text-secondary">
+                {subtitle}
+              </p>
             </div>
 
             {actions.length > 0 ? (
-              <div className={styles.actions}>
+              <div className="flex items-center gap-3 pt-1.5 max-[720px]:w-full">
                 {actions.map((action) => (
                   <button
-                    className={styles.primaryAction}
+                    className="rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white disabled:cursor-default disabled:opacity-100 max-[720px]:w-full"
                     disabled
                     key={action.label}
                     type="button"

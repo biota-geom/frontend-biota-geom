@@ -2,7 +2,7 @@
 
 ## Stack
 
-- React, TypeScript, Vite, ESLint, Prettier and React Router DOM.
+- React, TypeScript, Vite, Tailwind CSS, ESLint, Prettier and React Router DOM.
 - New source files must use TypeScript or TSX. Do not migrate code to JavaScript.
 - Do not recreate the Vite project or replace working configuration without a clear need.
 
@@ -19,7 +19,7 @@
 - `src/pages`: route-level page composition.
 - `src/services/api`: future backend communication only. Do not add fake APIs.
 - `src/hooks`, `src/types`, `src/utils` and `src/constants`: shared code only when there is real reuse.
-- `src/styles`: global reset, tokens and base styles.
+- `src/styles`: Tailwind entry point, shared theme tokens and minimal global base styles.
 - `src/tests`: tests organized by components, pages, routes and mocks.
 
 ## Admin And Company Contexts
@@ -36,12 +36,13 @@
 
 - Keep route paths in `src/app/router/routes.ts`.
 - `/` redirects to `/login`.
-- `/login` contains the only implemented screen in the initial architecture stage.
+- `/login` contains the only active interaction in this architecture stage: temporary navigation to the admin area.
+- `/admin/companies` contains the visual listing backed by explicit mock data; it is not a backend integration.
 - `/admin` redirects to `/admin/companies`.
 - `/companies/:companyId` redirects to `/companies/:companyId/dashboard`.
 - Creation flows should open modals from their listing/context pages. Do not add `/new` routes unless the product decision changes.
 - Editing flows may be modal-based or page-based depending on future Figma/product definition. Do not assume one pattern globally.
-- Future screens must use the shared route placeholder until their design and behavior are defined.
+- Screens outside the login and current company-listing skeleton must use the shared route placeholder until their design and behavior are defined.
 
 ## TypeScript
 
@@ -59,9 +60,12 @@
 
 ## Styling
 
-- Use CSS Modules for component styles.
-- Use `src/styles/tokens.css` for shared colors, borders, radius, shadows and other reusable visual decisions.
-- Do not add Tailwind, Material UI, Bootstrap or another UI library unless explicitly approved.
+- Tailwind CSS is the required styling standard for components and pages.
+- Keep utility classes directly in JSX/TSX. Do not create CSS Modules or component-specific stylesheets.
+- Keep `src/styles/global.css` as the single CSS entry point. It may contain the Tailwind import, shared `@theme` tokens and minimal `@layer base` rules only.
+- Reuse the named Tailwind theme tokens for colors, borders, radii and shadows instead of repeating values when a token already exists.
+- Use arbitrary Tailwind values only when the design requires a value that is intentionally specific and not reusable.
+- Do not add Material UI, Bootstrap or another UI library unless explicitly approved.
 - Preserve the visual direction from Figma, but do not implement screens outside the current scope.
 - Do not invent screens that are not present in the references or not requested.
 
