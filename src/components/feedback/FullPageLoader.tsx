@@ -1,9 +1,9 @@
-import styles from './FullPageLoader.module.css';
-
 export function FullPageLoader() {
   return (
-    <div className={styles.wrapper} role="status">
-      <span className={styles.label}>Carregando...</span>
+    <div className="grid min-h-svh place-items-center" role="status">
+      <span className="text-sm font-semibold text-text-muted">
+        Carregando...
+      </span>
     </div>
   );
 }
