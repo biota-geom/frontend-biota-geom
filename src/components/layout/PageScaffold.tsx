@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { PlusIcon } from '../ui/icons';
 import { BreadcrumbBar, type BreadcrumbItem } from './BreadcrumbBar';
 
 type PageAction = {
@@ -13,26 +14,6 @@ type PageScaffoldProps = {
   subtitle: string;
   title: string;
 };
-
-function PlusIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M12 5V19M5 12H19"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="2.5"
-      />
-    </svg>
-  );
-}
 
 export function PageScaffold({
   actions = [],
@@ -67,6 +48,9 @@ export function PageScaffold({
               </p>
             </div>
 
+            {/* With the default `actions = []`, an empty wrapper div and
+            `null` render nothing visible either way — untested on purpose,
+            see README. */}
             {actions.length > 0 ? (
               <div className="flex items-center gap-3 pt-1.5 max-[720px]:w-full">
                 {actions.map((action) => (

@@ -24,6 +24,10 @@ function CompanyRootRedirect() {
   const { companyId } = useParams<{ companyId: string }>();
 
   if (!companyId) {
+    // Stryker disable next-line all: unreachable through the route table
+    // above — `company.root` ('/companies/:companyId') requires a non-empty
+    // segment, so react-router never renders this component with an empty
+    // companyId. Kept as a defensive fallback, not something a URL can hit.
     return <Navigate to={APP_ROUTES.admin.companies} replace />;
   }
 

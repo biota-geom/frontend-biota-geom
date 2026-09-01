@@ -93,9 +93,3 @@ export const MOCK_COMPANY_NAVIGATION_ITEMS: CompanyNavigationItem[] = [
     overdueCount: 0,
   },
 ];
-
-export function getMockCompanyById(companyId?: string) {
-  return MOCK_COMPANY_NAVIGATION_ITEMS.find(
-    (company) => company.id === companyId
-  );
-}

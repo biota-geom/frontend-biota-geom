@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "checkers": ["typescript"],
+  "tsconfigFile": "tsconfig.app.json",
+  "coverageAnalysis": "perTest",
+  "concurrency": 1,
+  "mutate": [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.test.{ts,tsx}",
+    "!src/tests/**",
+    "!src/main.tsx",
+    "!src/App.tsx",
+    "!src/components/ui/icons.tsx",
+    "!src/features/companies/companyNavigation.mock.ts",
+    "!src/pages/admin/Indicators/**",
+    "!src/pages/admin/Legislation/**",
+    "!src/pages/company/Dashboard/**",
+    "!src/pages/company/Documents/**",
+    "!src/pages/company/Indicators/**",
+    "!src/pages/company/Legislation/**",
+    "!src/pages/company/LicenseDetails/**",
+    "!src/pages/company/Licenses/**",
+    "!src/pages/company/Obligations/**"
+  ],
+  "reporters": ["html", "clear-text", "progress"],
+  "thresholds": {
+    "high": 90,
+    "low": 70,
+    "break": 90
+  }
+}

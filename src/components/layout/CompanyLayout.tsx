@@ -1,6 +1,6 @@
 import { Outlet, useParams } from 'react-router-dom';
 import { buildCompanyRoutes } from '../../app/router/routes';
-import { getMockCompanyById } from '../../features/companies/companyNavigation.mock';
+import { getMockCompanyById } from '../../features/companies/getMockCompanyById';
 import { AppHeader, type AppNavigationItem } from './AppHeader';
 
 function getCompanyContextLabel(companyId?: string) {
@@ -9,6 +9,9 @@ function getCompanyContextLabel(companyId?: string) {
 
 export function CompanyLayout() {
   const { companyId } = useParams<{ companyId: string }>();
+  // Stryker disable next-line all: unreachable through the route table —
+  // `company.root` ('/companies/:companyId') requires a non-empty segment,
+  // so react-router never renders this component with an empty companyId.
   const safeCompanyId = companyId ?? ':companyId';
   const companyNavItems: AppNavigationItem[] = [
     { label: 'Painel', to: buildCompanyRoutes.dashboard(safeCompanyId) },

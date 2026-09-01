@@ -118,6 +118,46 @@ administrativa e de empresa. Os caminhos ficam centralizados em
 Fluxos de criação serão modais abertos nas páginas de contexto. Não existem rotas
 `/new` nesta base.
 
+## Testes
+
+Testes ficam em `src/tests/`, espelhando a pasta de origem (`pages/`, `components/`, `routes/`). Usam Vitest + Testing Library, priorizando queries por role/texto (o que o usuário vê) em vez de detalhes de implementação.
+
+```bash
+npm test                 # roda os testes uma vez
+npm run test:coverage    # roda com relatório de cobertura de linha
+npm run coverage:changed # valida a cobertura das linhas alteradas (>= 80%)
+```
+
+### Testes de mutação
+
+Além da cobertura de linha, o projeto usa [StrykerJS](https://stryker-mutator.io/) para medir se os testes realmente verificam comportamento, não só executam código. Mesma ideia do backend: ele altera pequenos trechos (ex: troca `>` por `>=`, esvazia uma string) e roda a suíte pra ver se algum teste percebe.
+
+```bash
+npm run test:mutation
+```
+
+Requer Node.js 22+. Configuração em `stryker.conf.json`:
+
+- Ícones SVG decorativos ficam centralizados em `src/components/ui/icons.tsx`, excluído da mutação — são só marcação fixa, sem comportamento; mutar coordenadas de `path` só gera ruído.
+- Dados mockados (`*.mock.ts`) também são excluídos — são fixtures, não lógica.
+- Páginas ainda não implementadas (`RoutePlaceholder`) são excluídas até terem lógica de verdade.
+- `concurrency: 1`: mutação roda muitos processos filhos em paralelo por padrão, e em ambientes com CPU disputada isso gera falsos "timeout" que o Stryker credita como se o mutante tivesse sido pego — mascarando testes fracos. Rodar sequencial é mais lento, mas dá o número certo.
+- `thresholds.break: 90`: o job `Mutation Tests` do CI falha se o score cair abaixo disso.
+
+Alguns mutantes sobrevivem por design e não são falhas de teste (marcados com comentário `// Stryker disable next-line ...` no código quando o comentário funciona, ou só uma nota "untested on purpose" quando o Stryker não reconhece o comentário no meio de uma chain como `.filter().join()`):
+
+- Valor de prop `key` do React (não é observável no DOM).
+- Classes CSS "base" que não mudam entre estados (ex: espaçamento comum a um componente ativo e inativo), e o separador `' '` de `.join(' ')` ao concatenar classes — sobrescrever qualquer um dos dois com `""` não muda nada que um teste de comportamento devesse verificar.
+- Fallbacks defensivos para uma rota com parâmetro obrigatório (`:companyId`) vir vazia — o React Router nunca casa a rota nesse estado, então o branch é inalcançável por navegação real.
+
+Hoje o mutation score geral é ~90,6%. `AppHeader.tsx` (50%) e `PageScaffold.tsx` (76%) puxam a média pra baixo por terem mais classes CSS "base" do que os outros arquivos — todos os sobreviventes ali já foram checados e caem nas categorias acima.
+
+### Referências de teste
+
+- `src/tests/pages/AdminCompaniesPage.test.tsx` + `src/pages/admin/Companies/companyCardFormatting.ts`: lógica de negócio (limiares de conformidade, rótulo de status) extraída para funções puras e testada diretamente, sem precisar renderizar a página inteira.
+- `src/tests/pages/LoginForm.test.tsx`: interação (clique, toggle de senha) e o cuidado de garantir que `preventDefault` realmente impede o comportamento padrão do navegador (`fireEvent.submit(form)` retorna `false` quando algum handler chama `preventDefault`).
+- `src/tests/components/useCompanyBreadcrumbs.test.tsx`: como testar um hook que depende de rota (`useParams`) com `renderHook` + `MemoryRouter`.
+
 ## Dados mockados
 
 Dados temporários usados apenas para navegação e composição visual devem ser

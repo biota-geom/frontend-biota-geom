@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { BackIcon } from '../ui/icons';
 
 export type BreadcrumbItem = {
   label: string;
@@ -8,27 +9,6 @@ export type BreadcrumbItem = {
 type BreadcrumbBarProps = {
   items: BreadcrumbItem[];
 };
-
-function BackIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M15 6L9 12L15 18"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
 
 export function BreadcrumbBar({ items }: BreadcrumbBarProps) {
   return (
@@ -46,6 +26,8 @@ export function BreadcrumbBar({ items }: BreadcrumbBarProps) {
           return (
             <li
               className="inline-flex items-center gap-2.5 text-sm font-bold text-text-primary after:font-medium after:text-text-muted after:content-['/'] last:after:hidden max-[640px]:shrink-0"
+              // Stryker disable next-line all: React `key` values aren't part
+              // of rendered output, so no behavioral test can observe them.
               key={`${item.label}-${index}`}
             >
               {item.to && !isLast ? (
