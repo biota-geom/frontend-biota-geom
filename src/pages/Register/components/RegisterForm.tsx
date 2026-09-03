@@ -1,9 +1,41 @@
-import { type FormEvent, type MouseEvent, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../app/router/routes';
 import { AUTH_MESSAGES } from '../../../features/auth/authMessages';
+import {
+  PASSWORD_RULES,
+  isPasswordStrongEnough,
+} from '../../../features/auth/passwordPolicy';
 import { useAuth } from '../../../features/auth/useAuth';
 import { ApiError } from '../../../services/api/apiError';
+
+function UserIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M12 12.25C14.0711 12.25 15.75 10.5711 15.75 8.5C15.75 6.42893 14.0711 4.75 12 4.75C9.92893 4.75 8.25 6.42893 8.25 8.5C8.25 10.5711 9.92893 12.25 12 12.25Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M4.75 19.25C4.75 15.9363 8.0233 13.75 12 13.75C15.9767 13.75 19.25 15.9363 19.25 19.25"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
 
 function MailIcon() {
   return (
@@ -89,21 +121,37 @@ function EyeIcon() {
   );
 }
 
-export function LoginForm() {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+export function RegisterForm() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const login = useAuth((state) => state.login);
+  const register = useAuth((state) => state.register);
+
+  const passwordsMatch =
+    password.length > 0 && password === passwordConfirmation;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+
+    if (!isPasswordStrongEnough(password)) {
+      setFormError(AUTH_MESSAGES.PASSWORD_WEAK);
+      return;
+    }
+
+    if (!passwordsMatch) {
+      setFormError(AUTH_MESSAGES.PASSWORD_CONFIRMATION_MISMATCH);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await login({ email, password });
+      await register({ name, email, password, passwordConfirmation });
       /*
        * No navigation here on purpose — PublicOnlyRoute redirects the moment
        * status flips to 'authenticated'.
@@ -117,15 +165,36 @@ export function LoginForm() {
     }
   }
 
-  function handleForgotPasswordClick(event: MouseEvent<HTMLAnchorElement>) {
-    event.preventDefault();
-  }
-
   return (
     <form
       className="mt-[30px] flex flex-col gap-5"
       onSubmit={(event) => void handleSubmit(event)}
     >
+      <div className="flex flex-col gap-2">
+        <label
+          className="text-[13px] font-bold text-text-primary"
+          htmlFor="name"
+        >
+          Nome completo
+        </label>
+        <div className="rounded-control flex min-h-[42px] items-center gap-2.5 border border-border bg-surface px-2.5 text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)]">
+          <span className="shrink-0 text-text-muted">
+            <UserIcon />
+          </span>
+          <input
+            autoComplete="name"
+            className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
+            id="name"
+            name="name"
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Maria Silva"
+            required
+            type="text"
+            value={name}
+          />
+        </div>
+      </div>
+
       <div className="flex flex-col gap-2">
         <label
           className="text-[13px] font-bold text-text-primary"
@@ -152,27 +221,18 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-4 max-[520px]:flex-col max-[520px]:items-start max-[520px]:gap-1.5">
-          <label
-            className="text-[13px] font-bold text-text-primary"
-            htmlFor="password"
-          >
-            Senha de acesso
-          </label>
-          <a
-            className="text-xs font-medium text-link no-underline hover:underline"
-            href="#"
-            onClick={handleForgotPasswordClick}
-          >
-            Esqueceu a senha?
-          </a>
-        </div>
+        <label
+          className="text-[13px] font-bold text-text-primary"
+          htmlFor="password"
+        >
+          Senha de acesso
+        </label>
         <div className="rounded-control flex min-h-[42px] items-center gap-2.5 border border-border bg-surface px-2.5 text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)]">
           <span className="shrink-0 text-text-muted">
             <LockIcon />
           </span>
           <input
-            autoComplete="current-password"
+            autoComplete="new-password"
             className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
             id="password"
             name="password"
@@ -192,6 +252,43 @@ export function LoginForm() {
             <EyeIcon />
           </button>
         </div>
+        <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0 text-xs text-text-muted">
+          {PASSWORD_RULES.map((rule) => (
+            <li
+              className={
+                rule.test(password) ? 'text-primary-strong' : undefined
+              }
+              key={rule.id}
+            >
+              {rule.label}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label
+          className="text-[13px] font-bold text-text-primary"
+          htmlFor="password_confirmation"
+        >
+          Confirmar senha
+        </label>
+        <div className="rounded-control flex min-h-[42px] items-center gap-2.5 border border-border bg-surface px-2.5 text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)]">
+          <span className="shrink-0 text-text-muted">
+            <LockIcon />
+          </span>
+          <input
+            autoComplete="new-password"
+            className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
+            id="password_confirmation"
+            name="password_confirmation"
+            onChange={(event) => setPasswordConfirmation(event.target.value)}
+            placeholder="••••••••••••"
+            required
+            type={isPasswordVisible ? 'text' : 'password'}
+            value={passwordConfirmation}
+          />
+        </div>
       </div>
 
       {formError ? (
@@ -209,20 +306,16 @@ export function LoginForm() {
         disabled={isSubmitting}
         type="submit"
       >
-        {isSubmitting ? 'Entrando...' : 'Entrar na plataforma'}
+        {isSubmitting ? 'Criando conta...' : 'Criar conta'}
       </button>
 
-      <p className="mx-auto my-0 max-w-[310px] text-center text-xs leading-[1.35] text-text-muted">
-        Segurança em conformidade com as normas ISO 27001 e LGPD.
-      </p>
-
       <p className="m-0 text-center text-[13px] text-text-muted">
-        Não possui conta?{' '}
+        Já possui uma conta?{' '}
         <Link
           className="text-link text-xs font-medium no-underline hover:underline"
-          to={APP_ROUTES.register}
+          to={APP_ROUTES.login}
         >
-          Cadastre-se
+          Entrar
         </Link>
       </p>
     </form>
