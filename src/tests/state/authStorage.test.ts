@@ -32,6 +32,13 @@ describe('authStorage', () => {
     expect(authStorage.getRefreshToken()).toBe('refresh-1');
   });
 
+  it('namespaces each token under its own storage key', () => {
+    authStorage.setTokens('access-1', 'refresh-1');
+
+    expect(localStorage.getItem('biota.auth.accessToken')).toBe('access-1');
+    expect(localStorage.getItem('biota.auth.refreshToken')).toBe('refresh-1');
+  });
+
   it('clears both tokens', () => {
     authStorage.setTokens('access-1', 'refresh-1');
 

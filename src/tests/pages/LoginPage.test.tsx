@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -133,6 +133,80 @@ describe('LoginPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(
       APP_ROUTES.login
+    );
+  });
+
+  it('links to the register page from the login form', () => {
+    renderAppRoutes();
+
+    expect(screen.getByText(/não possui conta\?/i)).toHaveTextContent(
+      'Não possui conta? Cadastre-se'
+    );
+  });
+
+  it('keeps the browser from submitting the form itself', () => {
+    renderAppRoutes();
+
+    const form = screen
+      .getByRole('button', { name: /entrar na plataforma/i })
+      .closest('form');
+
+    expect(form).not.toBeNull();
+    // fireEvent.submit returns false exactly when a handler called preventDefault.
+    expect(fireEvent.submit(form as HTMLFormElement)).toBe(false);
+  });
+
+  it('re-enables the submit button after a failed login', async () => {
+    const user = userEvent.setup();
+    vi.mocked(authApi.login).mockRejectedValue(
+      new ApiError(401, 'As credenciais inseridas não foram encontradas.')
+    );
+
+    renderAppRoutes();
+    await user.type(
+      screen.getByLabelText(/e-mail corporativo/i),
+      'john.doe@biotageom.com.br'
+    );
+    await user.type(screen.getByLabelText(/senha de acesso/i), 'wrong');
+    await user.click(
+      screen.getByRole('button', { name: /entrar na plataforma/i })
+    );
+
+    expect(
+      await screen.findByText('As credenciais inseridas não foram encontradas.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /entrar na plataforma/i })
+    ).toBeEnabled();
+  });
+
+  it('drops the previous error as soon as the form is submitted again', async () => {
+    const user = userEvent.setup();
+    vi.mocked(authApi.login).mockRejectedValueOnce(
+      new ApiError(401, 'As credenciais inseridas não foram encontradas.')
+    );
+
+    renderAppRoutes();
+    await user.type(
+      screen.getByLabelText(/e-mail corporativo/i),
+      'john.doe@biotageom.com.br'
+    );
+    await user.type(screen.getByLabelText(/senha de acesso/i), 'wrong');
+    await user.click(
+      screen.getByRole('button', { name: /entrar na plataforma/i })
+    );
+    expect(
+      await screen.findByText('As credenciais inseridas não foram encontradas.')
+    ).toBeInTheDocument();
+
+    // A second attempt that never settles: the stale error must be gone anyway.
+    vi.mocked(authApi.login).mockReturnValue(new Promise(() => {}));
+    await user.click(screen.getByRole('button', { name: /entrar/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText('As credenciais inseridas não foram encontradas.')
+      ).not.toBeInTheDocument()
     );
   });
 

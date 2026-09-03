@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { ProtectedRoute } from '../../app/router/ProtectedRoute';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
@@ -8,13 +8,20 @@ function SecretPage() {
   return <p>Conteúdo protegido</p>;
 }
 
+function LoginProbe() {
+  const location = useLocation();
+  const state = location.state as { from?: { pathname: string } } | null;
+
+  return <p>Tela de login para {state?.from?.pathname ?? 'nenhuma rota'}</p>;
+}
+
 function renderProtected(options: Parameters<typeof renderWithAuth>[1]) {
   return renderWithAuth(
     <Routes>
       <Route element={<ProtectedRoute />}>
         <Route path="/secret" element={<SecretPage />} />
       </Route>
-      <Route path="/login" element={<p>Tela de login</p>} />
+      <Route path="/login" element={<LoginProbe />} />
     </Routes>,
     { initialRoute: '/secret', ...options }
   );
@@ -25,14 +32,21 @@ describe('ProtectedRoute', () => {
     renderProtected({ status: 'idle' });
 
     expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.queryByText('Tela de login')).not.toBeInTheDocument();
+    expect(screen.queryByText(/tela de login/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Conteúdo protegido')).not.toBeInTheDocument();
   });
 
-  it('redirects to /login when unauthenticated', () => {
+  it('shows a loader instead of redirecting while a session is being restored', () => {
+    renderProtected({ status: 'loading' });
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByText(/tela de login/i)).not.toBeInTheDocument();
+  });
+
+  it('redirects to /login when unauthenticated, remembering the attempted route', () => {
     renderProtected({ status: 'unauthenticated' });
 
-    expect(screen.getByText('Tela de login')).toBeInTheDocument();
+    expect(screen.getByText('Tela de login para /secret')).toBeInTheDocument();
   });
 
   it('renders the protected content when authenticated', () => {
