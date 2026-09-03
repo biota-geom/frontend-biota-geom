@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
 import { APP_ROUTES, buildCompanyRoutes } from '../../app/router/routes';
@@ -8,6 +8,7 @@ import {
   getComplianceTone,
   getStatusLabel,
 } from '../../pages/admin/Companies/companyCardFormatting';
+import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
 function LocationProbe() {
   const location = useLocation();
@@ -16,11 +17,12 @@ function LocationProbe() {
 }
 
 function renderAppRoutes(initialRoute = APP_ROUTES.admin.companies) {
-  return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
+  return renderWithAuth(
+    <>
       <AppRoutes />
       <LocationProbe />
-    </MemoryRouter>
+    </>,
+    { status: 'authenticated', user: MOCK_AUTH_USER, initialRoute }
   );
 }
 

@@ -1,14 +1,14 @@
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
+import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
 function renderAppRoutes(initialRoute: string) {
-  return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <AppRoutes />
-    </MemoryRouter>
-  );
+  return renderWithAuth(<AppRoutes />, {
+    status: 'authenticated',
+    user: MOCK_AUTH_USER,
+    initialRoute,
+  });
 }
 
 describe('CompanyLayout', () => {

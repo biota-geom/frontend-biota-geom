@@ -4,6 +4,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { LoginForm } from '../../pages/Login/components/LoginForm';
 
+/*
+ * Submission (login call, error message, disabled button) is covered end to end
+ * in LoginPage.test.tsx. This file stays on the pieces LoginForm owns on its
+ * own: the password visibility toggle and the "Esqueceu a senha?" no-op.
+ */
 function renderLoginForm() {
   return render(
     <MemoryRouter>
@@ -52,17 +57,6 @@ describe('LoginForm', () => {
       'type',
       'password'
     );
-  });
-
-  it('prevents the default browser submission when the form is submitted', () => {
-    renderLoginForm();
-
-    const form = screen
-      .getByRole('button', { name: /entrar na plataforma/i })
-      .closest('form');
-
-    expect(form).not.toBeNull();
-    expect(fireEvent.submit(form as HTMLFormElement)).toBe(false);
   });
 
   it('prevents the default browser navigation on "Esqueceu a senha?"', () => {

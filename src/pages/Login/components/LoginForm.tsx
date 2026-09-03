@@ -1,16 +1,37 @@
 import { type FormEvent, type MouseEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../app/router/routes';
 import { EyeIcon, LockIcon, MailIcon } from '../../../components/ui/icons';
+import { AUTH_MESSAGES } from '../../../features/auth/authMessages';
+import { useAuth } from '../../../features/auth/useAuth';
+import { ApiError } from '../../../services/api/apiError';
 
 export function LoginForm() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const login = useAuth((state) => state.login);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // TODO: replace temporary navigation with backend authentication.
-    navigate(APP_ROUTES.admin.companies);
+    setFormError(null);
+    setIsSubmitting(true);
+
+    try {
+      await login({ email, password });
+      /*
+       * No navigation here on purpose — PublicOnlyRoute redirects the moment
+       * status flips to 'authenticated'.
+       */
+    } catch (error) {
+      setFormError(
+        error instanceof ApiError ? error.message : AUTH_MESSAGES.GENERIC_ERROR
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleForgotPasswordClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -18,7 +39,10 @@ export function LoginForm() {
   }
 
   return (
-    <form className="mt-[30px] flex flex-col gap-5" onSubmit={handleSubmit}>
+    <form
+      className="mt-[30px] flex flex-col gap-5"
+      onSubmit={(event) => void handleSubmit(event)}
+    >
       <div className="flex flex-col gap-2">
         <label
           className="text-[13px] font-bold text-text-primary"
@@ -35,8 +59,11 @@ export function LoginForm() {
             className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
             id="email"
             name="email"
-            placeholder="admin@biotageom.com.br"
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="seuemail@empresa.com"
+            required
             type="email"
+            value={email}
           />
         </div>
       </div>
@@ -66,8 +93,11 @@ export function LoginForm() {
             className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
             id="password"
             name="password"
+            onChange={(event) => setPassword(event.target.value)}
             placeholder="••••••••••••"
+            required
             type={isPasswordVisible ? 'text' : 'password'}
+            value={password}
           />
           <button
             aria-label={isPasswordVisible ? 'Ocultar senha' : 'Exibir senha'}
@@ -81,15 +111,36 @@ export function LoginForm() {
         </div>
       </div>
 
+      {formError ? (
+        <p
+          aria-live="polite"
+          className="m-0 rounded-sm border border-[#fda29b] bg-[#fef3f2] px-3 py-2.5 text-[13px] font-semibold text-[#b42318]"
+          role="alert"
+        >
+          {formError}
+        </p>
+      ) : null}
+
       <button
-        className="rounded-panel mt-3 min-h-[45px] border-0 bg-primary text-[15px] font-extrabold text-white shadow-control transition-[background-color,transform] duration-[160ms] hover:bg-primary-strong active:translate-y-px focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary/30"
+        className="rounded-panel mt-3 min-h-[45px] border-0 bg-primary text-[15px] font-extrabold text-white shadow-control transition-[background-color,transform] duration-[160ms] hover:bg-primary-strong active:translate-y-px focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary/30 disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={isSubmitting}
         type="submit"
       >
-        Entrar na plataforma
+        {isSubmitting ? 'Entrando...' : 'Entrar na plataforma'}
       </button>
 
       <p className="mx-auto my-0 max-w-[310px] text-center text-xs leading-[1.35] text-text-muted">
         Segurança em conformidade com as normas ISO 27001 e LGPD.
+      </p>
+
+      <p className="m-0 text-center text-[13px] text-text-muted">
+        Não possui conta?{' '}
+        <Link
+          className="text-link text-xs font-medium no-underline hover:underline"
+          to={APP_ROUTES.register}
+        >
+          Cadastre-se
+        </Link>
       </p>
     </form>
   );
