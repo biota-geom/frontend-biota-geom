@@ -12,6 +12,7 @@
     "!src/tests/**",
     "!src/main.tsx",
     "!src/App.tsx",
+    "!src/components/ui/shadcn/**",
     "!src/components/ui/icons.tsx",
     "!src/features/companies/companyNavigation.mock.ts",
     "!src/pages/admin/Indicators/**",
