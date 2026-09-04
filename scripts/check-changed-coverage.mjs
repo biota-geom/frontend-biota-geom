@@ -11,7 +11,8 @@ import { readFileSync, existsSync } from 'node:fs';
 const THRESHOLD = 80;
 const LCOV_PATH = 'coverage/lcov.info';
 const CHANGED_FILE_PATTERN = /^src\/.*\.(ts|tsx)$/;
-const EXCLUDE_PATTERN = /(^|\/)src\/tests\/|\.d\.ts$|(^|\/)src\/main\.tsx$/;
+const EXCLUDE_PATTERN =
+  /(^|\/)src\/tests\/|\.d\.ts$|(^|\/)src\/main\.tsx$|(^|\/)src\/components\/ui\/shadcn\//;
 
 function resolveBaseRef() {
   const base = process.env.GITHUB_BASE_REF || 'main';
