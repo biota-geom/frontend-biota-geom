@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { Button } from '@/components/ui/shadcn/button';
 import { PlusIcon } from '../ui/icons';
 import { BreadcrumbBar, type BreadcrumbItem } from './BreadcrumbBar';
 
@@ -54,15 +55,15 @@ export function PageScaffold({
             {actions.length > 0 ? (
               <div className="flex items-center gap-3 pt-1.5 max-[720px]:w-full">
                 {actions.map((action) => (
-                  <button
-                    className="rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white disabled:cursor-default disabled:opacity-100 max-[720px]:w-full"
+                  <Button
                     disabled
                     key={action.label}
                     type="button"
+                    variant="action"
                   >
                     {action.icon === 'none' ? null : <PlusIcon />}
                     {action.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ) : null}
