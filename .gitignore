@@ -27,6 +27,8 @@ coverage/
 .vitest/
 test-results/
 playwright-report/
+reports/
+.stryker-tmp/
 
 # Local tool artifacts
 .codex-screens/

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   BrowserRouter,
   Navigate,
@@ -5,8 +6,10 @@ import {
   Routes,
   useParams,
 } from 'react-router-dom';
+import { FullPageLoader } from '../../components/feedback/FullPageLoader';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { CompanyLayout } from '../../components/layout/CompanyLayout';
+import { useAuth } from '../../features/auth/useAuth';
 import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage';
 import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage';
 import { AdminLegislationPage } from '../../pages/admin/Legislation/AdminLegislationPage';
@@ -18,54 +21,92 @@ import { CompanyLegislationPage } from '../../pages/company/Legislation/CompanyL
 import { CompanyLicensesPage } from '../../pages/company/Licenses/CompanyLicensesPage';
 import { CompanyObligationsPage } from '../../pages/company/Obligations/CompanyObligationsPage';
 import { LoginPage } from '../../pages/Login/LoginPage';
+import { RegisterPage } from '../../pages/Register/RegisterPage';
+import { ProtectedRoute } from './ProtectedRoute';
+import { PublicOnlyRoute } from './PublicOnlyRoute';
 import { APP_ROUTES, buildCompanyRoutes } from './routes';
 
 function CompanyRootRedirect() {
   const { companyId } = useParams<{ companyId: string }>();
 
   if (!companyId) {
+    // Stryker disable next-line all: unreachable through the route table
+    // above — `company.root` ('/companies/:companyId') requires a non-empty
+    // segment, so react-router never renders this component with an empty
+    // companyId. Kept as a defensive fallback, not something a URL can hit.
     return <Navigate to={APP_ROUTES.admin.companies} replace />;
   }
 
   return <Navigate to={buildCompanyRoutes.dashboard(companyId)} replace />;
 }
 
+/*
+ * Exported for RootRedirect.test.tsx: mounted inside <AppRoutes/> its decision
+ * is invisible, because PublicOnlyRoute/ProtectedRoute re-derive the same one
+ * from the same status and quietly correct a wrong redirect.
+ */
+export function RootRedirect() {
+  const status = useAuth((state) => state.status);
+
+  if (status === 'idle' || status === 'loading') {
+    return <FullPageLoader />;
+  }
+
+  if (status === 'authenticated') {
+    return <Navigate to={APP_ROUTES.admin.companies} replace />;
+  }
+
+  return <Navigate to={APP_ROUTES.login} replace />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
-      <Route
-        path={APP_ROUTES.root}
-        element={<Navigate to={APP_ROUTES.login} replace />}
-      />
-      <Route path={APP_ROUTES.login} element={<LoginPage />} />
+      <Route path={APP_ROUTES.root} element={<RootRedirect />} />
 
-      <Route path={APP_ROUTES.admin.root} element={<AdminLayout />}>
-        <Route
-          index
-          element={<Navigate to={APP_ROUTES.admin.companies} replace />}
-        />
-        <Route path="companies" element={<AdminCompaniesPage />} />
-        <Route path="legislation" element={<AdminLegislationPage />} />
-        <Route path="indicators" element={<AdminIndicatorsPage />} />
+      <Route element={<PublicOnlyRoute />}>
+        <Route path={APP_ROUTES.login} element={<LoginPage />} />
+        <Route path={APP_ROUTES.register} element={<RegisterPage />} />
       </Route>
 
-      <Route path={APP_ROUTES.company.root} element={<CompanyLayout />}>
-        <Route index element={<CompanyRootRedirect />} />
-        <Route path="dashboard" element={<CompanyDashboardPage />} />
-        <Route path="licenses" element={<CompanyLicensesPage />} />
-        <Route path="licenses/:licenseId" element={<LicenseDetailsPage />} />
-        <Route path="obligations" element={<CompanyObligationsPage />} />
-        <Route path="legislation" element={<CompanyLegislationPage />} />
-        <Route path="indicators" element={<CompanyIndicatorsPage />} />
-        <Route path="documents" element={<CompanyDocumentsPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path={APP_ROUTES.admin.root} element={<AdminLayout />}>
+          <Route
+            index
+            element={<Navigate to={APP_ROUTES.admin.companies} replace />}
+          />
+          <Route path="companies" element={<AdminCompaniesPage />} />
+          <Route path="legislation" element={<AdminLegislationPage />} />
+          <Route path="indicators" element={<AdminIndicatorsPage />} />
+        </Route>
+
+        <Route path={APP_ROUTES.company.root} element={<CompanyLayout />}>
+          <Route index element={<CompanyRootRedirect />} />
+          <Route path="dashboard" element={<CompanyDashboardPage />} />
+          <Route path="licenses" element={<CompanyLicensesPage />} />
+          <Route path="licenses/:licenseId" element={<LicenseDetailsPage />} />
+          <Route path="obligations" element={<CompanyObligationsPage />} />
+          <Route path="legislation" element={<CompanyLegislationPage />} />
+          <Route path="indicators" element={<CompanyIndicatorsPage />} />
+          <Route path="documents" element={<CompanyDocumentsPage />} />
+        </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to={APP_ROUTES.login} replace />} />
+      <Route path="*" element={<Navigate to={APP_ROUTES.root} replace />} />
     </Routes>
   );
 }
 
 export function AppRouter() {
+  const bootstrap = useAuth((state) => state.bootstrap);
+
+  useEffect(() => {
+    void bootstrap();
+    // `bootstrap` é uma action estável do zustand: trocar as dependências por
+    // `[]` se comporta igual, e o Stryker não aceita o comentário de disable
+    // aqui — sobrevivente por design, untested on purpose (see README).
+  }, [bootstrap]);
+
   return (
     <BrowserRouter>
       <AppRoutes />
