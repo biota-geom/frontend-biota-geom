@@ -30,13 +30,22 @@ function CompanyRootRedirect() {
   const { companyId } = useParams<{ companyId: string }>();
 
   if (!companyId) {
+    // Stryker disable next-line all: unreachable through the route table
+    // above — `company.root` ('/companies/:companyId') requires a non-empty
+    // segment, so react-router never renders this component with an empty
+    // companyId. Kept as a defensive fallback, not something a URL can hit.
     return <Navigate to={APP_ROUTES.admin.companies} replace />;
   }
 
   return <Navigate to={buildCompanyRoutes.dashboard(companyId)} replace />;
 }
 
-function RootRedirect() {
+/*
+ * Exported for RootRedirect.test.tsx: mounted inside <AppRoutes/> its decision
+ * is invisible, because PublicOnlyRoute/ProtectedRoute re-derive the same one
+ * from the same status and quietly correct a wrong redirect.
+ */
+export function RootRedirect() {
   const status = useAuth((state) => state.status);
 
   if (status === 'idle' || status === 'loading') {
@@ -93,6 +102,9 @@ export function AppRouter() {
 
   useEffect(() => {
     void bootstrap();
+    // `bootstrap` é uma action estável do zustand: trocar as dependências por
+    // `[]` se comporta igual, e o Stryker não aceita o comentário de disable
+    // aqui — sobrevivente por design, untested on purpose (see README).
   }, [bootstrap]);
 
   return (

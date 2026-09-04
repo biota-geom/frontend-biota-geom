@@ -109,7 +109,10 @@ describe('http request()', () => {
       );
     });
 
-    await expect(request('/protected')).rejects.toMatchObject({ status: 401 });
+    await expect(request('/protected')).rejects.toMatchObject({
+      status: 401,
+      message: 'Sua sessão expirou. Faça login novamente.',
+    });
     expect(authStorage.getAccessToken()).toBeNull();
     expect(authStorage.getRefreshToken()).toBeNull();
     expect(handler).toHaveBeenCalledTimes(1);
@@ -171,6 +174,144 @@ describe('http request()', () => {
     );
 
     expect((error as ApiError).status).toBe(500);
+    expect((error as ApiError).message).toBe(
+      'Não foi possível concluir a operação. Tente novamente mais tarde.'
+    );
+  });
+
+  it('defaults to GET and always sends a JSON content type', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(jsonResponse(200, {}));
+
+    await request('/x', { requiresAuth: false });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init?.method).toBe('GET');
+    expect((init?.headers as Record<string, string>)['Content-Type']).toBe(
+      'application/json'
+    );
+  });
+
+  it('omits the Authorization header when auth is required but nothing is stored', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(jsonResponse(200, {}));
+
+    await request('/protected');
+
+    expect(authHeaderOf(fetchMock.mock.calls[0]![1])).toBeUndefined();
+  });
+
+  it('serializes the body as JSON, and sends none when there is no body', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(() => Promise.resolve(jsonResponse(200, {})));
+
+    await request('/x', {
+      requiresAuth: false,
+      method: 'POST',
+      body: { email: 'john.doe@biotageom.com.br' },
+    });
+    await request('/x', { requiresAuth: false });
+
+    expect(fetchMock.mock.calls[0]![1]?.body).toBe(
+      '{"email":"john.doe@biotageom.com.br"}'
+    );
+    expect(fetchMock.mock.calls[1]![1]?.body).toBeUndefined();
+  });
+
+  it('replays the original method and body on the post-refresh retry', async () => {
+    authStorage.setTokens('expired-access', 'refresh-1');
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse(401, { message: 'expired' }))
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          access_token: 'new-access',
+          token_type: 'Bearer',
+          expires_in: 900,
+          user: {},
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+    await request('/protected', { method: 'POST', body: { name: 'Biota' } });
+
+    const [, retryInit] = fetchMock.mock.calls[2]!;
+    expect(retryInit?.method).toBe('POST');
+    expect(retryInit?.body).toBe('{"name":"Biota"}');
+  });
+
+  it('gives up instead of refreshing again when the retried request is still unauthorized', async () => {
+    authStorage.setTokens('expired-access', 'refresh-1');
+    let protectedCalls = 0;
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      if (String(input).includes('/auth/refresh')) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            access_token: 'new-access',
+            token_type: 'Bearer',
+            expires_in: 900,
+            user: {},
+          })
+        );
+      }
+
+      protectedCalls += 1;
+      return Promise.resolve(
+        protectedCalls <= 2
+          ? jsonResponse(401, { message: 'ainda expirado' })
+          : jsonResponse(200, { ok: true })
+      );
+    });
+
+    await expect(request('/protected')).rejects.toMatchObject({
+      status: 401,
+      message: 'ainda expirado',
+    });
+    expect(protectedCalls).toBe(2);
+  });
+
+  it('reports the offline message verbatim when fetch itself fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(
+      new TypeError('Failed to fetch')
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
+    expect((error as ApiError).message).toBe(
+      'Não foi possível conectar ao servidor. Verifique sua conexão.'
+    );
+  });
+
+  it('falls back to the generic message when the error payload is null', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('null', { status: 500 })
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).message).toBe(
+      'Não foi possível concluir a operação. Tente novamente mais tarde.'
+    );
+  });
+
+  it('falls back to the generic message when the error payload carries no message field', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(422, { statusCode: 422, error: 'Unprocessable Entity' })
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
     expect((error as ApiError).message).toBe(
       'Não foi possível concluir a operação. Tente novamente mais tarde.'
     );

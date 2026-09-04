@@ -78,10 +78,41 @@ describe('useAuth store', () => {
 
     it('is a no-op when called again after already resolving', async () => {
       await useAuth.getState().bootstrap();
+
+      /*
+       * A token arriving after the first bootstrap must not restart it: only
+       * the 'idle' guard keeps a second call from re-authenticating a session
+       * the user has meanwhile logged out of.
+       */
+      authStorage.setTokens(
+        'access',
+        makeToken({ exp: Math.floor(Date.now() / 1000) + 3600 })
+      );
       await useAuth.getState().bootstrap();
 
       expect(useAuth.getState().status).toBe('unauthenticated');
       expect(authApi.refresh).not.toHaveBeenCalled();
+    });
+
+    it('reports loading while the refresh call is in flight', async () => {
+      const valid = makeToken({ exp: Math.floor(Date.now() / 1000) + 3600 });
+      authStorage.setTokens('old-access', valid);
+      let resolveRefresh!: (
+        value: Awaited<ReturnType<typeof authApi.refresh>>
+      ) => void;
+      vi.mocked(authApi.refresh).mockReturnValue(
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        })
+      );
+
+      const pending = useAuth.getState().bootstrap();
+      expect(useAuth.getState().status).toBe('loading');
+
+      resolveRefresh({ user: MOCK_AUTH_USER, accessToken: 'fresh-access' });
+      await pending;
+
+      expect(useAuth.getState().status).toBe('authenticated');
     });
   });
 

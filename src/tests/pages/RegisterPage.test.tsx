@@ -1,9 +1,10 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
 import { APP_ROUTES } from '../../app/router/routes';
+import { PASSWORD_RULES } from '../../features/auth/passwordPolicy';
 import { ApiError } from '../../services/api/apiError';
 import { renderWithAuth } from '../mocks/renderWithAuth';
 
@@ -150,6 +151,123 @@ describe('RegisterPage', () => {
       expect(screen.getByTestId('current-path')).toHaveTextContent(
         APP_ROUTES.admin.companies
       )
+    );
+  });
+
+  it('names the visibility toggle by what the next click will do', async () => {
+    const user = userEvent.setup();
+    renderRegisterPage();
+
+    await user.click(screen.getByRole('button', { name: 'Exibir senha' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Ocultar senha' })
+    ).toBeInTheDocument();
+  });
+
+  it('lists every password rule and highlights the ones already met', async () => {
+    const user = userEvent.setup();
+    renderRegisterPage();
+
+    await user.type(screen.getByLabelText(/^senha de acesso$/i), 'abcdefgh');
+
+    const items = screen.getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual(
+      PASSWORD_RULES.map((rule) => rule.label)
+    );
+    expect(screen.getByText('Pelo menos 8 caracteres')).toHaveClass(
+      'text-primary-strong'
+    );
+    expect(screen.getByText('Um número')).not.toHaveClass(
+      'text-primary-strong'
+    );
+  });
+
+  it('offers a link back to login below the form', () => {
+    renderRegisterPage();
+
+    expect(screen.getByText(/já possui uma conta\?/i)).toHaveTextContent(
+      'Já possui uma conta? Entrar'
+    );
+  });
+
+  it('keeps the browser from submitting the form itself', () => {
+    renderRegisterPage();
+
+    const form = screen
+      .getByRole('button', { name: /criar conta/i })
+      .closest('form');
+
+    expect(form).not.toBeNull();
+    expect(fireEvent.submit(form as HTMLFormElement)).toBe(false);
+  });
+
+  it('shows a disabled submitting state while the account is being created', async () => {
+    const user = userEvent.setup();
+    vi.mocked(authApi.register).mockReturnValue(new Promise(() => {}));
+
+    renderRegisterPage();
+    await fillValidForm(user);
+    await user.click(screen.getByRole('button', { name: /criar conta/i }));
+
+    expect(
+      await screen.findByRole('button', { name: /criando conta/i })
+    ).toBeDisabled();
+  });
+
+  it('re-enables the submit button after a rejected registration', async () => {
+    const user = userEvent.setup();
+    vi.mocked(authApi.register).mockRejectedValue(
+      new ApiError(403, 'Não foi possível autorizar este cadastro.')
+    );
+
+    renderRegisterPage();
+    await fillValidForm(user);
+    await user.click(screen.getByRole('button', { name: /criar conta/i }));
+
+    expect(
+      await screen.findByText('Não foi possível autorizar este cadastro.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^criar conta$/i })
+    ).toBeEnabled();
+  });
+
+  it('drops the previous error as soon as the form is submitted again', async () => {
+    const user = userEvent.setup();
+    renderRegisterPage();
+
+    await user.type(screen.getByLabelText(/nome completo/i), 'John Doe');
+    await user.type(
+      screen.getByLabelText(/e-mail corporativo/i),
+      'john.doe@biotageom.com.br'
+    );
+    await user.type(screen.getByLabelText(/^senha de acesso$/i), 'weak');
+    await user.type(screen.getByLabelText(/confirmar senha/i), 'weak');
+    await user.click(screen.getByRole('button', { name: /criar conta/i }));
+    expect(
+      await screen.findByText(
+        'A senha não atende aos requisitos mínimos de segurança.'
+      )
+    ).toBeInTheDocument();
+
+    // A second attempt that never settles: the stale error must be gone anyway.
+    vi.mocked(authApi.register).mockReturnValue(new Promise(() => {}));
+    await user.clear(screen.getByLabelText(/^senha de acesso$/i));
+    await user.clear(screen.getByLabelText(/confirmar senha/i));
+    await user.type(
+      screen.getByLabelText(/^senha de acesso$/i),
+      'Sup3r$ecret!'
+    );
+    await user.type(screen.getByLabelText(/confirmar senha/i), 'Sup3r$ecret!');
+    await user.click(screen.getByRole('button', { name: /criar conta/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(
+          'A senha não atende aos requisitos mínimos de segurança.'
+        )
+      ).not.toBeInTheDocument()
     );
   });
 

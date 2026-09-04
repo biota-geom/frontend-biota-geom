@@ -11,7 +11,25 @@ describe('AppHeader', () => {
       user: MOCK_AUTH_USER,
     });
 
-    expect(screen.getByLabelText(MOCK_AUTH_USER.name)).toHaveTextContent('JD');
+    expect(screen.getByLabelText(MOCK_AUTH_USER.name).textContent).toBe('JD');
+  });
+
+  it('keeps only the first and last initial of a longer name', () => {
+    renderWithAuth(<AppHeader navItems={[]} />, {
+      status: 'authenticated',
+      user: { ...MOCK_AUTH_USER, name: 'Ana Maria Silva' },
+    });
+
+    expect(screen.getByLabelText('Ana Maria Silva').textContent).toBe('AS');
+  });
+
+  it('ignores stray whitespace around the name', () => {
+    renderWithAuth(<AppHeader navItems={[]} />, {
+      status: 'authenticated',
+      user: { ...MOCK_AUTH_USER, name: '  Ana Maria Silva  ' },
+    });
+
+    expect(screen.getByLabelText('Ana Maria Silva').textContent).toBe('AS');
   });
 
   it('derives a single initial from a one-word name', () => {
@@ -20,7 +38,15 @@ describe('AppHeader', () => {
       user: { ...MOCK_AUTH_USER, name: 'Madonna' },
     });
 
-    expect(screen.getByLabelText('Madonna')).toHaveTextContent('M');
+    expect(screen.getByLabelText('Madonna').textContent).toBe('M');
+  });
+
+  it('falls back to a generic badge when no user is loaded yet', () => {
+    renderWithAuth(<AppHeader navItems={[]} />, { status: 'unauthenticated' });
+
+    expect(screen.getByLabelText('Usuário administrador').textContent).toBe(
+      'US'
+    );
   });
 
   it('clears the session when "Sair" is clicked', async () => {

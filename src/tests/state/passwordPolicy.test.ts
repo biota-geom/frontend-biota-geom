@@ -19,6 +19,16 @@ describe('PASSWORD_RULES', () => {
       'special',
     ]);
   });
+
+  it('labels every rule the way the form renders it', () => {
+    expect(PASSWORD_RULES.map((rule) => rule.label)).toEqual([
+      'Pelo menos 8 caracteres',
+      'Uma letra minúscula',
+      'Uma letra maiúscula',
+      'Um número',
+      'Um caractere especial',
+    ]);
+  });
 });
 
 describe('isPasswordStrongEnough', () => {
@@ -34,6 +44,12 @@ describe('isPasswordStrongEnough', () => {
     ['no special character', 'Sup3rSecretz'],
   ])('rejects a password with %s', (_label, password) => {
     expect(isPasswordStrongEnough(password)).toBe(false);
+  });
+
+  it('accepts a password right at the 8 character minimum', () => {
+    expect('Ab3!efgh'.length).toBe(8);
+
+    expect(isPasswordStrongEnough('Ab3!efgh')).toBe(true);
   });
 
   it('rejects a password longer than 128 characters', () => {

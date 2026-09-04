@@ -118,6 +118,53 @@ administrativa e de empresa. Os caminhos ficam centralizados em
 Fluxos de criação serão modais abertos nas páginas de contexto. Não existem rotas
 `/new` nesta base.
 
+## Testes
+
+Testes ficam em `src/tests/`, espelhando a pasta de origem (`pages/`, `components/`, `routes/`). Usam Vitest + Testing Library, priorizando queries por role/texto (o que o usuário vê) em vez de detalhes de implementação.
+
+```bash
+npm test                 # roda os testes uma vez
+npm run test:coverage    # roda com relatório de cobertura de linha
+npm run coverage:changed # valida a cobertura das linhas alteradas (>= 80%)
+```
+
+### Testes de mutação
+
+Além da cobertura de linha, o projeto usa [StrykerJS](https://stryker-mutator.io/) para medir se os testes realmente verificam comportamento, não só executam código. Mesma ideia do backend: ele altera pequenos trechos (ex: troca `>` por `>=`, esvazia uma string) e roda a suíte pra ver se algum teste percebe.
+
+```bash
+npm run test:mutation
+```
+
+Requer Node.js 22+. Configuração em `stryker.conf.json`:
+
+- Ícones SVG decorativos ficam centralizados em `src/components/ui/icons.tsx`, excluído da mutação — são só marcação fixa, sem comportamento; mutar coordenadas de `path` só gera ruído.
+- Dados mockados (`*.mock.ts`) também são excluídos — são fixtures, não lógica.
+- Páginas ainda não implementadas (`RoutePlaceholder`) são excluídas até terem lógica de verdade.
+- `concurrency: 1`: mutação roda muitos processos filhos em paralelo por padrão, e em ambientes com CPU disputada isso gera falsos "timeout" que o Stryker credita como se o mutante tivesse sido pego — mascarando testes fracos. Rodar sequencial é mais lento, mas dá o número certo.
+- `thresholds.break: 90`: o job `Mutation Tests` do CI falha se o score cair abaixo disso.
+
+Alguns mutantes sobrevivem por design e não são falhas de teste (marcados com comentário `// Stryker disable next-line ...` no código quando o comentário funciona, ou só uma nota "untested on purpose" quando o Stryker não reconhece o comentário no meio de uma chain como `.filter().join()`):
+
+- Valor de prop `key` do React (não é observável no DOM).
+- Classes CSS "base" que não mudam entre estados (ex: espaçamento comum a um componente ativo e inativo), e o separador `' '` de `.join(' ')` ao concatenar classes — sobrescrever qualquer um dos dois com `""` não muda nada que um teste de comportamento devesse verificar.
+- Fallbacks defensivos para uma rota com parâmetro obrigatório (`:companyId`) vir vazia — o React Router nunca casa a rota nesse estado, então o branch é inalcançável por navegação real.
+- Re-padding do segmento base64url em `authTokens.ts`: o `atob` do Node/jsdom segue o _forgiving base64_ do WHATWG e aceita padding faltando, então mutantes que só encurtam o alvo do `padEnd` decodificam igual. O que de fato quebra o decode (padding a mais) é coberto por um token com segmento de tamanho `% 4 === 3`.
+- `password.length > 0` em `RegisterForm.tsx`: `passwordsMatch` só é lido depois de `isPasswordStrongEnough`, que já exige 8 caracteres — a guarda de string vazia é inalcançável por esse caminho.
+- `actions.length > 0` em `PageScaffold.tsx`: com a lista vazia, o `<div>` wrapper vazio e o `null` renderizam a mesma coisa — nada visível.
+- `/\s+/` → `/\s/` em `getInitials` (`AppHeader.tsx`): só muda o resultado com espaços internos consecutivos, e a função usa apenas o primeiro e o último pedaço do nome.
+- Mutantes de `http.ts` que devolvem exatamente o mesmo valor: `JSON.parse('')` já cai no `catch`, que também devolve `undefined`, e `JSON.stringify(undefined)` é `undefined`.
+- Array de dependências do `useEffect` de bootstrap em `AppRouter.tsx`: `bootstrap` é uma action estável do zustand, então `[]` se comporta igual.
+
+Hoje o mutation score geral é 94,5% (381 mutantes mortos, 22 sobreviventes). `PageScaffold.tsx` (76,5%), `AppHeader.tsx` (79,2%), `authTokens.ts` (83,3%) e `BiotaLogo.tsx` (86,4%) puxam a média pra baixo — os três primeiros por terem mais classes CSS "base" do que os outros arquivos, e `authTokens.ts` pelo re-padding base64url. Todos os sobreviventes já foram checados e caem nas categorias acima.
+
+### Referências de teste
+
+- `src/tests/pages/AdminCompaniesPage.test.tsx` + `src/pages/admin/Companies/companyCardFormatting.ts`: lógica de negócio (limiares de conformidade, rótulo de status) extraída para funções puras e testada diretamente, sem precisar renderizar a página inteira.
+- `src/tests/pages/LoginForm.test.tsx`: interação isolada do componente (clique, toggle de senha). O fluxo de submit vive em `LoginPage.test.tsx`, que mocka a `authApi` — inclusive o cuidado de garantir que `preventDefault` realmente impede o comportamento padrão do navegador (`fireEvent.submit(form)` retorna `false` quando algum handler chama `preventDefault`).
+- `src/tests/routes/RootRedirect.test.tsx`: componente montado sozinho, fora de `<AppRoutes/>`. Dentro da árvore completa, `PublicOnlyRoute`/`ProtectedRoute` derivam a mesma decisão do mesmo `status` e corrigem em silêncio um redirect errado — o teste integrado passa mesmo com o `RootRedirect` quebrado.
+- `src/tests/components/useCompanyBreadcrumbs.test.tsx`: como testar um hook que depende de rota (`useParams`) com `renderHook` + `MemoryRouter`.
+
 ## Dados mockados
 
 Dados temporários usados apenas para navegação e composição visual devem ser

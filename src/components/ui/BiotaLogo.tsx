@@ -17,11 +17,15 @@ export function BiotaLogo({
 }: BiotaLogoProps) {
   const isStacked = variant === 'stacked';
   const logoClassName = [
+    // Stryker disable next-line all: always-present base class, untested on purpose (see README)
     'inline-flex items-center gap-2 text-text-primary',
+    // Stryker disable next-line StringLiteral: untested on purpose (see README)
     isStacked ? 'flex-col gap-3.5 text-center' : '',
     className,
   ]
     .filter(Boolean)
+    // Separator between class fragments, untested on purpose (see README) —
+    // Stryker's disable-comment doesn't reach a mutant mid-chain like this.
     .join(' ');
   const brandName = (
     <>
@@ -38,8 +42,11 @@ export function BiotaLogo({
       />
       <div
         className={[
+          // Stryker disable next-line all: always-present base class, untested on purpose (see README)
           'flex flex-col leading-none',
           isStacked ? 'items-center gap-2' : 'items-start',
+          // Separator between class fragments, untested on purpose (see
+          // README).
         ].join(' ')}
       >
         {nameAs === 'h1' ? (
