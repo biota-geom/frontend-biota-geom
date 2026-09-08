@@ -1,4 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
+import { Button } from '@/components/ui/shadcn/button';
 import { APP_ROUTES } from '../../app/router/routes';
 import { useAuth } from '../../features/auth/useAuth';
 import { BiotaLogo } from '../ui/BiotaLogo';
@@ -66,16 +67,16 @@ export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
 
         <div className="ml-auto flex items-center gap-4 max-[640px]:gap-2.5">
           {contextLabel ? (
-            <button
+            <Button
               aria-label="Empresa em contexto"
-              className="rounded-panel inline-flex min-h-[34px] items-center justify-center gap-2 border border-border bg-surface-muted px-3 text-[13px] font-bold text-text-primary disabled:cursor-default disabled:opacity-100"
               disabled
               type="button"
+              variant="context"
             >
               <BuildingIcon />
               <span className="max-[640px]:hidden">{contextLabel}</span>
               <ChevronDownIcon />
-            </button>
+            </Button>
           ) : null}
 
           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary max-[640px]:hidden">
@@ -83,15 +84,15 @@ export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
             Admin
           </span>
 
-          <button
+          <Button
             aria-label="Notificações"
-            className="relative inline-flex size-[38px] items-center justify-center rounded-full border border-border bg-surface-muted text-text-secondary disabled:cursor-default disabled:opacity-100"
             disabled
             type="button"
+            variant="iconRound"
           >
             <BellIcon />
             <span className="absolute top-[7px] right-2 size-[7px] rounded-full border border-white bg-red-500" />
-          </button>
+          </Button>
 
           <span
             aria-label={user ? user.name : 'Usuário administrador'}
@@ -100,13 +101,9 @@ export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
             {user ? getInitials(user.name) : 'US'}
           </span>
 
-          <button
-            className="rounded border border-border px-2.5 py-1.5 text-[13px] font-semibold text-text-secondary hover:bg-surface-muted hover:text-text-primary"
-            onClick={logout}
-            type="button"
-          >
+          <Button onClick={logout} type="button" variant="subtle">
             Sair
-          </button>
+          </Button>
         </div>
       </div>
     </header>
