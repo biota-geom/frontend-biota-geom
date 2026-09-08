@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { Button } from '@/components/ui/shadcn/button';
 import { PlusIcon } from '../ui/icons';
 import { BreadcrumbBar, type BreadcrumbItem } from './BreadcrumbBar';
 
@@ -60,10 +61,11 @@ export function PageScaffold({
                     key={action.label}
                     onClick={action.onClick}
                     type="button"
+                    variant="action"
                   >
                     {action.icon === 'none' ? null : <PlusIcon />}
                     {action.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ) : null}

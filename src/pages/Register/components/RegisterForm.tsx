@@ -1,5 +1,12 @@
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/shadcn/button';
+import { Input } from '@/components/ui/shadcn/input';
+import {
+  InputGroup,
+  InputGroupAddon,
+} from '@/components/ui/shadcn/input-group';
+import { Label } from '@/components/ui/shadcn/label';
 import { APP_ROUTES } from '../../../app/router/routes';
 import { AUTH_MESSAGES } from '../../../features/auth/authMessages';
 import {
@@ -171,19 +178,13 @@ export function RegisterForm() {
       onSubmit={(event) => void handleSubmit(event)}
     >
       <div className="flex flex-col gap-2">
-        <label
-          className="text-[13px] font-bold text-text-primary"
-          htmlFor="name"
-        >
-          Nome completo
-        </label>
-        <div className="rounded-control flex min-h-[42px] items-center gap-2.5 border border-border bg-surface px-2.5 text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)]">
-          <span className="shrink-0 text-text-muted">
+        <Label htmlFor="name">Nome completo</Label>
+        <InputGroup variant="field">
+          <InputGroupAddon>
             <UserIcon />
-          </span>
-          <input
+          </InputGroupAddon>
+          <Input
             autoComplete="name"
-            className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
             id="name"
             name="name"
             onChange={(event) => setName(event.target.value)}
@@ -192,23 +193,17 @@ export function RegisterForm() {
             type="text"
             value={name}
           />
-        </div>
+        </InputGroup>
       </div>
 
       <div className="flex flex-col gap-2">
-        <label
-          className="text-[13px] font-bold text-text-primary"
-          htmlFor="email"
-        >
-          E-mail corporativo
-        </label>
-        <div className="rounded-control flex min-h-[42px] items-center gap-2.5 border border-border bg-surface px-2.5 text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)]">
-          <span className="shrink-0 text-text-muted">
+        <Label htmlFor="email">E-mail corporativo</Label>
+        <InputGroup variant="field">
+          <InputGroupAddon>
             <MailIcon />
-          </span>
-          <input
+          </InputGroupAddon>
+          <Input
             autoComplete="email"
-            className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
             id="email"
             name="email"
             onChange={(event) => setEmail(event.target.value)}
@@ -217,23 +212,17 @@ export function RegisterForm() {
             type="email"
             value={email}
           />
-        </div>
+        </InputGroup>
       </div>
 
       <div className="flex flex-col gap-2">
-        <label
-          className="text-[13px] font-bold text-text-primary"
-          htmlFor="password"
-        >
-          Senha de acesso
-        </label>
-        <div className="rounded-control flex min-h-[42px] items-center gap-2.5 border border-border bg-surface px-2.5 text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)]">
-          <span className="shrink-0 text-text-muted">
+        <Label htmlFor="password">Senha de acesso</Label>
+        <InputGroup variant="field">
+          <InputGroupAddon>
             <LockIcon />
-          </span>
-          <input
+          </InputGroupAddon>
+          <Input
             autoComplete="new-password"
-            className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
             id="password"
             name="password"
             onChange={(event) => setPassword(event.target.value)}
@@ -242,16 +231,16 @@ export function RegisterForm() {
             type={isPasswordVisible ? 'text' : 'password'}
             value={password}
           />
-          <button
+          <Button
             aria-label={isPasswordVisible ? 'Ocultar senha' : 'Exibir senha'}
             aria-pressed={isPasswordVisible}
-            className="rounded-control grid size-8 shrink-0 place-items-center border-0 bg-transparent p-0 text-text-muted hover:bg-surface-muted hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             onClick={() => setIsPasswordVisible((current) => !current)}
             type="button"
+            variant="iconGhost"
           >
             <EyeIcon />
-          </button>
-        </div>
+          </Button>
+        </InputGroup>
         <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0 text-xs text-text-muted">
           {PASSWORD_RULES.map((rule) => (
             <li
@@ -267,19 +256,13 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label
-          className="text-[13px] font-bold text-text-primary"
-          htmlFor="password_confirmation"
-        >
-          Confirmar senha
-        </label>
-        <div className="rounded-control flex min-h-[42px] items-center gap-2.5 border border-border bg-surface px-2.5 text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)]">
-          <span className="shrink-0 text-text-muted">
+        <Label htmlFor="password_confirmation">Confirmar senha</Label>
+        <InputGroup variant="field">
+          <InputGroupAddon>
             <LockIcon />
-          </span>
-          <input
+          </InputGroupAddon>
+          <Input
             autoComplete="new-password"
-            className="w-full min-w-0 border-0 bg-transparent text-text-primary outline-0 placeholder:text-text-muted"
             id="password_confirmation"
             name="password_confirmation"
             onChange={(event) => setPasswordConfirmation(event.target.value)}
@@ -288,7 +271,7 @@ export function RegisterForm() {
             type={isPasswordVisible ? 'text' : 'password'}
             value={passwordConfirmation}
           />
-        </div>
+        </InputGroup>
       </div>
 
       {formError ? (
@@ -301,13 +284,16 @@ export function RegisterForm() {
         </p>
       ) : null}
 
-      <button
-        className="rounded-panel mt-3 min-h-[45px] border-0 bg-primary text-[15px] font-extrabold text-white shadow-control transition-[background-color,transform] duration-[160ms] hover:bg-primary-strong active:translate-y-px focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary/30 disabled:cursor-not-allowed disabled:opacity-70"
+      {/* `mt-3` is layout, not part of the variant: it spaces the call to
+       * action off the fields above it. */}
+      <Button
+        className="mt-3"
         disabled={isSubmitting}
         type="submit"
+        variant="primary"
       >
         {isSubmitting ? 'Criando conta...' : 'Criar conta'}
-      </button>
+      </Button>
 
       <p className="m-0 text-center text-[13px] text-text-muted">
         Já possui uma conta?{' '}

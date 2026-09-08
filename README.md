@@ -11,6 +11,7 @@ Vite e Tailwind CSS.
 - TypeScript com modo estrito
 - Vite
 - Tailwind CSS 4 pelo plugin oficial para Vite
+- shadcn/ui sobre Radix UI
 - React Router DOM
 - Vitest, Testing Library e jsdom
 - ESLint e Prettier
@@ -58,6 +59,7 @@ npm test                 # executa os testes uma vez
 npm run test:coverage    # executa os testes com cobertura
 npm run coverage:changed # valida a cobertura dos arquivos alterados
 npm run preview          # serve localmente o build de produção
+npm run ui:add -- button # adiciona um componente do shadcn/ui
 ```
 
 O script `prepare` configura os hooks do Husky automaticamente durante o
@@ -96,6 +98,37 @@ O arquivo `src/styles/global.css` é a única folha global da aplicação e cont
 O projeto usa a configuração CSS-first do Tailwind 4, portanto não precisa de um
 arquivo `tailwind.config.js`. Não devem ser criados CSS Modules nem folhas CSS por
 componente.
+
+## shadcn/ui
+
+Os componentes do shadcn/ui usam Radix UI e são adicionados pela CLI:
+
+```bash
+npm run ui:add -- button dialog
+```
+
+O wrapper `scripts/shadcn-add.mjs` chama a CLI e reescreve o import de `cn`
+gerado (`from 'cn'`) para o caminho do projeto, `@/utils/cn`. Não use
+`npx shadcn add` direto, ou o import fica fora do padrão.
+
+Pontos da configuração (`components.json`):
+
+- os arquivos gerados ficam em `src/components/ui/shadcn/`, separados dos
+  componentes escritos à mão em `src/components/ui/`. Por serem código
+  vendorizado, essa subpasta fica de fora dos gates de mutação e de cobertura
+  de linhas alteradas;
+- o alias `@/` aponta para `src/` (`tsconfig.app.json` e `vite.config.ts`);
+- os tokens semânticos do shadcn (`--primary`, `--background`, `--border`, ...)
+  são ligados à paleta BiotaGeom em `src/styles/global.css`, então os
+  componentes já nascem com a identidade do produto. Para mudar uma cor,
+  altere o token — nunca o componente;
+- `--radius` está alinhado a `--radius-control` (6px), para os controles do
+  shadcn casarem com os já existentes;
+- os componentes trazem variantes `dark:`, mas o modo escuro ainda não foi
+  desenhado. A variante está limitada a um ancestral `.dark` explícito, que
+  hoje não é aplicado em lugar nenhum;
+- ao copiar código da documentação do shadcn ou de blocks de terceiros, troque
+  o import `@/components/ui/<nome>` por `@/components/ui/shadcn/<nome>`.
 
 ## Rotas preparadas
 
@@ -184,16 +217,19 @@ frontend-biota-geom/
 ├── src/
 │   ├── app/       # configuração global e rotas
 │   ├── assets/    # imagens, ícones e logos
-│   ├── components/ # componentes compartilhados
+│   ├── components/ # componentes compartilhados (ui/shadcn = gerados pela CLI)
 │   ├── features/  # código organizado por domínio
 │   ├── pages/     # páginas associadas às rotas
 │   ├── services/  # estrutura para integrações futuras
 │   ├── styles/    # entrada global e tema do Tailwind
+│   ├── utils/     # utilitários compartilhados (cn.ts)
 │   └── tests/     # testes da aplicação
 ├── .gitignore
 ├── .prettierrc
 ├── AGENTS.md
 ├── commitlint.config.js
+├── components.json
+
 ├── eslint.config.js
 ├── index.html
 ├── package.json
