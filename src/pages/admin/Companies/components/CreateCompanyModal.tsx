@@ -40,11 +40,11 @@ export function CreateCompanyModal({
   const [indicators, setIndicators] =
     useState<EsgIndicator[]>(MOCK_ESG_INDICATORS);
   const [indicatorQuery, setIndicatorQuery] = useState('');
+  const [isIndicatorMenuOpen, setIsIndicatorMenuOpen] = useState(false);
   const [newIndicatorName, setNewIndicatorName] = useState('');
   const [newIndicatorUnit, setNewIndicatorUnit] = useState('');
 
   if (!isOpen) return null;
-
   const isFormValid =
     form.name.trim() !== '' &&
     unmaskCnpj(form.cnpj).length === 14 &&
@@ -53,17 +53,28 @@ export function CreateCompanyModal({
     form.city.trim() !== '' &&
     form.responsibleName.trim() !== '' &&
     EMAIL_PATTERN.test(form.responsibleEmail);
-
-  const filteredIndicators = indicators.filter((indicator) =>
-    indicator.name.toLowerCase().includes(indicatorQuery.toLowerCase())
+  const unselectedIndicators = indicators.filter(
+    (indicator) => !form.selectedIndicatorIds.includes(indicator.id)
   );
-
-  function toggleIndicator(id: string) {
+  const trimmedQuery = indicatorQuery.trim().toLowerCase();
+  const filteredIndicators = trimmedQuery
+    ? unselectedIndicators.filter((indicator) =>
+        indicator.name.toLowerCase().includes(trimmedQuery)
+      )
+    : unselectedIndicators;
+  function selectIndicator(id: string) {
     setForm((current) => ({
       ...current,
-      selectedIndicatorIds: current.selectedIndicatorIds.includes(id)
-        ? current.selectedIndicatorIds.filter((existing) => existing !== id)
-        : [...current.selectedIndicatorIds, id],
+      selectedIndicatorIds: [...current.selectedIndicatorIds, id],
+    }));
+    setIndicatorQuery('');
+  }
+  function removeIndicator(id: string) {
+    setForm((current) => ({
+      ...current,
+      selectedIndicatorIds: current.selectedIndicatorIds.filter(
+        (existing) => existing !== id
+      ),
     }));
   }
 
@@ -83,6 +94,16 @@ export function CreateCompanyModal({
     }));
     setNewIndicatorName('');
     setNewIndicatorUnit('');
+  }
+
+  function handleCancel() {
+    setForm(EMPTY_FORM);
+    setIndicators(MOCK_ESG_INDICATORS);
+    setIndicatorQuery('');
+    setIsIndicatorMenuOpen(false);
+    setNewIndicatorName('');
+    setNewIndicatorUnit('');
+    onClose();
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -114,11 +135,11 @@ export function CreateCompanyModal({
       aria-labelledby="create-company-title"
       aria-modal="true"
       className="fixed inset-0 z-50 grid place-items-center bg-[#1f2a3d]/40 px-4"
-      onClick={onClose}
+      onClick={handleCancel}
       role="dialog"
     >
       <div
-        className="shadow-card rounded-panel w-full max-w-lg bg-surface p-6"
+        className="shadow-card rounded-panel w-full max-w-[42rem] bg-surface p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="mb-5 flex items-start justify-between gap-4">
@@ -137,12 +158,14 @@ export function CreateCompanyModal({
           <button
             aria-label="Fechar"
             className="rounded-control grid size-8 shrink-0 place-items-center border-0 bg-transparent text-text-muted hover:bg-surface-muted hover:text-text-secondary"
-            onClick={onClose}
+            onClick={handleCancel}
             type="button"
           >
             ×
           </button>
         </header>
+
+        <hr className="mb-5 border-border" />
 
         <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           <div className="grid grid-cols-[3fr_2fr] gap-4">
@@ -154,7 +177,7 @@ export function CreateCompanyModal({
                 Nome da Empresa / Filial
               </label>
               <input
-                className="rounded-control min-h-[42px] border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
+                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 id="company-name"
                 onChange={(event) =>
                   setForm((current) => ({
@@ -174,7 +197,7 @@ export function CreateCompanyModal({
                 CNPJ
               </label>
               <input
-                className="rounded-control min-h-[42px] border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
+                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 id="company-cnpj"
                 inputMode="numeric"
                 onChange={(event) =>
@@ -199,7 +222,7 @@ export function CreateCompanyModal({
               </label>
               <div className="relative">
                 <select
-                  className="rounded-control min-h-[42px] w-full appearance-none border border-border bg-surface px-2.5 pr-9 text-text-primary outline-0 focus:border-focus"
+                  className={`rounded-control min-h-[42px] w-full appearance-none border border-border bg-surface px-2.5 pr-9 outline-0 focus:border-focus ${form.sectorId === '' ? 'text-text-muted' : 'text-text-primary'}`}
                   id="company-sector"
                   onChange={(event) =>
                     setForm((current) => ({
@@ -209,7 +232,9 @@ export function CreateCompanyModal({
                   }
                   value={form.sectorId}
                 >
-                  <option value="">Selecione o segmento</option>
+                  <option disabled hidden value="">
+                    Selecione o segmento
+                  </option>
                   {MOCK_SECTORS.map((sector) => (
                     <option key={sector.id} value={sector.id}>
                       {sector.name}
@@ -229,7 +254,7 @@ export function CreateCompanyModal({
                 Estado
               </label>
               <input
-                className="rounded-control min-h-[42px] border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
+                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 id="company-state"
                 onChange={(event) =>
                   setForm((current) => ({
@@ -249,7 +274,7 @@ export function CreateCompanyModal({
                 Cidade
               </label>
               <input
-                className="rounded-control min-h-[42px] border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
+                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 id="company-city"
                 onChange={(event) =>
                   setForm((current) => ({
@@ -272,7 +297,7 @@ export function CreateCompanyModal({
                 Responsável Ambiental
               </label>
               <input
-                className="rounded-control min-h-[42px] border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
+                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 id="company-responsible-name"
                 onChange={(event) =>
                   setForm((current) => ({
@@ -292,7 +317,7 @@ export function CreateCompanyModal({
                 E-mail do Responsável
               </label>
               <input
-                className="rounded-control min-h-[42px] border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
+                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 id="company-responsible-email"
                 onChange={(event) =>
                   setForm((current) => ({
@@ -329,29 +354,52 @@ export function CreateCompanyModal({
               <input
                 className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 pr-9 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 id="indicator-search"
-                onChange={(event) => setIndicatorQuery(event.target.value)}
+                onBlur={() => setIsIndicatorMenuOpen(false)}
+                onChange={(event) => {
+                  setIndicatorQuery(event.target.value);
+                  setIsIndicatorMenuOpen(true);
+                }}
+                onFocus={() => setIsIndicatorMenuOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setIsIndicatorMenuOpen(false);
+                }}
                 placeholder="Buscar ou criar indicador..."
                 value={indicatorQuery}
               />
               <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-text-secondary">
                 <ChevronDownIcon />
               </span>
-            </div>
 
-            <ul className="m-0 flex list-none flex-col gap-1 p-0">
-              {filteredIndicators.map((indicator) => (
-                <li key={indicator.id}>
-                  <label className="flex items-center gap-2 text-sm text-text-primary">
-                    <input
-                      checked={form.selectedIndicatorIds.includes(indicator.id)}
-                      onChange={() => toggleIndicator(indicator.id)}
-                      type="checkbox"
-                    />
-                    {indicator.name}
-                  </label>
-                </li>
-              ))}
-            </ul>
+              {isIndicatorMenuOpen && (
+                <ul className="shadow-card rounded-control absolute z-10 mt-1 max-h-48 w-full overflow-y-auto border border-border bg-surface p-1">
+                  {unselectedIndicators.length === 0 ? (
+                    <li className="px-2.5 py-2 text-sm text-text-muted">
+                      Todos os indicadores já foram selecionados.
+                    </li>
+                  ) : filteredIndicators.length > 0 ? (
+                    filteredIndicators.map((indicator) => (
+                      <li key={indicator.id}>
+                        <button
+                          className="rounded-control flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left text-sm text-text-primary hover:bg-surface-muted"
+                          onClick={() => selectIndicator(indicator.id)}
+                          onMouseDown={(event) => event.preventDefault()}
+                          type="button"
+                        >
+                          <span>{indicator.name}</span>
+                          <span className="text-xs text-text-muted">
+                            {indicator.unit}
+                          </span>
+                        </button>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="px-2.5 py-2 text-sm text-text-muted">
+                      Nenhum indicador encontrado. Crie um abaixo.
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
 
             <div className="flex flex-wrap gap-2">
               {form.selectedIndicatorIds.map((id) => {
@@ -360,14 +408,14 @@ export function CreateCompanyModal({
 
                 return (
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-full bg-surface-soft px-3 py-1 text-xs font-medium text-text-secondary"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#d8f8ea] px-3 py-1 text-xs font-medium text-primary-strong"
                     key={id}
                   >
                     {indicator.name}
                     <button
                       aria-label={`Remover ${indicator.name}`}
-                      className="text-text-muted hover:text-text-secondary"
-                      onClick={() => toggleIndicator(id)}
+                      className="text-primary-strong/70 hover:text-primary-strong"
+                      onClick={() => removeIndicator(id)}
                       type="button"
                     >
                       x
@@ -379,13 +427,13 @@ export function CreateCompanyModal({
 
             <div className="flex gap-2">
               <input
-                className="rounded-control min-h-[38px] flex-1 border border-border bg-surface px-2.5 text-sm text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
+                className="rounded-control min-h-[42px] flex-1 border border-border bg-surface px-2.5 text-sm text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 onChange={(event) => setNewIndicatorName(event.target.value)}
                 placeholder="Nome do novo indicador..."
                 value={newIndicatorName}
               />
               <input
-                className="rounded-control min-h-[38px] w-28 border border-border bg-surface px-2.5 text-sm text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
+                className="rounded-control min-h-[42px] w-28 border border-border bg-surface px-2.5 text-sm text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
                 onChange={(event) => setNewIndicatorUnit(event.target.value)}
                 placeholder="Unidade..."
                 value={newIndicatorUnit}
@@ -403,7 +451,7 @@ export function CreateCompanyModal({
           <div className="mt-2 flex justify-end gap-3">
             <button
               className="rounded-control border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-muted"
-              onClick={onClose}
+              onClick={handleCancel}
               type="button"
             >
               Cancelar

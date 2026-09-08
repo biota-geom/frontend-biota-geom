@@ -5,6 +5,7 @@ import { BreadcrumbBar, type BreadcrumbItem } from './BreadcrumbBar';
 type PageAction = {
   icon?: 'plus' | 'none';
   label: string;
+  onClick?: () => void;
 };
 
 type PageScaffoldProps = {
@@ -56,8 +57,8 @@ export function PageScaffold({
                 {actions.map((action) => (
                   <button
                     className="rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white disabled:cursor-default disabled:opacity-100 max-[720px]:w-full"
-                    disabled
                     key={action.label}
+                    onClick={action.onClick}
                     type="button"
                   >
                     {action.icon === 'none' ? null : <PlusIcon />}
