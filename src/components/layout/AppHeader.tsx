@@ -2,13 +2,10 @@ import { Link, NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui/shadcn/button';
 import { APP_ROUTES } from '../../app/router/routes';
 import { useAuth } from '../../features/auth/useAuth';
+import type { CompanyNavigationItem } from '../../features/companies/companyNavigation.mock';
 import { BiotaLogo } from '../ui/BiotaLogo';
-import {
-  BellIcon,
-  BuildingIcon,
-  ChevronDownIcon,
-  SettingsIcon,
-} from '../ui/icons';
+import { BellIcon, SettingsIcon } from '../ui/icons';
+import { CompanyDropdown } from './CompanyDropdown';
 
 export type AppNavigationItem = {
   end?: boolean;
@@ -17,6 +14,8 @@ export type AppNavigationItem = {
 };
 
 type AppHeaderProps = {
+  activeCompanyId?: string;
+  companies?: CompanyNavigationItem[];
   contextLabel?: string;
   navItems: AppNavigationItem[];
 };
@@ -28,7 +27,12 @@ function getInitials(name: string): string {
   return initials.map((part) => part.charAt(0).toUpperCase()).join('');
 }
 
-export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
+export function AppHeader({
+  activeCompanyId,
+  companies = [],
+  contextLabel,
+  navItems,
+}: AppHeaderProps) {
   const user = useAuth((state) => state.user);
   const logout = useAuth((state) => state.logout);
 
@@ -66,17 +70,13 @@ export function AppHeader({ contextLabel, navItems }: AppHeaderProps) {
         </nav>
 
         <div className="ml-auto flex items-center gap-4 max-[640px]:gap-2.5">
-          {contextLabel ? (
-            <Button
-              aria-label="Empresa em contexto"
-              disabled
-              type="button"
-              variant="context"
-            >
-              <BuildingIcon />
-              <span className="max-[640px]:hidden">{contextLabel}</span>
-              <ChevronDownIcon />
-            </Button>
+          {activeCompanyId || contextLabel || companies.length > 0 ? (
+            <CompanyDropdown
+              activeCompanyId={
+                activeCompanyId ?? (contextLabel ? activeCompanyId : undefined)
+              }
+              companies={companies}
+            />
           ) : null}
 
           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary max-[640px]:hidden">
