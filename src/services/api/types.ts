@@ -48,3 +48,11 @@ export interface LoginRequestWire {
 export interface RefreshRequestWire {
   refresh_token: string;
 }
+
+export interface CustomerWire {
+  id: string;
+  name: string;
+  status: string;
+  segment: string;
+  location: string;
+}
