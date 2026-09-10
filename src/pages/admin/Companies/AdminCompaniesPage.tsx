@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -20,10 +21,16 @@ import {
   SearchIcon,
   TrashIcon,
 } from '../../../components/ui/icons';
-import { MOCK_COMPANY_NAVIGATION_ITEMS } from '../../../features/companies/companyNavigation.mock';
-import { getComplianceTone, getStatusLabel } from './companyCardFormatting';
+import { useCompanies } from '../../../features/companies/useCompanies';
+import { getStatusLabel } from './companyCardFormatting';
 
 export function AdminCompaniesPage() {
+  const { companies, status, error, fetchCompanies } = useCompanies();
+
+  useEffect(() => {
+    fetchCompanies();
+  }, [fetchCompanies]);
+
   return (
     <PageScaffold
       actions={[{ label: 'Nova Empresa' }]}
@@ -52,14 +59,37 @@ export function AdminCompaniesPage() {
         </Button>
       </div>
 
-      <section
-        aria-label="Empresas cadastradas"
-        className="grid grid-cols-3 gap-6 max-[1180px]:grid-cols-2 max-[820px]:grid-cols-1"
-      >
-        {MOCK_COMPANY_NAVIGATION_ITEMS.map((company) => {
-          const complianceTone = getComplianceTone(company.compliance);
+      {status === 'loading' ? (
+        <p className="text-sm font-semibold text-text-muted" role="status">
+          Carregando empresas...
+        </p>
+      ) : null}
 
-          return (
+      {status === 'error' ? (
+        <div className="rounded-panel flex flex-wrap items-center justify-between gap-4 border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          <p className="m-0">{error}</p>
+          <Button
+            onClick={() => fetchCompanies()}
+            type="button"
+            variant="action"
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      ) : null}
+
+      {status === 'success' && companies.length === 0 ? (
+        <p className="text-sm text-text-secondary">
+          Nenhuma empresa cadastrada até o momento.
+        </p>
+      ) : null}
+
+      {status === 'success' && companies.length > 0 ? (
+        <section
+          aria-label="Empresas cadastradas"
+          className="grid grid-cols-3 gap-6 max-[1180px]:grid-cols-2 max-[820px]:grid-cols-1"
+        >
+          {companies.map((company) => (
             <Card
               aria-labelledby={`company-${company.id}-title`}
               key={company.id}
@@ -74,7 +104,7 @@ export function AdminCompaniesPage() {
                     {company.name}
                   </CardTitle>
                   <CardDescription variant="company">
-                    {company.segment} • {company.city} - {company.state}
+                    {company.segment} • {company.location}
                   </CardDescription>
                 </div>
 
@@ -110,48 +140,37 @@ export function AdminCompaniesPage() {
                 </CardAction>
               </CardHeader>
 
-              <CardContent variant="company">
+              {/* Licenças/Conformidade/Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
+              <CardContent className="[&_dd]:text-text-muted" variant="company">
                 <div>
                   <dt>Licenças</dt>
-                  <dd>{company.licenseCount}</dd>
+                  <dd>—</dd>
                 </div>
                 <div>
                   <dt>Conformidade</dt>
-                  <dd className={complianceTone}>
+                  <dd>
                     <span className="size-2 shrink-0 rounded-full bg-current" />
-                    {company.compliance}%
+                    —
                   </dd>
                 </div>
                 <div>
                   <dt>Atenção</dt>
-                  <dd
-                    className={
-                      company.attentionCount > 0
-                        ? '!text-amber-500'
-                        : '!text-primary-strong'
-                    }
-                  >
+                  <dd>
                     <span className="size-2 shrink-0 rounded-full bg-current" />
-                    {company.attentionCount}
+                    —
                   </dd>
                 </div>
                 <div>
                   <dt>Vencido</dt>
-                  <dd
-                    className={
-                      company.overdueCount > 0
-                        ? '!text-red-500'
-                        : '!text-primary-strong'
-                    }
-                  >
+                  <dd>
                     <span className="size-2 shrink-0 rounded-full bg-current" />
-                    {company.overdueCount}
+                    —
                   </dd>
                 </div>
               </CardContent>
 
               <CardFooter variant="company">
-                <span>Última atualização: {company.updatedAt}</span>
+                <span>Última atualização: —</span>
                 <Link
                   className="inline-flex items-center gap-[7px] whitespace-nowrap text-sm font-extrabold text-primary-strong no-underline hover:underline hover:underline-offset-[3px]"
                   to={buildCompanyRoutes.dashboard(company.id)}
@@ -161,9 +180,9 @@ export function AdminCompaniesPage() {
                 </Link>
               </CardFooter>
             </Card>
-          );
-        })}
-      </section>
+          ))}
+        </section>
+      ) : null}
     </PageScaffold>
   );
 }
