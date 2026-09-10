@@ -56,7 +56,7 @@ export function PageScaffold({
             {actions.length > 0 ? (
               <div className="flex items-center gap-3 pt-1.5 max-[720px]:w-full">
                 {actions.map((action) => (
-                  <button
+                  <Button
                     className="rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white disabled:cursor-default disabled:opacity-100 max-[720px]:w-full"
                     key={action.label}
                     onClick={action.onClick}
