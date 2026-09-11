@@ -1,5 +1,6 @@
 import { Outlet, useParams } from 'react-router-dom';
 import { buildCompanyRoutes } from '../../app/router/routes';
+import { MOCK_COMPANY_NAVIGATION_ITEMS } from '../../features/companies/companyNavigation.mock';
 import { getMockCompanyById } from '../../features/companies/getMockCompanyById';
 import { AppHeader, type AppNavigationItem } from './AppHeader';
 
@@ -25,6 +26,8 @@ export function CompanyLayout() {
   return (
     <>
       <AppHeader
+        activeCompanyId={companyId}
+        companies={MOCK_COMPANY_NAVIGATION_ITEMS}
         contextLabel={getCompanyContextLabel(companyId)}
         navItems={companyNavItems}
       />
