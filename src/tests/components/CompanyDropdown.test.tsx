@@ -1,9 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CompanyDropdown } from '../../components/layout/CompanyDropdown';
 import type { CompanyNavigationItem } from '../../features/companies/companyNavigation.mock';
+
+// Mock do react-router-dom para capturar navegações
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 const mockCompanies: CompanyNavigationItem[] = [
   {
@@ -236,5 +243,73 @@ describe('CompanyDropdown', () => {
     await user.click(option);
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('exibe ícone de check somente na empresa atualmente selecionada', async () => {
+    const user = userEvent.setup();
+    renderDropdown('unidade-rs');
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+
+    const selectedOption = screen.getByRole('option', {
+      name: /unidade industrial rs/i,
+    });
+    const otherOption = screen.getByRole('option', {
+      name: /fábrica são paulo/i,
+    });
+
+    // O item ativo deve ter aria-selected=true; o outro, false
+    expect(selectedOption).toHaveAttribute('aria-selected', 'true');
+    expect(otherOption).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('navega para o dashboard ao trocar empresa em rota aninhada com ID', async () => {
+    mockNavigate.mockClear();
+    const user = userEvent.setup();
+
+    // Rota aninhada do tipo /companies/:id/licenses/:licenseId
+    renderDropdown(
+      'unidade-rs',
+      mockCompanies,
+      '/companies/unidade-rs/licenses/abc123'
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    await user.click(
+      screen.getByRole('option', { name: /fábrica são paulo/i })
+    );
+
+    // Deve redirecionar para o dashboard, não tentar manter a sub-rota /licenses/abc123
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/companies/fabrica-sp/dashboard'
+    );
+  });
+
+  it('mantém o sufixo de rota simples ao trocar empresa', async () => {
+    mockNavigate.mockClear();
+    const user = userEvent.setup();
+
+    // Rota simples do tipo /companies/:id/indicators
+    renderDropdown(
+      'unidade-rs',
+      mockCompanies,
+      '/companies/unidade-rs/indicators'
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    await user.click(
+      screen.getByRole('option', { name: /fábrica são paulo/i })
+    );
+
+    // Deve manter o sufixo /indicators na nova empresa
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/companies/fabrica-sp/indicators'
+    );
   });
 });

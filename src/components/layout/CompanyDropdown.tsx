@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/shadcn/button';
 import type { CompanyNavigationItem } from '../../features/companies/companyNavigation.mock';
+import { useClickOutside } from '../../hooks/useClickOutside';
 import { cn } from '../../utils/cn';
 import {
   BuildingIcon,
@@ -23,7 +24,23 @@ export function CompanyDropdown({
 }: CompanyDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Hook reutilizável — fecha o dropdown ao clicar fora
+  const ref = useClickOutside<HTMLDivElement>(() => setIsOpen(false));
+
+  // Handle Escape key
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -32,6 +49,7 @@ export function CompanyDropdown({
 
   const shouldShowSearch = companies.length > 10;
 
+  // Filtra por nome, cidade ou segmento conforme o campo de busca
   const filteredCompanies = shouldShowSearch
     ? companies.filter((c) => {
         const query = searchTerm.toLowerCase().trim();
@@ -43,51 +61,31 @@ export function CompanyDropdown({
       })
     : companies;
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleKeyDown);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
-
   const handleSelectCompany = (companyId: string) => {
     setIsOpen(false);
     setSearchTerm('');
 
-    if (companyId === activeCompanyId) {
-      return;
-    }
+    if (companyId === activeCompanyId) return;
 
+    // Captura o sufixo da URL após o segmento do companyId
     const match = location.pathname.match(/^\/companies\/([^/]+)(.*)$/);
-    const newPath = match
-      ? `/companies/${companyId}${match[2]}`
-      : `/companies/${companyId}/dashboard`;
+    const suffix = match ? match[2] : '';
+    const parts = suffix.split('/').filter(Boolean);
 
-    navigate(newPath);
+    // Rota aninhada com ID próprio (ex: /licenses/123) — redireciona para o
+    // dashboard para evitar 404 ao trocar de empresa
+    if (parts.length > 1) {
+      navigate(`/companies/${companyId}/dashboard`);
+    } else {
+      const newPath = suffix
+        ? `/companies/${companyId}${suffix}`
+        : `/companies/${companyId}/dashboard`;
+      navigate(newPath);
+    }
   };
 
   return (
-    <div className={cn('relative inline-block', className)} ref={dropdownRef}>
+    <div className={cn('relative inline-block', className)} ref={ref}>
       <Button
         aria-expanded={isOpen}
         aria-haspopup="listbox"
@@ -142,7 +140,7 @@ export function CompanyDropdown({
                   <button
                     aria-selected={isSelected}
                     className={cn(
-                      'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs transition-colors hover:bg-surface-muted focus:bg-surface-muted focus:outline-none cursor-pointer',
+                      'flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left text-xs transition-colors hover:bg-surface-muted focus:bg-surface-muted focus:outline-none',
                       isSelected &&
                         'bg-surface-muted font-semibold text-primary-strong'
                     )}
@@ -151,7 +149,7 @@ export function CompanyDropdown({
                     role="option"
                     type="button"
                   >
-                    <div className="flex flex-col min-w-0 pr-2">
+                    <div className="flex min-w-0 flex-col pr-2">
                       <span className="truncate text-sm font-medium">
                         {company.name}
                       </span>
