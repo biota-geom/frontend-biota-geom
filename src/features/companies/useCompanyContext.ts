@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import type { CompanyDetail } from './types';
+import type { Company } from './types';
 
 interface CompanyContextState {
-  company: CompanyDetail | null;
-  setCompany: (company: CompanyDetail) => void;
+  company: Company | null;
+  setCompany: (company: Company) => void;
   clearCompany: () => void;
 }
 

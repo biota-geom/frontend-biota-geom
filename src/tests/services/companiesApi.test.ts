@@ -8,56 +8,34 @@ const { request } = await import('../../services/api/http');
 const { getCompanyById } = await import('../../services/api/companiesApi');
 
 describe('companiesApi', () => {
-  it('gets a company by id and maps the response to the frontend shape', async () => {
-    vi.mocked(request).mockResolvedValue({
-      id: 'company-1',
-      name: 'Unidade Industrial RS',
-      document: '12345678000199',
-      document_type: 'cnpj',
-      status: 'active',
-      sector: {
-        id: 'sector-1',
-        name: 'Siderurgia',
+  it('gets a company by id from the customers listing', async () => {
+    vi.mocked(request).mockResolvedValue([
+      {
+        id: 'company-1',
+        name: 'Unidade Industrial RS',
+        status: 'Ativo',
+        segment: 'Siderurgia',
+        location: 'Porto Alegre - RS',
       },
-      address: {
-        city: 'Porto Alegre',
-        state: 'RS',
-      },
-    });
+    ]);
 
     const company = await getCompanyById('company-1');
 
-    expect(request).toHaveBeenCalledWith('/api/customers/company-1');
+    expect(request).toHaveBeenCalledWith('/customers');
     expect(company).toEqual({
       id: 'company-1',
       name: 'Unidade Industrial RS',
-      document: '12345678000199',
-      documentType: 'cnpj',
       status: 'active',
-      sector: {
-        id: 'sector-1',
-        name: 'Siderurgia',
-      },
-      address: {
-        city: 'Porto Alegre',
-        state: 'RS',
-      },
+      segment: 'Siderurgia',
+      location: 'Porto Alegre - RS',
     });
   });
 
-  it('encodes the company id before adding it to the request path', async () => {
-    vi.mocked(request).mockResolvedValue({
-      id: 'company/1',
-      name: 'Empresa',
-      document: '123',
-      document_type: 'cnpj',
-      status: 'inactive',
-      sector: { id: 'sector-1', name: 'Setor' },
-      address: { city: 'Cidade', state: 'SP' },
+  it('rejects when the company id is absent from the listing', async () => {
+    vi.mocked(request).mockResolvedValue([]);
+
+    await expect(getCompanyById('missing-company')).rejects.toMatchObject({
+      status: 404,
     });
-
-    await getCompanyById('company/1');
-
-    expect(request).toHaveBeenCalledWith('/api/customers/company%2F1');
   });
 });
