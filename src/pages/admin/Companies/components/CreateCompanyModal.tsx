@@ -157,7 +157,7 @@ export function CreateCompanyModal({
           </div>
           <button
             aria-label="Fechar"
-            className="rounded-control grid size-8 shrink-0 place-items-center border-0 bg-transparent text-text-muted hover:bg-surface-muted hover:text-text-secondary"
+            className="rounded-control grid size-8 shrink-0 place-items-center border-0 bg-transparent text-text-muted hover:bg-surface-muted hover:text-text-secondary cursor-pointer"
             onClick={handleCancel}
             type="button"
           >
@@ -380,7 +380,7 @@ export function CreateCompanyModal({
                     filteredIndicators.map((indicator) => (
                       <li key={indicator.id}>
                         <button
-                          className="rounded-control flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left text-sm text-text-primary hover:bg-surface-muted"
+                          className="rounded-control flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left text-sm text-text-primary hover:bg-surface-muted cursor-pointer"
                           onClick={() => selectIndicator(indicator.id)}
                           onMouseDown={(event) => event.preventDefault()}
                           type="button"
@@ -414,7 +414,7 @@ export function CreateCompanyModal({
                     {indicator.name}
                     <button
                       aria-label={`Remover ${indicator.name}`}
-                      className="text-primary-strong/70 hover:text-primary-strong"
+                      className="text-primary-strong/70 hover:text-primary-strong cursor-pointer"
                       onClick={() => removeIndicator(id)}
                       type="button"
                     >
@@ -439,7 +439,7 @@ export function CreateCompanyModal({
                 value={newIndicatorUnit}
               />
               <button
-                className="rounded-control border-0 bg-primary px-4 text-sm font-bold text-white hover:bg-primary-strong"
+                className="rounded-control border-0 bg-primary px-4 text-sm font-bold text-white hover:bg-primary-strong cursor-pointer"
                 onClick={handleCreateIndicator}
                 type="button"
               >
@@ -450,14 +450,14 @@ export function CreateCompanyModal({
 
           <div className="mt-2 flex justify-end gap-3">
             <button
-              className="rounded-control border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-muted"
+              className="rounded-control border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-muted cursor-pointer"
               onClick={handleCancel}
               type="button"
             >
               Cancelar
             </button>
             <button
-              className="rounded-panel border-0 bg-primary px-4 py-2 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              className="rounded-panel cursor-pointer border-0 bg-primary px-4 py-2 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
               disabled={!isFormValid}
               type="submit"
             >
