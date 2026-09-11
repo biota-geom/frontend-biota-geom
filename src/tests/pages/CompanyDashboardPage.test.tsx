@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
-import type { Company } from '../../features/companies/types';
+import type { CompanyDetail } from '../../features/companies/types';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { getCompanyById } from '../../services/api/companiesApi';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
@@ -12,7 +12,7 @@ vi.mock('../../services/api/companiesApi', () => ({
 
 const mockedGetCompanyById = vi.mocked(getCompanyById);
 
-const company: Company = {
+const company: CompanyDetail = {
   id: 'company-1',
   name: 'Unidade Industrial RS',
   document: '12345678000199',

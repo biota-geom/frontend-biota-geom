@@ -1,13 +1,13 @@
 import { Outlet, useParams } from 'react-router-dom';
 import { buildCompanyRoutes } from '../../app/router/routes';
 import { getMockCompanyById } from '../../features/companies/getMockCompanyById';
-import type { Company } from '../../features/companies/types';
+import type { CompanyDetail } from '../../features/companies/types';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { AppHeader, type AppNavigationItem } from './AppHeader';
 
 function getCompanyContextLabel(
   companyId: string | undefined,
-  contextCompany: Company | null
+  contextCompany: CompanyDetail | null
 ) {
   if (contextCompany && contextCompany.id === companyId) {
     return contextCompany.name;

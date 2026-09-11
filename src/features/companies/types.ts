@@ -1,4 +1,12 @@
-export type Company = {
+export interface Company {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+  segment: string;
+  location: string;
+}
+
+export type CompanyDetail = {
   id: string;
   name: string;
   document: string;

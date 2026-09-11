@@ -1,7 +1,10 @@
-import type { Company, CompanyWire } from '../../features/companies/types';
+import type {
+  CompanyDetail,
+  CompanyWire,
+} from '../../features/companies/types';
 import { request } from './http';
 
-function toCompany(wire: CompanyWire): Company {
+function toCompany(wire: CompanyWire): CompanyDetail {
   return {
     id: wire.id,
     name: wire.name,
@@ -13,7 +16,9 @@ function toCompany(wire: CompanyWire): Company {
   };
 }
 
-export async function getCompanyById(companyId: string): Promise<Company> {
+export async function getCompanyById(
+  companyId: string
+): Promise<CompanyDetail> {
   const wire = await request<CompanyWire>(
     `/api/customers/${encodeURIComponent(companyId)}`
   );
