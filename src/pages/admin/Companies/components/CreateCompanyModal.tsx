@@ -2,7 +2,6 @@ import { type FormEvent, useState } from 'react';
 import { ChevronDownIcon } from '../../../../components/ui/icons';
 import { MOCK_SECTORS } from '../../../../features/companies/sectors.mock';
 import {
-  createMockEsgIndicator,
   MOCK_ESG_INDICATORS,
   type EsgIndicator,
 } from '../../../../features/companies/esgIndicators.mock';
@@ -11,6 +10,8 @@ import type {
   CreateCompanyFormState,
   CreateCompanyRequest,
 } from '../../../../features/companies/createCompany.types';
+import { createEsgMetric } from '../../../../services/api/esgMetricsApi';
+import { ApiError } from '../../../../services/api/apiError';
 
 const EMPTY_FORM: CreateCompanyFormState = {
   name: '',
@@ -44,6 +45,10 @@ export function CreateCompanyModal({
   const [newIndicatorName, setNewIndicatorName] = useState('');
   const [newIndicatorUnit, setNewIndicatorUnit] = useState('');
   const [newIndicatorPillar, setNewIndicatorPillar] = useState('');
+  const [isCreatingIndicator, setIsCreatingIndicator] = useState(false);
+  const [createIndicatorError, setCreateIndicatorError] = useState<
+    string | null
+  >(null);
 
   if (!isOpen) return null;
   const isFormValid =
@@ -79,22 +84,42 @@ export function CreateCompanyModal({
     }));
   }
 
-  function handleCreateIndicator() {
-    if (!newIndicatorName.trim() || !newIndicatorUnit.trim()) return;
+  async function handleCreateIndicator() {
+    if (
+      !newIndicatorName.trim() ||
+      !newIndicatorUnit.trim() ||
+      !newIndicatorPillar
+    ) {
+      return;
+    }
 
-    // TODO(#45): swap for POST /api/esg-metrics once the backend exists.
-    const created = createMockEsgIndicator(
-      newIndicatorName.trim(),
-      newIndicatorUnit.trim()
-    );
+    setIsCreatingIndicator(true);
+    setCreateIndicatorError(null);
 
-    setIndicators((current) => [...current, created]);
-    setForm((current) => ({
-      ...current,
-      selectedIndicatorIds: [...current.selectedIndicatorIds, created.id],
-    }));
-    setNewIndicatorName('');
-    setNewIndicatorUnit('');
+    try {
+      const created = await createEsgMetric({
+        name: newIndicatorName.trim(),
+        unit: newIndicatorUnit.trim(),
+        pillar: newIndicatorPillar as 'AMBIENTAL' | 'SOCIAL' | 'GOVERNANCA',
+      });
+
+      setIndicators((current) => [...current, created]);
+      setForm((current) => ({
+        ...current,
+        selectedIndicatorIds: [...current.selectedIndicatorIds, created.id],
+      }));
+      setNewIndicatorName('');
+      setNewIndicatorUnit('');
+      setNewIndicatorPillar('');
+    } catch (error) {
+      setCreateIndicatorError(
+        error instanceof ApiError
+          ? error.message
+          : 'Não foi possível criar o indicador.'
+      );
+    } finally {
+      setIsCreatingIndicator(false);
+    }
   }
 
   function handleCancel() {
@@ -104,6 +129,8 @@ export function CreateCompanyModal({
     setIsIndicatorMenuOpen(false);
     setNewIndicatorName('');
     setNewIndicatorUnit('');
+    setNewIndicatorPillar('');
+    setCreateIndicatorError(null);
     onClose();
   }
 
@@ -450,22 +477,33 @@ export function CreateCompanyModal({
                   <option disabled hidden value="">
                     Pilar...
                   </option>
-                  <option value="ambiental">Ambiental</option>
-                  <option value="social">Social</option>
-                  <option value="governanca">Governança</option>
+                  <option value="AMBIENTAL">Ambiental</option>
+                  <option value="SOCIAL">Social</option>
+                  <option value="GOVERNANCA">Governança</option>
                 </select>
                 <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-text-secondary">
                   <ChevronDownIcon />
                 </span>
               </div>
               <button
-                className="rounded-control border-0 bg-primary px-4 text-sm font-bold text-white hover:bg-primary-strong cursor-pointer"
+                className="rounded-control cursor-pointer border-0 bg-primary px-4 text-sm font-bold text-white hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={
+                  isCreatingIndicator ||
+                  !newIndicatorName.trim() ||
+                  !newIndicatorUnit.trim() ||
+                  !newIndicatorPillar
+                }
                 onClick={handleCreateIndicator}
                 type="button"
               >
-                Criar
+                {isCreatingIndicator ? 'Criando...' : 'Criar'}
               </button>
             </div>
+            {createIndicatorError && (
+              <p className="text-xs font-medium text-red-500">
+                {createIndicatorError}
+              </p>
+            )}
           </section>
 
           <div className="mt-2 flex justify-end gap-3">
