@@ -43,6 +43,7 @@ export function CreateCompanyModal({
   const [isIndicatorMenuOpen, setIsIndicatorMenuOpen] = useState(false);
   const [newIndicatorName, setNewIndicatorName] = useState('');
   const [newIndicatorUnit, setNewIndicatorUnit] = useState('');
+  const [newIndicatorPillar, setNewIndicatorPillar] = useState('');
 
   if (!isOpen) return null;
   const isFormValid =
@@ -438,6 +439,25 @@ export function CreateCompanyModal({
                 placeholder="Unidade..."
                 value={newIndicatorUnit}
               />
+              <div className="relative">
+                <select
+                  className={`rounded-control min-h-[42px] w-36 appearance-none border border-border bg-surface px-2.5 pr-8 text-sm outline-0 focus:border-focus ${newIndicatorPillar === '' ? 'text-text-muted' : 'text-text-primary'}`}
+                  onChange={(event) =>
+                    setNewIndicatorPillar(event.target.value)
+                  }
+                  value={newIndicatorPillar}
+                >
+                  <option disabled hidden value="">
+                    Pilar...
+                  </option>
+                  <option value="ambiental">Ambiental</option>
+                  <option value="social">Social</option>
+                  <option value="governanca">Governança</option>
+                </select>
+                <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-text-secondary">
+                  <ChevronDownIcon />
+                </span>
+              </div>
               <button
                 className="rounded-control border-0 bg-primary px-4 text-sm font-bold text-white hover:bg-primary-strong cursor-pointer"
                 onClick={handleCreateIndicator}
