@@ -56,3 +56,19 @@ export interface CustomerWire {
   segment: string;
   location: string;
 }
+
+export interface CreateEsgMetricRequestWire {
+  name: string;
+  unit: string;
+  pillar: 'ambiental' | 'social' | 'governanca';
+  gri_standard_id?: string;
+}
+
+export interface EsgMetricWire {
+  id: string;
+  name: string;
+  unit: string;
+  pillar: 'ambiental' | 'social' | 'governanca';
+  client_id: string | null;
+  gri_standard_id: string | null;
+}
