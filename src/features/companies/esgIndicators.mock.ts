@@ -6,14 +6,3 @@ export const MOCK_ESG_INDICATORS: EsgIndicator[] = [
   { id: 'uuid-residuos', name: 'Geração de Resíduos', unit: 't' },
   { id: 'uuid-co2', name: 'Emissão de CO₂', unit: 't CO₂e' },
 ];
-
-let mockIndicatorSeq = MOCK_ESG_INDICATORS.length;
-
-// TODO(#45): replace with POST /api/esg-metrics.
-export function createMockEsgIndicator(
-  name: string,
-  unit: string
-): EsgIndicator {
-  mockIndicatorSeq += 1;
-  return { id: `uuid-mock-${mockIndicatorSeq}`, name, unit };
-}
