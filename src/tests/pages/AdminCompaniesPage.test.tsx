@@ -1,14 +1,46 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useLocation } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
 import { APP_ROUTES, buildCompanyRoutes } from '../../app/router/routes';
+import { useCompanies } from '../../features/companies/useCompanies';
 import {
   getComplianceTone,
   getStatusLabel,
 } from '../../pages/admin/Companies/companyCardFormatting';
+import { ApiError } from '../../services/api/apiError';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
+
+vi.mock('../../services/api/customersApi', () => ({
+  listCompanies: vi.fn(),
+}));
+
+const customersApi = await import('../../services/api/customersApi');
+
+const COMPANIES = [
+  {
+    id: 'customer-1',
+    name: 'Unidade Industrial RS',
+    status: 'active' as const,
+    segment: 'Siderurgia',
+    location: 'Porto Alegre - RS',
+  },
+  {
+    id: 'customer-2',
+    name: 'Fábrica São Paulo',
+    status: 'active' as const,
+    segment: 'Metalúrgica',
+    location: 'Sorocaba - SP',
+  },
+  {
+    id: 'customer-3',
+    name: 'Agro Centro-Oeste',
+    status: 'inactive' as const,
+    segment: 'Agronegócio',
+    location: 'Sorriso - MT',
+  },
+];
 
 function LocationProbe() {
   const location = useLocation();
@@ -27,28 +59,80 @@ function renderAppRoutes(initialRoute = APP_ROUTES.admin.companies) {
 }
 
 describe('AdminCompaniesPage', () => {
-  it('renders company cards without a settings navigation tab', () => {
+  beforeEach(() => {
+    useCompanies.setState({ companies: [], status: 'idle', error: null });
+    vi.resetAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  it('fetches and renders company cards from the customers API', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+
     renderAppRoutes();
 
     expect(
       screen.getByRole('heading', { name: /empresas cadastradas/i })
     ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('article', { name: /unidade industrial rs/i })
+      ).toBeInTheDocument();
+    });
+
     expect(
-      screen.getByRole('article', { name: /unidade industrial rs/i })
+      screen.getByRole('article', { name: /fábrica são paulo/i })
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/atenção/i)).toHaveLength(6);
-    expect(screen.getAllByText(/vencido/i)).toHaveLength(6);
+    expect(screen.getAllByText(/atenção/i)).toHaveLength(3);
+    expect(screen.getAllByText(/vencido/i)).toHaveLength(3);
     expect(screen.queryByText(/alertas/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /configurações/i })
     ).not.toBeInTheDocument();
   });
 
-  it('navigates from a company card to the company dashboard', async () => {
+  it('shows an error state with a retry action when the fetch fails', async () => {
+    vi.mocked(customersApi.listCompanies).mockRejectedValueOnce(
+      new ApiError(500, 'Erro ao carregar empresas.')
+    );
+
     const user = userEvent.setup();
     renderAppRoutes();
 
-    const companyCard = screen.getByRole('article', {
+    await waitFor(() => {
+      expect(
+        screen.getByText(/erro ao carregar empresas\./i)
+      ).toBeInTheDocument();
+    });
+
+    vi.mocked(customersApi.listCompanies).mockResolvedValueOnce(COMPANIES);
+    await user.click(screen.getByRole('button', { name: /tentar novamente/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('article', { name: /unidade industrial rs/i })
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows an empty state when there are no companies', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+
+    renderAppRoutes();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/nenhuma empresa cadastrada até o momento\./i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('navigates from a company card to the company dashboard', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    const user = userEvent.setup();
+    renderAppRoutes();
+
+    const companyCard = await screen.findByRole('article', {
       name: /unidade industrial rs/i,
     });
 
@@ -57,11 +141,12 @@ describe('AdminCompaniesPage', () => {
     );
 
     expect(screen.getByTestId('current-path')).toHaveTextContent(
-      buildCompanyRoutes.dashboard('unidade-industrial-rs')
+      buildCompanyRoutes.dashboard('customer-1')
     );
   });
 
-  it('renders the admin navigation with the current section highlighted', () => {
+  it('renders the admin navigation with the current section highlighted', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
     renderAppRoutes();
 
     const companiesLink = screen.getByRole('link', { name: 'Empresas' });
@@ -78,7 +163,8 @@ describe('AdminCompaniesPage', () => {
     expect(legislationLink.className).not.toContain('border-primary-strong');
   });
 
-  it('renders the "Nova Empresa" action button', () => {
+  it('renders the "Nova Empresa" action button', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
     renderAppRoutes();
 
     expect(
@@ -86,10 +172,11 @@ describe('AdminCompaniesPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows edit and delete controls scoped to each company', () => {
+  it('shows edit and delete controls scoped to each company', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
     renderAppRoutes();
 
-    const companyCard = screen.getByRole('article', {
+    const companyCard = await screen.findByRole('article', {
       name: /unidade industrial rs/i,
     });
 
@@ -105,10 +192,11 @@ describe('AdminCompaniesPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('labels active and inactive companies with the matching status badge', () => {
+  it('labels active and inactive companies with the matching status badge', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
     renderAppRoutes();
 
-    const activeCard = screen.getByRole('article', {
+    const activeCard = await screen.findByRole('article', {
       name: /unidade industrial rs/i,
     });
     const inactiveCard = screen.getByRole('article', {
@@ -120,58 +208,6 @@ describe('AdminCompaniesPage', () => {
 
     expect(activeBadge.className).toContain('text-primary-strong');
     expect(inactiveBadge.className).toContain('text-amber-600');
-  });
-
-  it.each([
-    { compliance: 100, company: /unidade industrial rs/i, tone: 'primary' },
-    { compliance: 90, company: /agro centro-oeste/i, tone: 'primary' },
-    { compliance: 85, company: /fábrica são paulo/i, tone: 'amber' },
-    { compliance: 50, company: /mineração norte/i, tone: 'red' },
-  ])(
-    'colors compliance $compliance% as $tone',
-    ({ company, compliance, tone }) => {
-      renderAppRoutes();
-
-      const card = screen.getByRole('article', { name: company });
-      const complianceValue = within(card).getByText(`${compliance}%`);
-      const complianceMetric = complianceValue.closest('dd');
-
-      expect(complianceMetric).not.toBeNull();
-
-      const expectedClass =
-        tone === 'primary'
-          ? '!text-primary-strong'
-          : tone === 'amber'
-            ? '!text-amber-500'
-            : '!text-red-500';
-
-      expect(complianceMetric?.className).toContain(expectedClass);
-    }
-  );
-
-  it('colors the attention and overdue counts red only when above zero', () => {
-    renderAppRoutes();
-
-    const clearCard = screen.getByRole('article', {
-      name: /unidade industrial rs/i,
-    });
-    const flaggedCard = screen.getByRole('article', {
-      name: /mineração norte/i,
-    });
-
-    const clearAttention = within(clearCard).getByText('Atenção')
-      .nextElementSibling as HTMLElement;
-    const flaggedAttention = within(flaggedCard).getByText('Atenção')
-      .nextElementSibling as HTMLElement;
-    const clearOverdue = within(clearCard).getByText('Vencido')
-      .nextElementSibling as HTMLElement;
-    const flaggedOverdue = within(flaggedCard).getByText('Vencido')
-      .nextElementSibling as HTMLElement;
-
-    expect(clearAttention.className).toContain('!text-primary-strong');
-    expect(flaggedAttention.className).toContain('!text-amber-500');
-    expect(clearOverdue.className).toContain('!text-primary-strong');
-    expect(flaggedOverdue.className).toContain('!text-red-500');
   });
 });
 

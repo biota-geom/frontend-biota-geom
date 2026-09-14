@@ -2,14 +2,24 @@ import { Outlet, useParams } from 'react-router-dom';
 import { buildCompanyRoutes } from '../../app/router/routes';
 import { MOCK_COMPANY_NAVIGATION_ITEMS } from '../../features/companies/companyNavigation.mock';
 import { getMockCompanyById } from '../../features/companies/getMockCompanyById';
+import type { Company } from '../../features/companies/types';
+import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { AppHeader, type AppNavigationItem } from './AppHeader';
 
-function getCompanyContextLabel(companyId?: string) {
+function getCompanyContextLabel(
+  companyId: string | undefined,
+  contextCompany: Company | null
+) {
+  if (contextCompany && contextCompany.id === companyId) {
+    return contextCompany.name;
+  }
+
   return getMockCompanyById(companyId)?.name ?? 'Empresa em contexto';
 }
 
 export function CompanyLayout() {
   const { companyId } = useParams<{ companyId: string }>();
+  const contextCompany = useCompanyContext((state) => state.company);
   // Stryker disable next-line all: unreachable through the route table —
   // `company.root` ('/companies/:companyId') requires a non-empty segment,
   // so react-router never renders this component with an empty companyId.
@@ -28,7 +38,7 @@ export function CompanyLayout() {
       <AppHeader
         activeCompanyId={companyId}
         companies={MOCK_COMPANY_NAVIGATION_ITEMS}
-        contextLabel={getCompanyContextLabel(companyId)}
+        contextLabel={getCompanyContextLabel(companyId, contextCompany)}
         navItems={companyNavItems}
       />
       <Outlet />
