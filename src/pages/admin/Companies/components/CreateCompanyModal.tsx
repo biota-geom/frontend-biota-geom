@@ -10,8 +10,7 @@ import type {
   CreateCompanyFormState,
   CreateCompanyRequest,
 } from '../../../../features/companies/createCompany.types';
-import { createEsgMetric } from '../../../../services/api/esgMetricsApi';
-import { ApiError } from '../../../../services/api/apiError';
+import { CreateEsgMetricModal } from './CreateEsgMetricModal';
 
 const EMPTY_FORM: CreateCompanyFormState = {
   name: '',
@@ -42,13 +41,7 @@ export function CreateCompanyModal({
     useState<EsgIndicator[]>(MOCK_ESG_INDICATORS);
   const [indicatorQuery, setIndicatorQuery] = useState('');
   const [isIndicatorMenuOpen, setIsIndicatorMenuOpen] = useState(false);
-  const [newIndicatorName, setNewIndicatorName] = useState('');
-  const [newIndicatorUnit, setNewIndicatorUnit] = useState('');
-  const [newIndicatorPillar, setNewIndicatorPillar] = useState('');
-  const [isCreatingIndicator, setIsCreatingIndicator] = useState(false);
-  const [createIndicatorError, setCreateIndicatorError] = useState<
-    string | null
-  >(null);
+  const [isCreateMetricModalOpen, setIsCreateMetricModalOpen] = useState(false);
 
   if (!isOpen) return null;
   const isFormValid =
@@ -84,42 +77,13 @@ export function CreateCompanyModal({
     }));
   }
 
-  async function handleCreateIndicator() {
-    if (
-      !newIndicatorName.trim() ||
-      !newIndicatorUnit.trim() ||
-      !newIndicatorPillar
-    ) {
-      return;
-    }
-
-    setIsCreatingIndicator(true);
-    setCreateIndicatorError(null);
-
-    try {
-      const created = await createEsgMetric({
-        name: newIndicatorName.trim(),
-        unit: newIndicatorUnit.trim(),
-        pillar: newIndicatorPillar as 'AMBIENTAL' | 'SOCIAL' | 'GOVERNANCA',
-      });
-
-      setIndicators((current) => [...current, created]);
-      setForm((current) => ({
-        ...current,
-        selectedIndicatorIds: [...current.selectedIndicatorIds, created.id],
-      }));
-      setNewIndicatorName('');
-      setNewIndicatorUnit('');
-      setNewIndicatorPillar('');
-    } catch (error) {
-      setCreateIndicatorError(
-        error instanceof ApiError
-          ? error.message
-          : 'Não foi possível criar o indicador.'
-      );
-    } finally {
-      setIsCreatingIndicator(false);
-    }
+  function handleMetricCreated(metric: EsgIndicator) {
+    setIndicators((current) => [...current, metric]);
+    setForm((current) => ({
+      ...current,
+      selectedIndicatorIds: [...current.selectedIndicatorIds, metric.id],
+    }));
+    setIsCreateMetricModalOpen(false);
   }
 
   function handleCancel() {
@@ -127,10 +91,7 @@ export function CreateCompanyModal({
     setIndicators(MOCK_ESG_INDICATORS);
     setIndicatorQuery('');
     setIsIndicatorMenuOpen(false);
-    setNewIndicatorName('');
-    setNewIndicatorUnit('');
-    setNewIndicatorPillar('');
-    setCreateIndicatorError(null);
+    setIsCreateMetricModalOpen(false);
     onClose();
   }
 
@@ -366,17 +327,26 @@ export function CreateCompanyModal({
             aria-label="Indicadores ESG Monitorados"
             className="flex flex-col gap-2"
           >
-            <div>
-              <label
-                className="text-[13px] font-bold text-text-primary"
-                htmlFor="indicator-search"
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <label
+                  className="text-[13px] font-bold text-text-primary"
+                  htmlFor="indicator-search"
+                >
+                  Indicadores ESG Monitorados
+                </label>
+                <p className="mt-0.5 mb-0 text-xs text-text-secondary">
+                  Selecione os indicadores que esta empresa deverá reportar
+                  periodicamente no sistema.
+                </p>
+              </div>
+              <button
+                className="rounded-control shrink-0 cursor-pointer border-0 bg-transparent px-2 py-1.5 text-sm font-bold whitespace-nowrap text-primary-strong hover:bg-surface-muted"
+                onClick={() => setIsCreateMetricModalOpen(true)}
+                type="button"
               >
-                Indicadores ESG Monitorados
-              </label>
-              <p className="mt-0.5 mb-0 text-xs text-text-secondary">
-                Selecione os indicadores que esta empresa deverá reportar
-                periodicamente no sistema.
-              </p>
+                + Nova Métrica Customizada
+              </button>
             </div>
             <div className="relative">
               <input
@@ -452,58 +422,6 @@ export function CreateCompanyModal({
                 );
               })}
             </div>
-
-            <div className="flex gap-2">
-              <input
-                className="rounded-control min-h-[42px] flex-1 border border-border bg-surface px-2.5 text-sm text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
-                onChange={(event) => setNewIndicatorName(event.target.value)}
-                placeholder="Nome do novo indicador..."
-                value={newIndicatorName}
-              />
-              <input
-                className="rounded-control min-h-[42px] w-28 border border-border bg-surface px-2.5 text-sm text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
-                onChange={(event) => setNewIndicatorUnit(event.target.value)}
-                placeholder="Unidade..."
-                value={newIndicatorUnit}
-              />
-              <div className="relative">
-                <select
-                  className={`rounded-control min-h-[42px] w-36 appearance-none border border-border bg-surface px-2.5 pr-8 text-sm outline-0 focus:border-focus ${newIndicatorPillar === '' ? 'text-text-muted' : 'text-text-primary'}`}
-                  onChange={(event) =>
-                    setNewIndicatorPillar(event.target.value)
-                  }
-                  value={newIndicatorPillar}
-                >
-                  <option disabled hidden value="">
-                    Pilar...
-                  </option>
-                  <option value="AMBIENTAL">Ambiental</option>
-                  <option value="SOCIAL">Social</option>
-                  <option value="GOVERNANCA">Governança</option>
-                </select>
-                <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-text-secondary">
-                  <ChevronDownIcon />
-                </span>
-              </div>
-              <button
-                className="rounded-control cursor-pointer border-0 bg-primary px-4 text-sm font-bold text-white hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={
-                  isCreatingIndicator ||
-                  !newIndicatorName.trim() ||
-                  !newIndicatorUnit.trim() ||
-                  !newIndicatorPillar
-                }
-                onClick={handleCreateIndicator}
-                type="button"
-              >
-                {isCreatingIndicator ? 'Criando...' : 'Criar'}
-              </button>
-            </div>
-            {createIndicatorError && (
-              <p className="text-xs font-medium text-red-500">
-                {createIndicatorError}
-              </p>
-            )}
           </section>
 
           <div className="mt-2 flex justify-end gap-3">
@@ -524,6 +442,12 @@ export function CreateCompanyModal({
           </div>
         </form>
       </div>
+
+      <CreateEsgMetricModal
+        isOpen={isCreateMetricModalOpen}
+        onClose={() => setIsCreateMetricModalOpen(false)}
+        onCreated={handleMetricCreated}
+      />
     </div>
   );
 }

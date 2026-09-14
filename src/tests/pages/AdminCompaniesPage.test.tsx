@@ -259,7 +259,22 @@ describe('AdminCompaniesPage', () => {
     expect(submitButton).toBeEnabled();
   });
 
-  it('creates a new indicator via a real POST and selects it as a chip', async () => {
+  it('opens the new custom ESG metric modal from its quick action button', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    await user.click(
+      screen.getByRole('button', { name: /\+ nova métrica customizada/i })
+    );
+
+    expect(
+      screen.getByRole('dialog', { name: /nova métrica customizada/i })
+    ).toBeInTheDocument();
+  });
+
+  it('creates a new custom ESG metric via a real POST and selects it as a chip', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
     vi.mocked(esgMetricsApi.createEsgMetric).mockResolvedValue({
       id: 'metric-new',
@@ -269,14 +284,29 @@ describe('AdminCompaniesPage', () => {
     const user = userEvent.setup();
     renderAppRoutes();
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+    await user.click(
+      screen.getByRole('button', { name: /\+ nova métrica customizada/i })
+    );
+
+    const metricDialog = screen.getByRole('dialog', {
+      name: /nova métrica customizada/i,
+    });
 
     await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
+      within(metricDialog).getByLabelText(/^nome$/i),
       'Consumo de Energia'
     );
-    await user.type(screen.getByPlaceholderText(/unidade/i), 'kWh');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'AMBIENTAL');
-    await user.click(screen.getByRole('button', { name: /^criar$/i }));
+    await user.type(
+      within(metricDialog).getByLabelText(/unidade de medida/i),
+      'kWh'
+    );
+    await user.selectOptions(
+      within(metricDialog).getByLabelText(/pilar/i),
+      'AMBIENTAL'
+    );
+    await user.click(
+      within(metricDialog).getByRole('button', { name: /^salvar$/i })
+    );
 
     await waitFor(() => {
       expect(esgMetricsApi.createEsgMetric).toHaveBeenCalledWith({
@@ -286,28 +316,142 @@ describe('AdminCompaniesPage', () => {
       });
     });
 
+    expect(
+      screen.queryByRole('dialog', { name: /nova métrica customizada/i })
+    ).not.toBeInTheDocument();
     expect(await screen.findByText('Consumo de Energia')).toBeInTheDocument();
   });
 
-  it('shows an error message when creating an indicator fails', async () => {
+  it('shows an error message when creating a custom ESG metric fails', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
     vi.mocked(esgMetricsApi.createEsgMetric).mockRejectedValue(
-      new ApiError(400, 'Não foi possível criar o indicador.')
+      new ApiError(400, 'Não foi possível criar a métrica.')
     );
     const user = userEvent.setup();
     renderAppRoutes();
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
-
-    await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
-      'Teste'
+    await user.click(
+      screen.getByRole('button', { name: /\+ nova métrica customizada/i })
     );
-    await user.type(screen.getByPlaceholderText(/unidade/i), 'kg');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'SOCIAL');
-    await user.click(screen.getByRole('button', { name: /^criar$/i }));
+
+    const metricDialog = screen.getByRole('dialog', {
+      name: /nova métrica customizada/i,
+    });
+
+    await user.type(within(metricDialog).getByLabelText(/^nome$/i), 'Teste');
+    await user.type(
+      within(metricDialog).getByLabelText(/unidade de medida/i),
+      'kg'
+    );
+    await user.selectOptions(
+      within(metricDialog).getByLabelText(/pilar/i),
+      'SOCIAL'
+    );
+    await user.click(
+      within(metricDialog).getByRole('button', { name: /^salvar$/i })
+    );
 
     expect(
-      await screen.findByText(/não foi possível criar o indicador\./i)
+      await within(metricDialog).findByText(
+        /não foi possível criar a métrica\./i
+      )
+    ).toBeInTheDocument();
+    expect(metricDialog).toBeInTheDocument();
+  });
+
+  it('shows a loading state and blocks the save button while the request is in flight', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    let resolveCreate!: (value: {
+      id: string;
+      name: string;
+      unit: string;
+    }) => void;
+    vi.mocked(esgMetricsApi.createEsgMetric).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      })
+    );
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+    await user.click(
+      screen.getByRole('button', { name: /\+ nova métrica customizada/i })
+    );
+
+    const metricDialog = screen.getByRole('dialog', {
+      name: /nova métrica customizada/i,
+    });
+
+    await user.type(within(metricDialog).getByLabelText(/^nome$/i), 'Teste');
+    await user.type(
+      within(metricDialog).getByLabelText(/unidade de medida/i),
+      'kg'
+    );
+    await user.selectOptions(
+      within(metricDialog).getByLabelText(/pilar/i),
+      'SOCIAL'
+    );
+    await user.click(
+      within(metricDialog).getByRole('button', { name: /^salvar$/i })
+    );
+
+    const savingButton = within(metricDialog).getByRole('button', {
+      name: /salvando/i,
+    });
+    expect(savingButton).toBeDisabled();
+
+    resolveCreate({ id: 'metric-new', name: 'Teste', unit: 'kg' });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: /nova métrica customizada/i })
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes the new custom ESG metric modal on cancel without posting', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+    await user.click(
+      screen.getByRole('button', { name: /\+ nova métrica customizada/i })
+    );
+
+    const metricDialog = screen.getByRole('dialog', {
+      name: /nova métrica customizada/i,
+    });
+    await user.click(
+      within(metricDialog).getByRole('button', { name: /cancelar/i })
+    );
+
+    expect(
+      screen.queryByRole('dialog', { name: /nova métrica customizada/i })
+    ).not.toBeInTheDocument();
+    expect(esgMetricsApi.createEsgMetric).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('dialog', { name: /cadastrar nova empresa/i })
+    ).toBeInTheDocument();
+  });
+
+  it('closes the metric modal when clicking its overlay, without closing the company modal', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+    await user.click(
+      screen.getByRole('button', { name: /\+ nova métrica customizada/i })
+    );
+
+    const metricDialog = screen.getByRole('dialog', {
+      name: /nova métrica customizada/i,
+    });
+    await user.click(metricDialog);
+
+    expect(
+      screen.queryByRole('dialog', { name: /nova métrica customizada/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: /cadastrar nova empresa/i })
     ).toBeInTheDocument();
   });
 
