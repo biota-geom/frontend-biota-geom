@@ -263,6 +263,26 @@ describe('CompanyDropdown', () => {
     // O item ativo deve ter aria-selected=true; o outro, false
     expect(selectedOption).toHaveAttribute('aria-selected', 'true');
     expect(otherOption).toHaveAttribute('aria-selected', 'false');
+
+    // O destaque visual (fundo e peso da fonte) só aparece no item ativo.
+    // Usa `classList` (não substring) porque a classe base já contém
+    // `hover:bg-surface-muted`/`focus:bg-surface-muted`, que compartilham
+    // a substring com a classe condicional `bg-surface-muted`.
+    const selectedClasses = Array.from(selectedOption.classList);
+    const otherClasses = Array.from(otherOption.classList);
+    expect(selectedClasses).toContain('bg-surface-muted');
+    expect(selectedClasses).toContain('font-semibold');
+    expect(otherClasses).not.toContain('bg-surface-muted');
+    expect(otherClasses).not.toContain('font-semibold');
+
+    // O ícone de check (svg) só é renderizado para a opção selecionada
+    expect(selectedOption.querySelector('svg')).toBeInTheDocument();
+    expect(otherOption.querySelector('svg')).not.toBeInTheDocument();
+
+    // Estilos estruturais da opção (ex.: cantos arredondados) são
+    // compartilhados por todos os itens, independente da seleção
+    expect(selectedClasses).toContain('rounded-md');
+    expect(otherClasses).toContain('rounded-md');
   });
 
   it('navega para o dashboard ao trocar empresa em rota aninhada com ID', async () => {
@@ -311,5 +331,340 @@ describe('CompanyDropdown', () => {
     expect(mockNavigate).toHaveBeenCalledWith(
       '/companies/fabrica-sp/indicators'
     );
+  });
+
+  it('falls back to the dashboard route when the current path does not match the expected company URL shape', async () => {
+    mockNavigate.mockClear();
+    const user = userEvent.setup();
+
+    // Caminho que contém "/companies/" mas não começa por ele — o
+    // regex de extração de sufixo não deve reconhecer esse formato.
+    render(
+      <MemoryRouter
+        initialEntries={['/embedded/companies/unidade-rs/indicators']}
+      >
+        <CompanyDropdown
+          activeCompanyId="unidade-rs"
+          companies={mockCompanies}
+        />
+      </MemoryRouter>
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    await user.click(
+      screen.getByRole('option', { name: /fábrica são paulo/i })
+    );
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/companies/fabrica-sp/dashboard'
+    );
+  });
+
+  it('não navega ao selecionar a empresa que já está ativa', async () => {
+    mockNavigate.mockClear();
+    const user = userEvent.setup();
+    renderDropdown('unidade-rs');
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    await user.click(
+      screen.getByRole('option', { name: /unidade industrial rs/i })
+    );
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('reseta o termo de busca ao selecionar uma empresa', async () => {
+    const user = userEvent.setup();
+    const manyCompanies: CompanyNavigationItem[] = Array.from(
+      { length: 12 },
+      (_, i) => ({
+        attentionCount: 0,
+        city: 'Porto Alegre',
+        compliance: 100,
+        id: `empresa-${i + 1}`,
+        licenseCount: 1,
+        name: `Empresa ${i + 1}`,
+        overdueCount: 0,
+        segment: 'Outros',
+        state: 'RS',
+        status: 'active',
+        updatedAt: 'Hoje',
+      })
+    );
+
+    renderDropdown('empresa-1', manyCompanies);
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    await user.type(
+      screen.getByPlaceholderText(/buscar empresa/i),
+      'Empresa 3'
+    );
+    await user.click(screen.getByRole('option', { name: /empresa 3/i }));
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+
+    // Reabre o dropdown: o campo de busca deve voltar vazio e a lista
+    // completa (não apenas o resultado do filtro anterior) deve reaparecer
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+
+    expect(screen.getByPlaceholderText(/buscar empresa/i)).toHaveValue('');
+    // A lista completa (12 empresas) reaparece, não só o resultado do
+    // filtro anterior ("Empresa 3")
+    expect(screen.getAllByRole('option')).toHaveLength(12);
+    expect(
+      screen.getByRole('option', { name: /empresa 5/i })
+    ).toBeInTheDocument();
+  });
+
+  it('does not render the search input for exactly 10 companies (boundary)', async () => {
+    const user = userEvent.setup();
+    const tenCompanies: CompanyNavigationItem[] = Array.from(
+      { length: 10 },
+      (_, i) => ({
+        attentionCount: 0,
+        city: 'Porto Alegre',
+        compliance: 100,
+        id: `empresa-${i + 1}`,
+        licenseCount: 1,
+        name: `Empresa ${i + 1}`,
+        overdueCount: 0,
+        segment: 'Outros',
+        state: 'RS',
+        status: 'active',
+        updatedAt: 'Hoje',
+      })
+    );
+
+    renderDropdown('empresa-1', tenCompanies);
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+
+    expect(
+      screen.queryByPlaceholderText(/buscar empresa/i)
+    ).not.toBeInTheDocument();
+    // A lista completa continua visível mesmo sem o campo de busca
+    expect(
+      screen.getByRole('option', { name: /empresa 10/i })
+    ).toBeInTheDocument();
+  });
+
+  it('ignores leading/trailing whitespace when filtering by search term', async () => {
+    const user = userEvent.setup();
+    const manyCompanies: CompanyNavigationItem[] = Array.from(
+      { length: 12 },
+      (_, i) => ({
+        attentionCount: 0,
+        city: 'Porto Alegre',
+        compliance: 100,
+        id: `empresa-${i + 1}`,
+        licenseCount: 1,
+        name: `Empresa ${i + 1}`,
+        overdueCount: 0,
+        segment: 'Outros',
+        state: 'RS',
+        status: 'active',
+        updatedAt: 'Hoje',
+      })
+    );
+
+    renderDropdown('empresa-1', manyCompanies);
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    await user.type(
+      screen.getByPlaceholderText(/buscar empresa/i),
+      '  Empresa 12  '
+    );
+
+    expect(
+      screen.getByRole('option', { name: /empresa 12/i })
+    ).toBeInTheDocument();
+  });
+
+  it('filters companies by city, case-insensitively', async () => {
+    const user = userEvent.setup();
+    const companiesByCity: CompanyNavigationItem[] = Array.from(
+      { length: 11 },
+      (_, i) => ({
+        attentionCount: 0,
+        city: i === 5 ? 'Manaus' : 'Curitiba',
+        compliance: 100,
+        id: `empresa-${i + 1}`,
+        licenseCount: 1,
+        name: `Empresa ${i + 1}`,
+        overdueCount: 0,
+        segment: 'Outros',
+        state: 'RS',
+        status: 'active',
+        updatedAt: 'Hoje',
+      })
+    );
+
+    renderDropdown('empresa-1', companiesByCity);
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    // Busca em minúsculas por uma cidade armazenada com inicial maiúscula
+    await user.type(screen.getByPlaceholderText(/buscar empresa/i), 'manaus');
+
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Empresa 6');
+  });
+
+  it('filters companies by segment, case-insensitively', async () => {
+    const user = userEvent.setup();
+    const companiesBySegment: CompanyNavigationItem[] = Array.from(
+      { length: 11 },
+      (_, i) => ({
+        attentionCount: 0,
+        city: 'Curitiba',
+        compliance: 100,
+        id: `empresa-${i + 1}`,
+        licenseCount: 1,
+        name: `Empresa ${i + 1}`,
+        overdueCount: 0,
+        segment: i === 8 ? 'Bioenergia' : 'Outros',
+        state: 'RS',
+        status: 'active',
+        updatedAt: 'Hoje',
+      })
+    );
+
+    renderDropdown('empresa-1', companiesBySegment);
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    // Busca em minúsculas por um segmento armazenado com inicial maiúscula
+    await user.type(
+      screen.getByPlaceholderText(/buscar empresa/i),
+      'bioenergia'
+    );
+
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Empresa 9');
+  });
+
+  it('shows the city-state line only when both fields are present', async () => {
+    const user = userEvent.setup();
+    const mixedCompanies: CompanyNavigationItem[] = [
+      {
+        ...mockCompanies[0],
+        id: 'ambos',
+        name: 'Empresa Completa',
+        city: 'Recife',
+        state: 'PE',
+      },
+      {
+        ...mockCompanies[0],
+        id: 'so-cidade',
+        name: 'Empresa Só Cidade',
+        city: 'Recife',
+        state: '',
+      },
+      {
+        ...mockCompanies[0],
+        id: 'so-estado',
+        name: 'Empresa Só Estado',
+        city: '',
+        state: 'PE',
+      },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={['/companies/ambos/dashboard']}>
+        <CompanyDropdown activeCompanyId="ambos" companies={mixedCompanies} />
+      </MemoryRouter>
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+
+    // A empresa com os dois campos mostra a linha "Cidade - Estado"
+    expect(screen.getByText('Recife - PE')).toBeInTheDocument();
+
+    const cityOnlyOption = screen.getByRole('option', {
+      name: /empresa só cidade/i,
+    });
+    const stateOnlyOption = screen.getByRole('option', {
+      name: /empresa só estado/i,
+    });
+
+    // Com apenas um dos dois campos preenchido, nenhum valor solto de
+    // cidade/estado deve vazar para a opção (ex.: "Recife" ou "PE" soltos)
+    expect(cityOnlyOption.textContent).not.toContain('Recife');
+    expect(stateOnlyOption.textContent).not.toContain('PE');
+  });
+
+  it('rotates the chevron indicator while open and resets it when closed', async () => {
+    const user = userEvent.setup();
+    renderDropdown('unidade-rs');
+
+    const trigger = screen.getByRole('button', {
+      name: /empresa em contexto/i,
+    });
+    const [, chevron] = trigger.querySelectorAll('svg');
+
+    expect(chevron.getAttribute('class')).toContain('transition-transform');
+    expect(chevron.getAttribute('class')).not.toContain('rotate-180');
+
+    await user.click(trigger);
+    expect(chevron.getAttribute('class')).toContain('rotate-180');
+
+    await user.click(trigger);
+    expect(chevron.getAttribute('class')).not.toContain('rotate-180');
+  });
+
+  it('anchors the panel to the trigger using relative/inline-block positioning', () => {
+    renderDropdown('unidade-rs');
+
+    const trigger = screen.getByRole('button', {
+      name: /empresa em contexto/i,
+    });
+
+    expect(trigger.parentElement?.className).toContain('relative');
+    expect(trigger.parentElement?.className).toContain('inline-block');
+  });
+
+  it('attaches the Escape key listener only while open and cleans it up afterwards', async () => {
+    const user = userEvent.setup();
+    const addSpy = vi.spyOn(document, 'addEventListener');
+    const removeSpy = vi.spyOn(document, 'removeEventListener');
+
+    renderDropdown('unidade-rs');
+
+    const keydownAdds = () =>
+      addSpy.mock.calls.filter(([type]) => type === 'keydown').length;
+    const keydownRemoves = () =>
+      removeSpy.mock.calls.filter(([type]) => type === 'keydown').length;
+
+    expect(keydownAdds()).toBe(0);
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+    expect(keydownAdds()).toBe(1);
+
+    await user.keyboard('{Escape}');
+    expect(keydownRemoves()).toBeGreaterThanOrEqual(1);
+
+    addSpy.mockRestore();
+    removeSpy.mockRestore();
   });
 });
