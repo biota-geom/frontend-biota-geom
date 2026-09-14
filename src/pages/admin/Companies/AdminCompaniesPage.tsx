@@ -23,6 +23,9 @@ import {
 } from '../../../components/ui/icons';
 import { useCompanies } from '../../../features/companies/useCompanies';
 import { getStatusLabel } from './companyCardFormatting';
+import { useState } from 'react';
+import { CreateCompanyModal } from './components/CreateCompanyModal';
+import type { CreateCompanyRequest } from '../../../features/companies/createCompany.types';
 
 export function AdminCompaniesPage() {
   const { companies, status, error, fetchCompanies } = useCompanies();
@@ -31,9 +34,20 @@ export function AdminCompaniesPage() {
     fetchCompanies();
   }, [fetchCompanies]);
 
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  function handleCreateCompany(payload: CreateCompanyRequest) {
+    // TODO(#45): replace console logging with real state/query invalidation
+    // once POST /api/customers exists and MOCK_COMPANY_NAVIGATION_ITEMS is
+    // replaced by fetched data.
+    console.log('create company payload', payload);
+    setIsCreateModalOpen(false);
+  }
   return (
     <PageScaffold
-      actions={[{ label: 'Nova Empresa' }]}
+      actions={[
+        { label: 'Nova Empresa', onClick: () => setIsCreateModalOpen(true) },
+      ]}
       subtitle="Gerencie os dados, licenças e conformidade das empresas cadastradas."
       title="Empresas cadastradas"
     >
@@ -183,6 +197,11 @@ export function AdminCompaniesPage() {
           ))}
         </section>
       ) : null}
+      <CreateCompanyModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateCompany}
+      />
     </PageScaffold>
   );
 }

@@ -16,7 +16,12 @@ vi.mock('../../services/api/customersApi', () => ({
   listCompanies: vi.fn(),
 }));
 
+vi.mock('../../services/api/esgMetricsApi', () => ({
+  createEsgMetric: vi.fn(),
+}));
+
 const customersApi = await import('../../services/api/customersApi');
+const esgMetricsApi = await import('../../services/api/esgMetricsApi');
 
 const COMPANIES = [
   {
@@ -208,6 +213,187 @@ describe('AdminCompaniesPage', () => {
 
     expect(activeBadge.className).toContain('text-primary-strong');
     expect(inactiveBadge.className).toContain('text-amber-600');
+  });
+
+  it('opens and closes the create company modal', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+    expect(
+      screen.getByRole('dialog', { name: /cadastrar nova empresa/i })
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancelar/i }));
+    expect(
+      screen.queryByRole('dialog', { name: /cadastrar nova empresa/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('disables submit until every required field is valid', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    const submitButton = screen.getByRole('button', {
+      name: /cadastrar empresa/i,
+    });
+    expect(submitButton).toBeDisabled();
+
+    await user.type(screen.getByLabelText(/nome da empresa/i), 'Empresa Teste');
+    await user.type(screen.getByLabelText(/cnpj/i), '12345678000199');
+    await user.selectOptions(screen.getByLabelText(/segmento/i), 'Siderurgia');
+    await user.type(screen.getByLabelText(/^estado/i), 'RS');
+    await user.type(screen.getByLabelText(/^cidade/i), 'Porto Alegre');
+    await user.type(
+      screen.getByLabelText(/responsável ambiental/i),
+      'Maria Silva'
+    );
+    await user.type(
+      screen.getByLabelText(/e-mail do responsável/i),
+      'maria@empresa.com'
+    );
+
+    expect(submitButton).toBeEnabled();
+  });
+
+  it('creates a new indicator via a real POST and selects it as a chip', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    vi.mocked(esgMetricsApi.createEsgMetric).mockResolvedValue({
+      id: 'metric-new',
+      name: 'Consumo de Energia',
+      unit: 'kWh',
+    });
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    await user.type(
+      screen.getByPlaceholderText(/nome do novo indicador/i),
+      'Consumo de Energia'
+    );
+    await user.type(screen.getByPlaceholderText(/unidade/i), 'kWh');
+    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'AMBIENTAL');
+    await user.click(screen.getByRole('button', { name: /^criar$/i }));
+
+    await waitFor(() => {
+      expect(esgMetricsApi.createEsgMetric).toHaveBeenCalledWith({
+        name: 'Consumo de Energia',
+        unit: 'kWh',
+        pillar: 'AMBIENTAL',
+      });
+    });
+
+    expect(await screen.findByText('Consumo de Energia')).toBeInTheDocument();
+  });
+
+  it('shows an error message when creating an indicator fails', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    vi.mocked(esgMetricsApi.createEsgMetric).mockRejectedValue(
+      new ApiError(400, 'Não foi possível criar o indicador.')
+    );
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    await user.type(
+      screen.getByPlaceholderText(/nome do novo indicador/i),
+      'Teste'
+    );
+    await user.type(screen.getByPlaceholderText(/unidade/i), 'kg');
+    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'SOCIAL');
+    await user.click(screen.getByRole('button', { name: /^criar$/i }));
+
+    expect(
+      await screen.findByText(/não foi possível criar o indicador\./i)
+    ).toBeInTheDocument();
+  });
+
+  it('resets the form when cancelled and reopened', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    await user.type(
+      screen.getByLabelText(/nome da empresa/i),
+      'Empresa Descartada'
+    );
+    await user.click(screen.getByRole('button', { name: /cancelar/i }));
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    expect(screen.getByLabelText(/nome da empresa/i)).toHaveValue('');
+  });
+
+  it('submits the form with the correct payload shape', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    await user.type(screen.getByLabelText(/nome da empresa/i), 'Empresa Teste');
+    await user.type(screen.getByLabelText(/cnpj/i), '12345678000199');
+    await user.selectOptions(screen.getByLabelText(/segmento/i), 'Siderurgia');
+    await user.type(screen.getByLabelText(/^estado/i), 'RS');
+    await user.type(screen.getByLabelText(/^cidade/i), 'Porto Alegre');
+    await user.type(
+      screen.getByLabelText(/responsável ambiental/i),
+      'Maria Silva'
+    );
+    await user.type(
+      screen.getByLabelText(/e-mail do responsável/i),
+      'maria@empresa.com'
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /cadastrar empresa/i })
+    );
+
+    expect(
+      screen.queryByRole('dialog', { name: /cadastrar nova empresa/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('selects an existing indicator from the dropdown and removes it via its chip', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    await user.click(screen.getByPlaceholderText(/buscar ou criar indicador/i));
+    await user.click(await screen.findByText('Consumo de Água'));
+
+    expect(screen.getByText('Consumo de Água')).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: /remover consumo de água/i })
+    );
+
+    expect(screen.queryByText('Consumo de Água')).not.toBeInTheDocument();
+  });
+
+  it('shows a message once every indicator has been selected', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderAppRoutes();
+    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+
+    const search = screen.getByPlaceholderText(/buscar ou criar indicador/i);
+    for (const name of [
+      'Consumo de Água',
+      'Geração de Resíduos',
+      'Emissão de CO₂',
+    ]) {
+      await user.click(search);
+      await user.click(await screen.findByText(name));
+    }
+
+    await user.click(search);
+    expect(
+      await screen.findByText(/todos os indicadores já foram selecionados/i)
+    ).toBeInTheDocument();
   });
 });
 
