@@ -98,10 +98,11 @@ export function TrashIcon() {
   );
 }
 
-export function ChevronDownIcon() {
+export function ChevronDownIcon({ className }: { className?: string } = {}) {
   return (
     <svg
       aria-hidden="true"
+      className={className}
       fill="none"
       height="16"
       viewBox="0 0 24 24"
@@ -321,6 +322,27 @@ export function BackIcon() {
     >
       <path
         d="M15 6L9 12L15 18"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+export function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="16"
+      viewBox="0 0 24 24"
+      width="16"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M20 6L9 17L4 12"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
