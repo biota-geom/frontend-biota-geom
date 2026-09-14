@@ -76,6 +76,7 @@ export function AppHeader({
                 activeCompanyId ?? (contextLabel ? activeCompanyId : undefined)
               }
               companies={companies}
+              contextLabel={contextLabel}
             />
           ) : null}
 

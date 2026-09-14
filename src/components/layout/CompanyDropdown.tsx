@@ -14,12 +14,14 @@ import {
 type CompanyDropdownProps = {
   activeCompanyId?: string;
   companies?: CompanyNavigationItem[];
+  contextLabel?: string;
   className?: string;
 };
 
 export function CompanyDropdown({
   activeCompanyId,
   companies = [],
+  contextLabel,
   className,
 }: CompanyDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -45,7 +47,11 @@ export function CompanyDropdown({
   const location = useLocation();
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId);
-  const activeLabel = activeCompany?.name ?? 'Empresa em contexto';
+  // `contextLabel` carries the authoritative name for the company currently
+  // in scope (e.g. fetched from the backend). It takes precedence over the
+  // mocked navigation list, which may not contain that company yet.
+  const activeLabel =
+    contextLabel ?? activeCompany?.name ?? 'Empresa em contexto';
 
   const shouldShowSearch = companies.length > 10;
 
