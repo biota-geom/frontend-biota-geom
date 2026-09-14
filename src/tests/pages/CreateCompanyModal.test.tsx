@@ -1,17 +1,17 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateCompanyModal } from '../../pages/admin/Companies/components/CreateCompanyModal';
-import { ApiError } from '../../services/api/apiError';
 
 /*
  * AdminCompaniesPage.test.tsx already covers the modal end to end (open,
- * cancel, incremental field validation, creating an indicator via a real
- * POST). This file stays on the pieces that are CreateCompanyModal's own
- * responsibility and are hard to exercise meaningfully through the full
- * page: every branch of the validation guard, CNPJ/indicator-search
- * trimming and casing, the indicator-creation loading state, and exactly
- * what gets reset on cancel/submit.
+ * cancel, incremental field validation, creating a custom ESG metric via the
+ * quick-action CreateEsgMetricModal). This file stays on the pieces that are
+ * CreateCompanyModal's own responsibility and are hard to exercise
+ * meaningfully through the full page: every branch of the validation guard,
+ * CNPJ/indicator-search trimming and casing, and exactly what gets reset on
+ * cancel/submit. The quick-action modal's own form (validation, loading
+ * state, error handling) is unit-tested in CreateEsgMetricModal.test.tsx.
  */
 
 vi.mock('../../services/api/esgMetricsApi', () => ({
@@ -82,16 +82,6 @@ function renderModal(isOpen = true) {
     <CreateCompanyModal isOpen={isOpen} onClose={onClose} onSubmit={onSubmit} />
   );
   return { ...utils, onClose, onSubmit };
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
 }
 
 beforeEach(() => {
@@ -256,182 +246,10 @@ describe('CreateCompanyModal indicator search', () => {
   });
 });
 
-describe('CreateCompanyModal indicator creation', () => {
-  it('does not render an indicator-creation error message before any attempt', () => {
-    const { container } = renderModal();
-
-    expect(container.querySelector('.text-red-500')).not.toBeInTheDocument();
-  });
-
-  it('keeps "Criar" disabled while the new indicator name is only whitespace', async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
-      '   '
-    );
-    await user.type(screen.getByPlaceholderText(/unidade/i), 'kg');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'AMBIENTAL');
-
-    expect(screen.getByRole('button', { name: /^criar$/i })).toBeDisabled();
-  });
-
-  it('keeps "Criar" disabled while the new indicator unit is only whitespace', async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
-      'Consumo de Gás'
-    );
-    await user.type(screen.getByPlaceholderText(/unidade/i), '   ');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'AMBIENTAL');
-
-    expect(screen.getByRole('button', { name: /^criar$/i })).toBeDisabled();
-  });
-
-  it('switches the pillar select from muted placeholder styling to primary once a value is chosen', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    const pillarSelect = screen.getByDisplayValue(/pilar/i);
-
-    expect(pillarSelect.className).toContain('text-text-muted');
-    expect(pillarSelect.className).not.toContain('text-text-primary');
-
-    await user.selectOptions(pillarSelect, 'AMBIENTAL');
-
-    expect(pillarSelect.className).toContain('text-text-primary');
-    expect(pillarSelect.className).not.toContain('text-text-muted');
-  });
-
-  it('shows a loading state while creating, trims the payload, then resets and selects the new indicator', async () => {
-    const deferred = createDeferred<{
-      id: string;
-      name: string;
-      unit: string;
-    }>();
-    vi.mocked(esgMetricsApi.createEsgMetric).mockReturnValue(deferred.promise);
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
-      '  Consumo de Gás  '
-    );
-    await user.type(screen.getByPlaceholderText(/unidade/i), '  m³  ');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'AMBIENTAL');
-    await user.click(screen.getByRole('button', { name: /^criar$/i }));
-
-    expect(esgMetricsApi.createEsgMetric).toHaveBeenCalledWith({
-      name: 'Consumo de Gás',
-      unit: 'm³',
-      pillar: 'AMBIENTAL',
-    });
-    expect(screen.getByRole('button', { name: /criando/i })).toBeDisabled();
-
-    deferred.resolve({ id: 'metric-gas', name: 'Consumo de Gás', unit: 'm³' });
-
-    // Fields are cleared on success, so the button goes back to its default
-    // label but stays disabled (now because the inputs are empty again, not
-    // because of the loading state).
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /^criar$/i })
-      ).toBeInTheDocument();
-    });
-    expect(screen.getByText('Consumo de Gás')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/nome do novo indicador/i)).toHaveValue(
-      ''
-    );
-    expect(screen.getByPlaceholderText(/unidade/i)).toHaveValue('');
-    expect(screen.getByDisplayValue(/^pilar\.\.\.$/i)).toBeInTheDocument();
-  });
-
-  it('shows a loading state, then a generic error, when creation fails without an ApiError', async () => {
-    const deferred = createDeferred<{
-      id: string;
-      name: string;
-      unit: string;
-    }>();
-    vi.mocked(esgMetricsApi.createEsgMetric).mockReturnValue(deferred.promise);
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
-      'Consumo de Gás'
-    );
-    await user.type(screen.getByPlaceholderText(/unidade/i), 'm³');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'AMBIENTAL');
-    await user.click(screen.getByRole('button', { name: /^criar$/i }));
-
-    expect(screen.getByRole('button', { name: /criando/i })).toBeDisabled();
-
-    deferred.reject(new Error('network down'));
-
-    expect(
-      await screen.findByText(/não foi possível criar o indicador\./i)
-    ).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^criar$/i })).toBeEnabled();
-    });
-  });
-
-  it('clears a previous indicator error after a successful retry', async () => {
-    vi.mocked(esgMetricsApi.createEsgMetric).mockRejectedValueOnce(
-      new ApiError(400, 'Não foi possível criar o indicador.')
-    );
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
-      'Consumo de Gás'
-    );
-    await user.type(screen.getByPlaceholderText(/unidade/i), 'm³');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'AMBIENTAL');
-    await user.click(screen.getByRole('button', { name: /^criar$/i }));
-
-    expect(
-      await screen.findByText(/não foi possível criar o indicador\./i)
-    ).toBeInTheDocument();
-
-    vi.mocked(esgMetricsApi.createEsgMetric).mockResolvedValueOnce({
-      id: 'metric-gas',
-      name: 'Consumo de Gás',
-      unit: 'm³',
-    });
-    await user.click(screen.getByRole('button', { name: /^criar$/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.queryByText(/não foi possível criar o indicador\./i)
-      ).not.toBeInTheDocument();
-    });
-  });
-});
-
 describe('CreateCompanyModal cancel', () => {
-  it('resets every field, the indicator catalog, and any error when cancelled', async () => {
+  it('resets the company fields and the indicator search when cancelled', async () => {
     const user = userEvent.setup();
     const { onClose } = renderModal();
-
-    vi.mocked(esgMetricsApi.createEsgMetric).mockResolvedValueOnce({
-      id: 'metric-custom',
-      name: 'Indicador Personalizado',
-      unit: 'un',
-    });
-    await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
-      'Indicador Personalizado'
-    );
-    await user.type(screen.getByPlaceholderText(/unidade/i), 'un');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'SOCIAL');
-    await user.click(screen.getByRole('button', { name: /^criar$/i }));
-    expect(
-      await screen.findByText('Indicador Personalizado')
-    ).toBeInTheDocument();
 
     await user.type(
       screen.getByLabelText(/nome da empresa/i),
@@ -439,21 +257,13 @@ describe('CreateCompanyModal cancel', () => {
     );
     const search = screen.getByPlaceholderText(/buscar ou criar indicador/i);
     await user.click(search);
-    await user.type(search, 'água');
-
-    vi.mocked(esgMetricsApi.createEsgMetric).mockRejectedValueOnce(
-      new ApiError(400, 'Não foi possível criar o indicador.')
-    );
-    await user.type(
-      screen.getByPlaceholderText(/nome do novo indicador/i),
-      'Rascunho'
-    );
-    await user.type(screen.getByPlaceholderText(/unidade/i), 'kg');
-    await user.selectOptions(screen.getByDisplayValue(/pilar/i), 'AMBIENTAL');
-    await user.click(screen.getByRole('button', { name: /^criar$/i }));
+    await user.click(await screen.findByText('Consumo de Água'));
     expect(
-      await screen.findByText(/não foi possível criar o indicador\./i)
+      screen.getByRole('button', { name: /remover consumo de água/i })
     ).toBeInTheDocument();
+
+    await user.click(search);
+    await user.type(search, 'resíduos');
 
     await user.click(screen.getByRole('button', { name: /cancelar/i }));
 
@@ -462,14 +272,54 @@ describe('CreateCompanyModal cancel', () => {
     expect(
       screen.getByPlaceholderText(/buscar ou criar indicador/i)
     ).toHaveValue('');
-    expect(screen.getByPlaceholderText(/nome do novo indicador/i)).toHaveValue(
-      ''
-    );
-    expect(screen.getByPlaceholderText(/unidade/i)).toHaveValue('');
-    expect(screen.getByDisplayValue(/^pilar\.\.\.$/i)).toBeInTheDocument();
     expect(
-      screen.queryByText(/não foi possível criar o indicador\./i)
+      screen.queryByRole('button', { name: /remover consumo de água/i })
     ).not.toBeInTheDocument();
+
+    await user.click(screen.getByPlaceholderText(/buscar ou criar indicador/i));
+    expect(await screen.findByText('Consumo de Água')).toBeInTheDocument();
+  });
+
+  it('discards a newly created custom indicator when the company form is cancelled', async () => {
+    vi.mocked(esgMetricsApi.createEsgMetric).mockResolvedValueOnce({
+      id: 'metric-custom',
+      name: 'Indicador Personalizado',
+      unit: 'un',
+    });
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+
+    await user.click(
+      screen.getByRole('button', { name: /\+ nova métrica customizada/i })
+    );
+    const metricDialog = screen.getByRole('dialog', {
+      name: /nova métrica customizada/i,
+    });
+    await user.type(
+      within(metricDialog).getByLabelText(/^nome$/i),
+      'Indicador Personalizado'
+    );
+    await user.type(
+      within(metricDialog).getByLabelText(/unidade de medida/i),
+      'un'
+    );
+    await user.selectOptions(
+      within(metricDialog).getByLabelText(/pilar/i),
+      'SOCIAL'
+    );
+    await user.click(
+      within(metricDialog).getByRole('button', { name: /^salvar$/i })
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: /remover indicador personalizado/i,
+      })
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancelar/i }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByText('Indicador Personalizado')
     ).not.toBeInTheDocument();
@@ -477,6 +327,29 @@ describe('CreateCompanyModal cancel', () => {
     await user.click(screen.getByPlaceholderText(/buscar ou criar indicador/i));
     expect(
       screen.queryByText('Indicador Personalizado')
+    ).not.toBeInTheDocument();
+  });
+
+  it('also closes the still-open quick-action metric modal when the company form is cancelled', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(
+      screen.getByRole('button', { name: /\+ nova métrica customizada/i })
+    );
+    expect(
+      screen.getByRole('dialog', { name: /nova métrica customizada/i })
+    ).toBeInTheDocument();
+
+    // Two "Cancelar" buttons exist while the metric modal is open (its own
+    // and the company form's); the company form's is first in DOM order.
+    const [companyCancelButton] = screen.getAllByRole('button', {
+      name: /cancelar/i,
+    });
+    await user.click(companyCancelButton);
+
+    expect(
+      screen.queryByRole('dialog', { name: /nova métrica customizada/i })
     ).not.toBeInTheDocument();
   });
 
