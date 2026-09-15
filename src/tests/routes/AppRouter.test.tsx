@@ -1,10 +1,25 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { useLocation } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AppRouter, AppRoutes } from '../../app/router/AppRouter';
 import { APP_ROUTES, buildCompanyRoutes } from '../../app/router/routes';
 import { useAuth } from '../../features/auth/useAuth';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
+
+/*
+ * CompanyLayout loads the company in scope and the selector listing as soon as
+ * a `/companies/*` route mounts. These routing assertions are about redirects
+ * only, so both calls are stubbed to keep the test off the network.
+ */
+vi.mock('../../services/api/companiesApi', () => ({
+  getCompanyById: vi.fn().mockRejectedValue(new Error('not stubbed')),
+  createCompany: vi.fn(),
+  linkCompanyEsgMetrics: vi.fn(),
+}));
+
+vi.mock('../../services/api/customersApi', () => ({
+  listCompanies: vi.fn().mockResolvedValue([]),
+}));
 
 function LocationProbe() {
   const location = useLocation();

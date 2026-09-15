@@ -20,10 +20,24 @@ export function LoginForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const login = useAuth((state) => state.login);
+  const sessionEndReason = useAuth((state) => state.sessionEndReason);
+  const clearSessionEndReason = useAuth((state) => state.clearSessionEndReason);
+
+  /*
+   * The inactivity notice is not a form error: it explains a redirect the user
+   * did not ask for. A real submission failure replaces it, so the two never
+   * stack up.
+   */
+  const notice =
+    formError ??
+    (sessionEndReason === 'inactivity'
+      ? AUTH_MESSAGES.SESSION_EXPIRED_BY_INACTIVITY
+      : null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    clearSessionEndReason();
     setIsSubmitting(true);
 
     try {
@@ -106,13 +120,13 @@ export function LoginForm() {
         </InputGroup>
       </div>
 
-      {formError ? (
+      {notice ? (
         <p
           aria-live="polite"
           className="m-0 rounded-sm border border-[#fda29b] bg-[#fef3f2] px-3 py-2.5 text-[13px] font-semibold text-[#b42318]"
           role="alert"
         >
-          {formError}
+          {notice}
         </p>
       ) : null}
 

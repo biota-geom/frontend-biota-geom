@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
 import { APP_ROUTES, buildCompanyRoutes } from '../../app/router/routes';
+import { COMPANY_MESSAGES } from '../../features/companies/companyMessages';
 import { useCompanies } from '../../features/companies/useCompanies';
 import {
   getComplianceTone,
@@ -18,10 +19,42 @@ vi.mock('../../services/api/customersApi', () => ({
 
 vi.mock('../../services/api/esgMetricsApi', () => ({
   createEsgMetric: vi.fn(),
+  listEsgMetrics: vi.fn(),
+}));
+
+vi.mock('../../services/api/sectorsApi', () => ({
+  listSectors: vi.fn(),
+}));
+
+/*
+ * getCompanyById stays real (it reads the mocked customers listing) so the
+ * card-to-dashboard navigation test keeps exercising the actual lookup.
+ */
+vi.mock('../../services/api/companiesApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/api/companiesApi')>()),
+  createCompany: vi.fn(),
+  linkCompanyEsgMetrics: vi.fn(),
 }));
 
 const customersApi = await import('../../services/api/customersApi');
 const esgMetricsApi = await import('../../services/api/esgMetricsApi');
+const sectorsApi = await import('../../services/api/sectorsApi');
+const companiesApi = await import('../../services/api/companiesApi');
+
+const SECTORS = [
+  {
+    id: 'sector-siderurgia',
+    name: 'Siderurgia',
+    description: 'Processamento e transformação de metais.',
+  },
+  { id: 'sector-agro', name: 'Agronegócio', description: null },
+];
+
+const INDICATORS = [
+  { id: 'metric-agua', name: 'Consumo de Água', unit: 'm³' },
+  { id: 'metric-residuos', name: 'Geração de Resíduos', unit: 't' },
+  { id: 'metric-co2', name: 'Emissão de CO₂', unit: 't CO₂e' },
+];
 
 const COMPANIES = [
   {
@@ -63,11 +96,79 @@ function renderAppRoutes(initialRoute = APP_ROUTES.admin.companies) {
   );
 }
 
+/*
+ * The create form has twelve fields, and userEvent's default inter-key delay
+ * makes filling it the slowest thing in this file. `delay: null` keeps every
+ * event userEvent dispatches, only without waiting between keystrokes.
+ */
+function setupUser() {
+  return userEvent.setup({ delay: null });
+}
+
+/** Opens the modal and waits for GET /sectors, which unlocks the submit button. */
+async function openCreateModal(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+  await waitFor(() => {
+    expect(
+      screen.getByRole('button', { name: /cadastrar empresa/i })
+    ).toBeEnabled();
+  });
+}
+
+async function fillCompanyForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText(/nome da empresa/i), 'Empresa Teste');
+  await user.type(screen.getByLabelText(/cnpj/i), '77666555000144');
+  await user.type(
+    screen.getByLabelText(/e-mail da empresa/i),
+    'contato@empresa.com'
+  );
+  await user.selectOptions(screen.getByLabelText(/segmento/i), 'Siderurgia');
+  await user.type(screen.getByLabelText(/logradouro/i), 'Av. Assis Brasil');
+  await user.type(screen.getByLabelText(/^número/i), '1234');
+  await user.type(screen.getByLabelText(/^cidade/i), 'Porto Alegre');
+  await user.type(screen.getByLabelText(/^estado/i), 'RS');
+  await user.type(screen.getByLabelText(/^cep/i), '91010-000');
+  await user.type(
+    screen.getByLabelText(/responsável ambiental/i),
+    'Maria Silva'
+  );
+  await user.type(
+    screen.getByLabelText(/e-mail do responsável/i),
+    'maria@empresa.com'
+  );
+  await user.type(
+    screen.getByLabelText(/telefone do responsável/i),
+    '(51) 99999-0000'
+  );
+}
+
+const EXPECTED_CREATE_PAYLOAD = {
+  name: 'Empresa Teste',
+  document: '77666555000144',
+  document_type: 'CNPJ',
+  sector_id: 'sector-siderurgia',
+  email: 'contato@empresa.com',
+  owner_name: 'Maria Silva',
+  owner_email: 'maria@empresa.com',
+  owner_phone: '(51) 99999-0000',
+  address: {
+    type: 'BILLING',
+    street: 'Av. Assis Brasil',
+    number: '1234',
+    city: 'Porto Alegre',
+    state: 'RS',
+    postal_code: '91010-000',
+    country_code: 'BR',
+  },
+};
+
 describe('AdminCompaniesPage', () => {
   beforeEach(() => {
     useCompanies.setState({ companies: [], status: 'idle', error: null });
     vi.resetAllMocks();
     vi.restoreAllMocks();
+    vi.mocked(sectorsApi.listSectors).mockResolvedValue(SECTORS);
+    vi.mocked(esgMetricsApi.listEsgMetrics).mockResolvedValue(INDICATORS);
   });
 
   it('fetches and renders company cards from the customers API', async () => {
@@ -101,7 +202,7 @@ describe('AdminCompaniesPage', () => {
       new ApiError(500, 'Erro ao carregar empresas.')
     );
 
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
 
     await waitFor(() => {
@@ -134,7 +235,7 @@ describe('AdminCompaniesPage', () => {
 
   it('navigates from a company card to the company dashboard', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
 
     const companyCard = await screen.findByRole('article', {
@@ -217,7 +318,7 @@ describe('AdminCompaniesPage', () => {
 
   it('opens and closes the create company modal', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
 
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
@@ -231,32 +332,44 @@ describe('AdminCompaniesPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('disables submit until every required field is valid', async () => {
+  it('loads the real sectors into the segment select and unlocks submit', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
 
-    const submitButton = screen.getByRole('button', {
-      name: /cadastrar empresa/i,
-    });
-    expect(submitButton).toBeDisabled();
-
-    await user.type(screen.getByLabelText(/nome da empresa/i), 'Empresa Teste');
-    await user.type(screen.getByLabelText(/cnpj/i), '12345678000199');
-    await user.selectOptions(screen.getByLabelText(/segmento/i), 'Siderurgia');
-    await user.type(screen.getByLabelText(/^estado/i), 'RS');
-    await user.type(screen.getByLabelText(/^cidade/i), 'Porto Alegre');
-    await user.type(
-      screen.getByLabelText(/responsável ambiental/i),
-      'Maria Silva'
+    expect(
+      await screen.findByRole('option', { name: 'Siderurgia' })
+    ).toHaveValue('sector-siderurgia');
+    expect(screen.getByRole('option', { name: 'Agronegócio' })).toHaveValue(
+      'sector-agro'
     );
-    await user.type(
-      screen.getByLabelText(/e-mail do responsável/i),
-      'maria@empresa.com'
+    expect(
+      screen.getByRole('button', { name: /cadastrar empresa/i })
+    ).toBeEnabled();
+    expect(sectorsApi.listSectors).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to submit and reports the missing fields when the form is empty', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    const user = setupUser();
+    renderAppRoutes();
+    await openCreateModal(user);
+
+    await user.click(
+      screen.getByRole('button', { name: /cadastrar empresa/i })
     );
 
-    expect(submitButton).toBeEnabled();
+    expect(
+      screen.getByText(COMPANY_MESSAGES.NAME_REQUIRED)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(COMPANY_MESSAGES.RESPONSIBLE_PHONE_REQUIRED)
+    ).toBeInTheDocument();
+    expect(companiesApi.createCompany).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('dialog', { name: /cadastrar nova empresa/i })
+    ).toBeInTheDocument();
   });
 
   it('creates a new indicator via a real POST and selects it as a chip', async () => {
@@ -266,7 +379,7 @@ describe('AdminCompaniesPage', () => {
       name: 'Consumo de Energia',
       unit: 'kWh',
     });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
 
@@ -294,7 +407,7 @@ describe('AdminCompaniesPage', () => {
     vi.mocked(esgMetricsApi.createEsgMetric).mockRejectedValue(
       new ApiError(400, 'Não foi possível criar o indicador.')
     );
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
 
@@ -313,7 +426,7 @@ describe('AdminCompaniesPage', () => {
 
   it('resets the form when cancelled and reopened', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
 
@@ -327,38 +440,125 @@ describe('AdminCompaniesPage', () => {
     expect(screen.getByLabelText(/nome da empresa/i)).toHaveValue('');
   });
 
-  it('submits the form with the correct payload shape', async () => {
+  it('registers the company, reloads the listing and closes the modal', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
-    const user = userEvent.setup();
+    vi.mocked(companiesApi.createCompany).mockResolvedValue({
+      id: 'customer-new',
+      name: 'Empresa Teste',
+    });
+    const user = setupUser();
     renderAppRoutes();
-    await user.click(screen.getByRole('button', { name: /nova empresa/i }));
+    await openCreateModal(user);
 
-    await user.type(screen.getByLabelText(/nome da empresa/i), 'Empresa Teste');
-    await user.type(screen.getByLabelText(/cnpj/i), '12345678000199');
-    await user.selectOptions(screen.getByLabelText(/segmento/i), 'Siderurgia');
-    await user.type(screen.getByLabelText(/^estado/i), 'RS');
-    await user.type(screen.getByLabelText(/^cidade/i), 'Porto Alegre');
-    await user.type(
-      screen.getByLabelText(/responsável ambiental/i),
-      'Maria Silva'
-    );
-    await user.type(
-      screen.getByLabelText(/e-mail do responsável/i),
-      'maria@empresa.com'
-    );
-
+    await fillCompanyForm(user);
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
     await user.click(
       screen.getByRole('button', { name: /cadastrar empresa/i })
     );
 
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: /cadastrar nova empresa/i })
+      ).not.toBeInTheDocument();
+    });
+    expect(companiesApi.createCompany).toHaveBeenCalledWith(
+      EXPECTED_CREATE_PAYLOAD
+    );
+    expect(companiesApi.linkCompanyEsgMetrics).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('article', { name: /unidade industrial rs/i })
+    ).toBeInTheDocument();
+  });
+
+  it('links the selected ESG indicators to the company it just created', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    vi.mocked(companiesApi.createCompany).mockResolvedValue({
+      id: 'customer-new',
+      name: 'Empresa Teste',
+    });
+    vi.mocked(companiesApi.linkCompanyEsgMetrics).mockResolvedValue(undefined);
+    const user = setupUser();
+    renderAppRoutes();
+    await openCreateModal(user);
+
+    await fillCompanyForm(user);
+    await user.click(screen.getByPlaceholderText(/buscar ou criar indicador/i));
+    await user.click(await screen.findByText('Consumo de Água'));
+    await user.click(
+      screen.getByRole('button', { name: /cadastrar empresa/i })
+    );
+
+    await waitFor(() => {
+      expect(companiesApi.linkCompanyEsgMetrics).toHaveBeenCalledWith(
+        'customer-new',
+        ['metric-agua']
+      );
+    });
     expect(
       screen.queryByRole('dialog', { name: /cadastrar nova empresa/i })
     ).not.toBeInTheDocument();
   });
 
+  it('keeps the modal open with the backend message when the CNPJ already exists', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    vi.mocked(companiesApi.createCompany).mockRejectedValue(
+      new ApiError(409, 'Já existe uma empresa cadastrada com este CNPJ.')
+    );
+    const user = setupUser();
+    renderAppRoutes();
+    await openCreateModal(user);
+
+    await fillCompanyForm(user);
+    await user.click(
+      screen.getByRole('button', { name: /cadastrar empresa/i })
+    );
+
+    expect(
+      await screen.findByText('Já existe uma empresa cadastrada com este CNPJ.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: /cadastrar nova empresa/i })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/nome da empresa/i)).toHaveValue(
+      'Empresa Teste'
+    );
+  });
+
+  it('says the company was created when only the ESG link fails, and still reloads the listing', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
+    vi.mocked(companiesApi.createCompany).mockResolvedValue({
+      id: 'customer-new',
+      name: 'Empresa Teste',
+    });
+    vi.mocked(companiesApi.linkCompanyEsgMetrics).mockRejectedValue(
+      new ApiError(400, 'Indicador inexistente.')
+    );
+    const user = setupUser();
+    renderAppRoutes();
+    await openCreateModal(user);
+
+    await fillCompanyForm(user);
+    await user.click(screen.getByPlaceholderText(/buscar ou criar indicador/i));
+    await user.click(await screen.findByText('Consumo de Água'));
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    await user.click(
+      screen.getByRole('button', { name: /cadastrar empresa/i })
+    );
+
+    expect(
+      await screen.findByText(COMPANY_MESSAGES.CREATED_WITHOUT_ESG_METRICS)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: /cadastrar nova empresa/i })
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(customersApi.listCompanies).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('selects an existing indicator from the dropdown and removes it via its chip', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
 
@@ -376,7 +576,7 @@ describe('AdminCompaniesPage', () => {
 
   it('shows a message once every indicator has been selected', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([]);
-    const user = userEvent.setup();
+    const user = setupUser();
     renderAppRoutes();
     await user.click(screen.getByRole('button', { name: /nova empresa/i }));
 

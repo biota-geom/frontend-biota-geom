@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/shadcn/button';
-import type { CompanyNavigationItem } from '../../features/companies/companyNavigation.mock';
+import type { Company } from '../../features/companies/types';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { cn } from '../../utils/cn';
 import {
@@ -13,7 +13,15 @@ import {
 
 type CompanyDropdownProps = {
   activeCompanyId?: string;
-  companies?: CompanyNavigationItem[];
+  companies?: Company[];
+  /**
+   * The registered companies are still being fetched. The panel then announces
+   * that instead of listing options, so the selector never offers a company
+   * that would navigate nowhere.
+   */
+  isLoadingCompanies?: boolean;
+  /** Message to show in place of the options when the listing failed. */
+  companiesError?: string | null;
   contextLabel?: string;
   className?: string;
 };
@@ -21,6 +29,8 @@ type CompanyDropdownProps = {
 export function CompanyDropdown({
   activeCompanyId,
   companies = [],
+  isLoadingCompanies = false,
+  companiesError = null,
   contextLabel,
   className,
 }: CompanyDropdownProps) {
@@ -47,25 +57,35 @@ export function CompanyDropdown({
   const location = useLocation();
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId);
-  // `contextLabel` carries the authoritative name for the company currently
-  // in scope (e.g. fetched from the backend). It takes precedence over the
-  // mocked navigation list, which may not contain that company yet.
+  // `contextLabel` carries the authoritative name for the company currently in
+  // scope (GET /customers/:id). It takes precedence over the listing, which may
+  // still be loading — or may have failed — while the context is already known.
   const activeLabel =
     contextLabel ?? activeCompany?.name ?? 'Empresa em contexto';
 
   const shouldShowSearch = companies.length > 10;
 
-  // Filtra por nome, cidade ou segmento conforme o campo de busca
+  // Filtra por nome, localização ou segmento conforme o campo de busca
   const filteredCompanies = shouldShowSearch
     ? companies.filter((c) => {
         const query = searchTerm.toLowerCase().trim();
         return (
           c.name.toLowerCase().includes(query) ||
-          (c.city && c.city.toLowerCase().includes(query)) ||
+          (c.location && c.location.toLowerCase().includes(query)) ||
           (c.segment && c.segment.toLowerCase().includes(query))
         );
       })
     : companies;
+
+  /*
+   * While the listing is in flight (or has failed) the panel shows a single
+   * line of copy rather than options — an empty list would otherwise read as
+   * "no companies registered", and a stale one would offer dead links.
+   */
+  const panelMessage = isLoadingCompanies
+    ? 'Carregando empresas...'
+    : (companiesError ??
+      (filteredCompanies.length === 0 ? 'Nenhuma empresa encontrada' : null));
 
   const handleSelectCompany = (companyId: string) => {
     setIsOpen(false);
@@ -135,9 +155,9 @@ export function CompanyDropdown({
           )}
 
           <div className="max-h-60 overflow-y-auto">
-            {filteredCompanies.length === 0 ? (
+            {panelMessage ? (
               <div className="px-3 py-2 text-center text-xs text-text-muted">
-                Nenhuma empresa encontrada
+                {panelMessage}
               </div>
             ) : (
               filteredCompanies.map((company) => {
@@ -159,9 +179,9 @@ export function CompanyDropdown({
                       <span className="truncate text-sm font-medium">
                         {company.name}
                       </span>
-                      {company.city && company.state && (
+                      {company.location && (
                         <span className="text-[11px] text-text-muted">
-                          {company.city} - {company.state}
+                          {company.location}
                         </span>
                       )}
                     </div>

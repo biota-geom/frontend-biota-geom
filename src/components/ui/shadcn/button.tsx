@@ -25,7 +25,7 @@ const buttonVariants = cva('', {
         'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white disabled:cursor-default disabled:opacity-100 max-[720px]:w-full',
       /* Listing filter dropdown trigger. */
       filter:
-        'rounded-control inline-flex min-h-[38px] items-center justify-center gap-2 border border-border bg-surface px-4 text-text-secondary disabled:cursor-default disabled:opacity-100',
+        'rounded-control inline-flex min-h-[38px] items-center justify-center gap-2 border border-border bg-surface px-4 text-text-secondary disabled:cursor-default disabled:opacity-100 max-[820px]:w-full',
       /* Header company-context switcher. */
       context:
         'rounded-panel inline-flex min-h-[34px] items-center justify-center gap-2 border border-border bg-surface-muted px-3 text-[13px] font-bold text-text-primary disabled:cursor-default disabled:opacity-100',

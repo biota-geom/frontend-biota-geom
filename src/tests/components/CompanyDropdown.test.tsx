@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { CompanyDropdown } from '../../components/layout/CompanyDropdown';
-import type { CompanyNavigationItem } from '../../features/companies/companyNavigation.mock';
+import type { Company } from '../../features/companies/types';
 
 // Mock do react-router-dom para capturar navegações
 const mockNavigate = vi.fn();
@@ -12,51 +12,33 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-const mockCompanies: CompanyNavigationItem[] = [
+const mockCompanies: Company[] = [
   {
-    attentionCount: 0,
-    city: 'Porto Alegre',
-    compliance: 100,
+    location: 'Porto Alegre - RS',
     id: 'unidade-rs',
-    licenseCount: 6,
     name: 'Unidade Industrial RS',
-    overdueCount: 0,
     segment: 'Siderurgia',
-    state: 'RS',
     status: 'active',
-    updatedAt: 'Hoje',
   },
   {
-    attentionCount: 1,
-    city: 'Sorocaba',
-    compliance: 85,
+    location: 'Sorocaba - SP',
     id: 'fabrica-sp',
-    licenseCount: 4,
     name: 'Fábrica São Paulo',
-    overdueCount: 0,
     segment: 'Metalúrgica',
-    state: 'SP',
     status: 'active',
-    updatedAt: 'Hoje',
   },
   {
-    attentionCount: 0,
-    city: 'Curitiba',
-    compliance: 90,
+    location: 'Curitiba - PR',
     id: 'empresa-nome-longo-excepcionalmente-extenso',
-    licenseCount: 2,
     name: 'Empresa Super Longa de Testes com Nome Extenso Demais Ltda',
-    overdueCount: 0,
     segment: 'Serviços',
-    state: 'PR',
     status: 'active',
-    updatedAt: 'Hoje',
   },
 ];
 
 function renderDropdown(
   activeCompanyId: string = 'unidade-rs',
-  companies: CompanyNavigationItem[] = mockCompanies,
+  companies: Company[] = mockCompanies,
   initialRoute: string = '/companies/unidade-rs/indicators'
 ) {
   return render(
@@ -164,22 +146,13 @@ describe('CompanyDropdown', () => {
 
   it('renders search input when company list > 10 items and filters results', async () => {
     const user = userEvent.setup();
-    const manyCompanies: CompanyNavigationItem[] = Array.from(
-      { length: 12 },
-      (_, i) => ({
-        attentionCount: 0,
-        city: i % 2 === 0 ? 'Porto Alegre' : 'São Paulo',
-        compliance: 100,
-        id: `empresa-${i + 1}`,
-        licenseCount: 1,
-        name: `Empresa ${i + 1}`,
-        overdueCount: 0,
-        segment: 'Outros',
-        state: i % 2 === 0 ? 'RS' : 'SP',
-        status: 'active',
-        updatedAt: 'Hoje',
-      })
-    );
+    const manyCompanies: Company[] = Array.from({ length: 12 }, (_, i) => ({
+      location: i % 2 === 0 ? 'Porto Alegre - RS' : 'São Paulo - SP',
+      id: `empresa-${i + 1}`,
+      name: `Empresa ${i + 1}`,
+      segment: 'Outros',
+      status: 'active',
+    }));
 
     renderDropdown('empresa-1', manyCompanies);
 
@@ -202,22 +175,13 @@ describe('CompanyDropdown', () => {
 
   it('renders empty message when search matches no companies', async () => {
     const user = userEvent.setup();
-    const manyCompanies: CompanyNavigationItem[] = Array.from(
-      { length: 12 },
-      (_, i) => ({
-        attentionCount: 0,
-        city: 'POA',
-        compliance: 100,
-        id: `company-${i}`,
-        licenseCount: 1,
-        name: `Company ${i}`,
-        overdueCount: 0,
-        segment: 'Test',
-        state: 'RS',
-        status: 'active',
-        updatedAt: 'Hoje',
-      })
-    );
+    const manyCompanies: Company[] = Array.from({ length: 12 }, (_, i) => ({
+      location: 'POA - RS',
+      id: `company-${i}`,
+      name: `Company ${i}`,
+      segment: 'Test',
+      status: 'active',
+    }));
 
     renderDropdown('company-0', manyCompanies);
 
@@ -380,22 +344,13 @@ describe('CompanyDropdown', () => {
 
   it('reseta o termo de busca ao selecionar uma empresa', async () => {
     const user = userEvent.setup();
-    const manyCompanies: CompanyNavigationItem[] = Array.from(
-      { length: 12 },
-      (_, i) => ({
-        attentionCount: 0,
-        city: 'Porto Alegre',
-        compliance: 100,
-        id: `empresa-${i + 1}`,
-        licenseCount: 1,
-        name: `Empresa ${i + 1}`,
-        overdueCount: 0,
-        segment: 'Outros',
-        state: 'RS',
-        status: 'active',
-        updatedAt: 'Hoje',
-      })
-    );
+    const manyCompanies: Company[] = Array.from({ length: 12 }, (_, i) => ({
+      location: 'Porto Alegre - RS',
+      id: `empresa-${i + 1}`,
+      name: `Empresa ${i + 1}`,
+      segment: 'Outros',
+      status: 'active',
+    }));
 
     renderDropdown('empresa-1', manyCompanies);
 
@@ -427,22 +382,13 @@ describe('CompanyDropdown', () => {
 
   it('does not render the search input for exactly 10 companies (boundary)', async () => {
     const user = userEvent.setup();
-    const tenCompanies: CompanyNavigationItem[] = Array.from(
-      { length: 10 },
-      (_, i) => ({
-        attentionCount: 0,
-        city: 'Porto Alegre',
-        compliance: 100,
-        id: `empresa-${i + 1}`,
-        licenseCount: 1,
-        name: `Empresa ${i + 1}`,
-        overdueCount: 0,
-        segment: 'Outros',
-        state: 'RS',
-        status: 'active',
-        updatedAt: 'Hoje',
-      })
-    );
+    const tenCompanies: Company[] = Array.from({ length: 10 }, (_, i) => ({
+      location: 'Porto Alegre - RS',
+      id: `empresa-${i + 1}`,
+      name: `Empresa ${i + 1}`,
+      segment: 'Outros',
+      status: 'active',
+    }));
 
     renderDropdown('empresa-1', tenCompanies);
 
@@ -461,22 +407,13 @@ describe('CompanyDropdown', () => {
 
   it('ignores leading/trailing whitespace when filtering by search term', async () => {
     const user = userEvent.setup();
-    const manyCompanies: CompanyNavigationItem[] = Array.from(
-      { length: 12 },
-      (_, i) => ({
-        attentionCount: 0,
-        city: 'Porto Alegre',
-        compliance: 100,
-        id: `empresa-${i + 1}`,
-        licenseCount: 1,
-        name: `Empresa ${i + 1}`,
-        overdueCount: 0,
-        segment: 'Outros',
-        state: 'RS',
-        status: 'active',
-        updatedAt: 'Hoje',
-      })
-    );
+    const manyCompanies: Company[] = Array.from({ length: 12 }, (_, i) => ({
+      location: 'Porto Alegre - RS',
+      id: `empresa-${i + 1}`,
+      name: `Empresa ${i + 1}`,
+      segment: 'Outros',
+      status: 'active',
+    }));
 
     renderDropdown('empresa-1', manyCompanies);
 
@@ -493,31 +430,25 @@ describe('CompanyDropdown', () => {
     ).toBeInTheDocument();
   });
 
-  it('filters companies by city, case-insensitively', async () => {
+  it('filters companies by location, case-insensitively', async () => {
     const user = userEvent.setup();
-    const companiesByCity: CompanyNavigationItem[] = Array.from(
+    const companiesByLocation: Company[] = Array.from(
       { length: 11 },
       (_, i) => ({
-        attentionCount: 0,
-        city: i === 5 ? 'Manaus' : 'Curitiba',
-        compliance: 100,
+        location: i === 5 ? 'Manaus - RS' : 'Curitiba - RS',
         id: `empresa-${i + 1}`,
-        licenseCount: 1,
         name: `Empresa ${i + 1}`,
-        overdueCount: 0,
         segment: 'Outros',
-        state: 'RS',
         status: 'active',
-        updatedAt: 'Hoje',
       })
     );
 
-    renderDropdown('empresa-1', companiesByCity);
+    renderDropdown('empresa-1', companiesByLocation);
 
     await user.click(
       screen.getByRole('button', { name: /empresa em contexto/i })
     );
-    // Busca em minúsculas por uma cidade armazenada com inicial maiúscula
+    // Busca em minúsculas por uma localização armazenada com inicial maiúscula
     await user.type(screen.getByPlaceholderText(/buscar empresa/i), 'manaus');
 
     const options = screen.getAllByRole('option');
@@ -527,20 +458,14 @@ describe('CompanyDropdown', () => {
 
   it('filters companies by segment, case-insensitively', async () => {
     const user = userEvent.setup();
-    const companiesBySegment: CompanyNavigationItem[] = Array.from(
+    const companiesBySegment: Company[] = Array.from(
       { length: 11 },
       (_, i) => ({
-        attentionCount: 0,
-        city: 'Curitiba',
-        compliance: 100,
+        location: 'Curitiba - RS',
         id: `empresa-${i + 1}`,
-        licenseCount: 1,
         name: `Empresa ${i + 1}`,
-        overdueCount: 0,
         segment: i === 8 ? 'Bioenergia' : 'Outros',
-        state: 'RS',
         status: 'active',
-        updatedAt: 'Hoje',
       })
     );
 
@@ -560,35 +485,31 @@ describe('CompanyDropdown', () => {
     expect(options[0]).toHaveTextContent('Empresa 9');
   });
 
-  it('shows the city-state line only when both fields are present', async () => {
+  it('renders the location line the backend already joined, and skips it when empty', async () => {
     const user = userEvent.setup();
-    const mixedCompanies: CompanyNavigationItem[] = [
+    // `location` chega pronta do backend ("Cidade - UF"); o dropdown só a
+    // repassa, sem remontar cidade/estado por conta própria.
+    const mixedCompanies: Company[] = [
       {
         ...mockCompanies[0],
-        id: 'ambos',
-        name: 'Empresa Completa',
-        city: 'Recife',
-        state: 'PE',
+        id: 'com-local',
+        name: 'Empresa Com Local',
+        location: 'Recife - PE',
       },
       {
         ...mockCompanies[0],
-        id: 'so-cidade',
-        name: 'Empresa Só Cidade',
-        city: 'Recife',
-        state: '',
-      },
-      {
-        ...mockCompanies[0],
-        id: 'so-estado',
-        name: 'Empresa Só Estado',
-        city: '',
-        state: 'PE',
+        id: 'sem-local',
+        name: 'Empresa Sem Local',
+        location: '',
       },
     ];
 
     render(
-      <MemoryRouter initialEntries={['/companies/ambos/dashboard']}>
-        <CompanyDropdown activeCompanyId="ambos" companies={mixedCompanies} />
+      <MemoryRouter initialEntries={['/companies/com-local/dashboard']}>
+        <CompanyDropdown
+          activeCompanyId="com-local"
+          companies={mixedCompanies}
+        />
       </MemoryRouter>
     );
 
@@ -596,20 +517,61 @@ describe('CompanyDropdown', () => {
       screen.getByRole('button', { name: /empresa em contexto/i })
     );
 
-    // A empresa com os dois campos mostra a linha "Cidade - Estado"
     expect(screen.getByText('Recife - PE')).toBeInTheDocument();
 
-    const cityOnlyOption = screen.getByRole('option', {
-      name: /empresa só cidade/i,
+    // Sem localização, a opção mostra apenas o nome — nada de separador solto
+    const withoutLocation = screen.getByRole('option', {
+      name: /empresa sem local/i,
     });
-    const stateOnlyOption = screen.getByRole('option', {
-      name: /empresa só estado/i,
-    });
+    expect(withoutLocation.textContent).toBe('Empresa Sem Local');
+  });
 
-    // Com apenas um dos dois campos preenchido, nenhum valor solto de
-    // cidade/estado deve vazar para a opção (ex.: "Recife" ou "PE" soltos)
-    expect(cityOnlyOption.textContent).not.toContain('Recife');
-    expect(stateOnlyOption.textContent).not.toContain('PE');
+  it('announces the loading listing instead of offering options that lead nowhere', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={['/companies/unidade-rs/dashboard']}>
+        <CompanyDropdown
+          activeCompanyId="unidade-rs"
+          companies={[]}
+          contextLabel="Unidade Industrial RS"
+          isLoadingCompanies
+        />
+      </MemoryRouter>
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+
+    expect(screen.getByText('Carregando empresas...')).toBeInTheDocument();
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+  });
+
+  it('surfaces the listing error in the panel instead of an empty-list message', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={['/companies/unidade-rs/dashboard']}>
+        <CompanyDropdown
+          activeCompanyId="unidade-rs"
+          companies={[]}
+          companiesError="Não foi possível carregar as empresas cadastradas."
+        />
+      </MemoryRouter>
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /empresa em contexto/i })
+    );
+
+    expect(
+      screen.getByText('Não foi possível carregar as empresas cadastradas.')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Nenhuma empresa encontrada')
+    ).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
   });
 
   it('rotates the chevron indicator while open and resets it when closed', async () => {

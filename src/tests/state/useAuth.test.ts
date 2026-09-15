@@ -24,7 +24,7 @@ function makeToken(payload: Record<string, unknown>): string {
 describe('useAuth store', () => {
   beforeEach(() => {
     localStorage.clear();
-    useAuth.setState({ user: null, status: 'idle' });
+    useAuth.setState({ user: null, status: 'idle', sessionEndReason: null });
     // resetAllMocks (not just clearAllMocks) so a mockResolvedValue/
     // mockRejectedValue configured in one test can never leak into the next.
     vi.resetAllMocks();
@@ -160,6 +160,88 @@ describe('useAuth store', () => {
       expect(useAuth.getState().user).toBeNull();
       expect(authStorage.getAccessToken()).toBeNull();
       expect(authStorage.getRefreshToken()).toBeNull();
+    });
+
+    it('logout leaves no expiry reason behind, so the login screen stays quiet', () => {
+      useAuth.setState({
+        user: MOCK_AUTH_USER,
+        status: 'authenticated',
+        sessionEndReason: 'inactivity',
+      });
+
+      useAuth.getState().logout();
+
+      expect(useAuth.getState().sessionEndReason).toBeNull();
+    });
+
+    it('login drops a previous expiry reason', async () => {
+      useAuth.setState({ sessionEndReason: 'inactivity' });
+      vi.mocked(authApi.login).mockResolvedValue({
+        user: MOCK_AUTH_USER,
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+      });
+
+      await useAuth.getState().login({ email: 'x@x.com', password: 'y' });
+
+      expect(useAuth.getState().sessionEndReason).toBeNull();
+    });
+
+    it('register drops a previous expiry reason', async () => {
+      useAuth.setState({ sessionEndReason: 'inactivity' });
+      vi.mocked(authApi.register).mockResolvedValue({
+        user: MOCK_AUTH_USER,
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+      });
+
+      await useAuth.getState().register({
+        name: 'John Doe',
+        email: 'x@x.com',
+        password: 'y',
+        passwordConfirmation: 'y',
+      });
+
+      expect(useAuth.getState().sessionEndReason).toBeNull();
+    });
+  });
+
+  describe('expireSessionForInactivity', () => {
+    it('clears the session and records why it ended', () => {
+      authStorage.setTokens('access-1', 'refresh-1');
+      authStorage.setLastActivityAt(Date.now());
+      useAuth.setState({ user: MOCK_AUTH_USER, status: 'authenticated' });
+
+      useAuth.getState().expireSessionForInactivity();
+
+      expect(useAuth.getState().status).toBe('unauthenticated');
+      expect(useAuth.getState().user).toBeNull();
+      expect(useAuth.getState().sessionEndReason).toBe('inactivity');
+      expect(authStorage.getAccessToken()).toBeNull();
+      expect(authStorage.getRefreshToken()).toBeNull();
+      expect(authStorage.getLastActivityAt()).toBeNull();
+    });
+
+    it('is a no-op when no one is authenticated, so a stray timer cannot relabel a deliberate logout', () => {
+      useAuth.setState({ user: null, status: 'unauthenticated' });
+
+      useAuth.getState().expireSessionForInactivity();
+
+      expect(useAuth.getState().sessionEndReason).toBeNull();
+    });
+
+    it('clearSessionEndReason takes the notice away without touching the session', () => {
+      useAuth.setState({
+        user: MOCK_AUTH_USER,
+        status: 'authenticated',
+        sessionEndReason: 'inactivity',
+      });
+
+      useAuth.getState().clearSessionEndReason();
+
+      expect(useAuth.getState().sessionEndReason).toBeNull();
+      expect(useAuth.getState().status).toBe('authenticated');
+      expect(useAuth.getState().user).toEqual(MOCK_AUTH_USER);
     });
   });
 

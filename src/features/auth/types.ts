@@ -14,6 +14,12 @@ export interface AuthSession {
   refreshToken: string;
 }
 
+/*
+ * Why a session ended without the user asking for it. Only the login screen
+ * reads it, to explain the redirect instead of showing a credentials error.
+ */
+export type SessionEndReason = 'inactivity';
+
 export type AuthStatus =
   'idle' | 'loading' | 'authenticated' | 'unauthenticated';
 

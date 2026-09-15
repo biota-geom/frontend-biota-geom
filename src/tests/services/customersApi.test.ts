@@ -5,7 +5,8 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { listCompanies } = await import('../../services/api/customersApi');
+const { listCompanies, toCompanyStatus } =
+  await import('../../services/api/customersApi');
 
 describe('customersApi', () => {
   it('listCompanies() fetches /customers and maps status to the domain shape', async () => {
@@ -45,5 +46,26 @@ describe('customersApi', () => {
         location: 'São Paulo - SP',
       },
     ]);
+  });
+
+  /*
+   * Divergência confirmada no backend: GET /customers devolve o rótulo em
+   * PT-BR e GET /customers/:id devolve o enum em inglês. As duas grafias são
+   * normalizadas aqui para que o detalhe não caia silenciosamente em
+   * "inactive".
+   */
+  describe('toCompanyStatus()', () => {
+    it.each([
+      ['Ativo', 'active'],
+      ['ativo', 'active'],
+      ['active', 'active'],
+      ['  Active  ', 'active'],
+      ['Inativo', 'inactive'],
+      ['inactive', 'inactive'],
+      ['', 'inactive'],
+      ['desconhecido', 'inactive'],
+    ])('maps %s to %s', (wire, expected) => {
+      expect(toCompanyStatus(wire)).toBe(expected);
+    });
   });
 });
