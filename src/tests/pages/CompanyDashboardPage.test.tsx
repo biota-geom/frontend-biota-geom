@@ -1,16 +1,26 @@
 import { screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
 import type { Company } from '../../features/companies/types';
+import { useCompanies } from '../../features/companies/useCompanies';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
+import { ApiError } from '../../services/api/apiError';
 import { getCompanyById } from '../../services/api/companiesApi';
+import { listCompanies } from '../../services/api/customersApi';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
 vi.mock('../../services/api/companiesApi', () => ({
   getCompanyById: vi.fn(),
+  createCompany: vi.fn(),
+  linkCompanyEsgMetrics: vi.fn(),
+}));
+
+vi.mock('../../services/api/customersApi', () => ({
+  listCompanies: vi.fn(),
 }));
 
 const mockedGetCompanyById = vi.mocked(getCompanyById);
+const mockedListCompanies = vi.mocked(listCompanies);
 
 const company: Company = {
   id: 'company-1',
@@ -20,12 +30,15 @@ const company: Company = {
   location: 'Porto Alegre - RS',
 };
 
-afterEach(() => {
+beforeEach(() => {
+  vi.clearAllMocks();
+  useCompanies.setState({ companies: [], status: 'idle', error: null });
   useCompanyContext.getState().clearCompany();
+  mockedListCompanies.mockResolvedValue([company]);
 });
 
 describe('CompanyDashboardPage', () => {
-  it('loads the route id and saves the company scope globally', async () => {
+  it('renders the company scope loaded once by the layout', async () => {
     mockedGetCompanyById.mockResolvedValue(company);
 
     renderWithAuth(<AppRoutes />, {
@@ -43,6 +56,8 @@ describe('CompanyDashboardPage', () => {
     });
 
     expect(mockedGetCompanyById).toHaveBeenCalledWith('company-1');
+    // A busca vive só no CompanyLayout: a página não repete a chamada
+    expect(mockedGetCompanyById).toHaveBeenCalledTimes(1);
     expect(useCompanyContext.getState().company).toEqual(company);
     expect(
       screen.getByRole('button', { name: 'Empresa em contexto' })
@@ -50,7 +65,9 @@ describe('CompanyDashboardPage', () => {
   });
 
   it('shows a not found state and links back to the company list', async () => {
-    mockedGetCompanyById.mockRejectedValue(new Error('not found'));
+    mockedGetCompanyById.mockRejectedValue(
+      new ApiError(404, 'Empresa não encontrada')
+    );
 
     renderWithAuth(<AppRoutes />, {
       status: 'authenticated',

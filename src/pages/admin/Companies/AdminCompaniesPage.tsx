@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -10,22 +10,30 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/shadcn/card';
-import { Input } from '@/components/ui/shadcn/input';
-import { InputGroup } from '@/components/ui/shadcn/input-group';
 import { buildCompanyRoutes } from '../../../app/router/routes';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import {
   ArrowRightIcon,
-  ChevronDownIcon,
   EditIcon,
-  SearchIcon,
   TrashIcon,
 } from '../../../components/ui/icons';
+import {
+  EMPTY_COMPANY_FILTERS,
+  filterCompanies,
+  listSegmentOptions,
+} from '../../../features/companies/companyFilters';
+import { COMPANY_MESSAGES } from '../../../features/companies/companyMessages';
 import { useCompanies } from '../../../features/companies/useCompanies';
 import { getStatusLabel } from './companyCardFormatting';
 import { useState } from 'react';
+import { CompanyFilters } from './components/CompanyFilters';
 import { CreateCompanyModal } from './components/CreateCompanyModal';
-import type { CreateCompanyRequest } from '../../../features/companies/createCompany.types';
+import type { CreateCompanySubmission } from '../../../features/companies/createCompany.types';
+import { ApiError } from '../../../services/api/apiError';
+import {
+  createCompany,
+  linkCompanyEsgMetrics,
+} from '../../../services/api/companiesApi';
 
 export function AdminCompaniesPage() {
   const { companies, status, error, fetchCompanies } = useCompanies();
@@ -35,14 +43,46 @@ export function AdminCompaniesPage() {
   }, [fetchCompanies]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_COMPANY_FILTERS);
 
-  function handleCreateCompany(payload: CreateCompanyRequest) {
-    // TODO(#45): replace console logging with real state/query invalidation
-    // once POST /api/customers exists and MOCK_COMPANY_NAVIGATION_ITEMS is
-    // replaced by fetched data.
-    console.log('create company payload', payload);
+  const segmentOptions = useMemo(
+    () => listSegmentOptions(companies),
+    [companies]
+  );
+  const visibleCompanies = useMemo(
+    () => filterCompanies(companies, filters),
+    [companies, filters]
+  );
+
+  async function handleCreateCompany({
+    company,
+    esgMetricIds,
+  }: CreateCompanySubmission) {
+    const created = await createCompany(company);
+
+    if (esgMetricIds.length > 0) {
+      try {
+        await linkCompanyEsgMetrics(created.id, esgMetricIds);
+      } catch (linkError) {
+        /*
+         * The company itself is already persisted, so the listing has to
+         * refresh even though the modal stays open: reporting a plain failure
+         * would push the user into retrying a registration that could only
+         * answer 409 on the CNPJ. The status carries over so the modal treats
+         * it like any other backend error, with copy that says what happened.
+         */
+        await fetchCompanies();
+        throw new ApiError(
+          linkError instanceof ApiError ? linkError.status : 0,
+          COMPANY_MESSAGES.CREATED_WITHOUT_ESG_METRICS
+        );
+      }
+    }
+
+    await fetchCompanies();
     setIsCreateModalOpen(false);
   }
+
   return (
     <PageScaffold
       actions={[
@@ -51,27 +91,11 @@ export function AdminCompaniesPage() {
       subtitle="Gerencie os dados, licenças e conformidade das empresas cadastradas."
       title="Empresas cadastradas"
     >
-      <div className="rounded-panel mb-8 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-4 border border-border bg-surface p-4 max-[820px]:grid-cols-1">
-        <InputGroup as="label" variant="search">
-          <SearchIcon />
-          <span className="sr-only">Buscar empresas</span>
-          <Input
-            className="disabled:cursor-default disabled:opacity-100"
-            disabled
-            placeholder="Buscar por nome da filial, estado ou segmento..."
-            type="search"
-          />
-        </InputGroup>
-
-        <Button disabled type="button" variant="filter">
-          Segmento: Todos
-          <ChevronDownIcon />
-        </Button>
-        <Button disabled type="button" variant="filter">
-          Status: Ativos
-          <ChevronDownIcon />
-        </Button>
-      </div>
+      <CompanyFilters
+        onChange={setFilters}
+        segmentOptions={segmentOptions}
+        values={filters}
+      />
 
       {status === 'loading' ? (
         <p className="text-sm font-semibold text-text-muted" role="status">
@@ -98,12 +122,29 @@ export function AdminCompaniesPage() {
         </p>
       ) : null}
 
-      {status === 'success' && companies.length > 0 ? (
+      {status === 'success' &&
+      companies.length > 0 &&
+      visibleCompanies.length === 0 ? (
+        <div className="flex flex-wrap items-center gap-4">
+          <p className="m-0 text-sm text-text-secondary">
+            Nenhuma empresa encontrada para os filtros aplicados.
+          </p>
+          <Button
+            onClick={() => setFilters(EMPTY_COMPANY_FILTERS)}
+            type="button"
+            variant="action"
+          >
+            Limpar filtros
+          </Button>
+        </div>
+      ) : null}
+
+      {status === 'success' && visibleCompanies.length > 0 ? (
         <section
           aria-label="Empresas cadastradas"
           className="grid grid-cols-3 gap-6 max-[1180px]:grid-cols-2 max-[820px]:grid-cols-1"
         >
-          {companies.map((company) => (
+          {visibleCompanies.map((company) => (
             <Card
               aria-labelledby={`company-${company.id}-title`}
               key={company.id}

@@ -2,7 +2,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui/shadcn/button';
 import { APP_ROUTES } from '../../app/router/routes';
 import { useAuth } from '../../features/auth/useAuth';
-import type { CompanyNavigationItem } from '../../features/companies/companyNavigation.mock';
+import type { Company } from '../../features/companies/types';
 import { BiotaLogo } from '../ui/BiotaLogo';
 import { BellIcon, SettingsIcon } from '../ui/icons';
 import { CompanyDropdown } from './CompanyDropdown';
@@ -15,8 +15,10 @@ export type AppNavigationItem = {
 
 type AppHeaderProps = {
   activeCompanyId?: string;
-  companies?: CompanyNavigationItem[];
+  companies?: Company[];
+  companiesError?: string | null;
   contextLabel?: string;
+  isLoadingCompanies?: boolean;
   navItems: AppNavigationItem[];
 };
 
@@ -30,7 +32,9 @@ function getInitials(name: string): string {
 export function AppHeader({
   activeCompanyId,
   companies = [],
+  companiesError = null,
   contextLabel,
+  isLoadingCompanies = false,
   navItems,
 }: AppHeaderProps) {
   const user = useAuth((state) => state.user);
@@ -76,7 +80,9 @@ export function AppHeader({
                 activeCompanyId ?? (contextLabel ? activeCompanyId : undefined)
               }
               companies={companies}
+              companiesError={companiesError}
               contextLabel={contextLabel}
+              isLoadingCompanies={isLoadingCompanies}
             />
           ) : null}
 

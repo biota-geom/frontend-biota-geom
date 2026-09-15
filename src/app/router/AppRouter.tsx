@@ -10,6 +10,7 @@ import { FullPageLoader } from '../../components/feedback/FullPageLoader';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { CompanyLayout } from '../../components/layout/CompanyLayout';
 import { useAuth } from '../../features/auth/useAuth';
+import { useInactivityLogout } from '../../features/auth/useInactivityLogout';
 import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage';
 import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage';
 import { AdminLegislationPage } from '../../pages/admin/Legislation/AdminLegislationPage';
@@ -99,6 +100,14 @@ export function AppRoutes() {
 
 export function AppRouter() {
   const bootstrap = useAuth((state) => state.bootstrap);
+
+  /*
+   * Mounted on the shell rather than inside a route: it has to keep counting
+   * across navigations, and unmounting it would silently disarm the timeout.
+   * The redirect it causes is ProtectedRoute's, which already sends an
+   * unauthenticated visitor to /login.
+   */
+  useInactivityLogout();
 
   useEffect(() => {
     void bootstrap();

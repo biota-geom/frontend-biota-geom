@@ -1,4 +1,4 @@
-import { type CompanyNavigationItem } from '../../../features/companies/companyNavigation.mock';
+import { type Company } from '../../../features/companies/types';
 
 export function getComplianceTone(compliance: number) {
   if (compliance >= 90) {
@@ -12,6 +12,6 @@ export function getComplianceTone(compliance: number) {
   return '!text-red-500';
 }
 
-export function getStatusLabel(status: CompanyNavigationItem['status']) {
+export function getStatusLabel(status: Company['status']) {
   return status === 'active' ? 'Ativo' : 'Inativo';
 }

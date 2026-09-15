@@ -6,21 +6,33 @@ import {
 } from '../../services/api/http';
 import { authStorage } from './authStorage';
 import { isTokenExpired } from './authTokens';
-import type { AuthStatus, AuthUser, LoginInput, RegisterInput } from './types';
+import type {
+  AuthStatus,
+  AuthUser,
+  LoginInput,
+  RegisterInput,
+  SessionEndReason,
+} from './types';
 
 interface AuthState {
   user: AuthUser | null;
   status: AuthStatus;
+  /** Why the app ended the session on its own, when it did. Read by the login screen to explain the redirect. */
+  sessionEndReason: SessionEndReason | null;
   /** Silent session restore on app boot. Safe to call more than once — a no-op after the first. */
   bootstrap: () => Promise<void>;
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => void;
+  /** Ends the session because the user stopped interacting — see `useInactivityLogout`. */
+  expireSessionForInactivity: () => void;
+  clearSessionEndReason: () => void;
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
   user: null,
   status: 'idle',
+  sessionEndReason: null,
 
   bootstrap: async () => {
     if (get().status !== 'idle') return;
@@ -47,18 +59,47 @@ export const useAuth = create<AuthState>((set, get) => ({
   login: async (input) => {
     const session = await authApi.login(input);
     authStorage.setTokens(session.accessToken, session.refreshToken);
-    set({ user: session.user, status: 'authenticated' });
+    set({
+      user: session.user,
+      status: 'authenticated',
+      sessionEndReason: null,
+    });
   },
 
   register: async (input) => {
     const session = await authApi.register(input);
     authStorage.setTokens(session.accessToken, session.refreshToken);
-    set({ user: session.user, status: 'authenticated' });
+    set({
+      user: session.user,
+      status: 'authenticated',
+      sessionEndReason: null,
+    });
   },
 
   logout: () => {
     authStorage.clear();
-    set({ user: null, status: 'unauthenticated' });
+    set({ user: null, status: 'unauthenticated', sessionEndReason: null });
+  },
+
+  /*
+   * Same teardown as `logout`, plus the reason — the redirect back to /login is
+   * left to ProtectedRoute, which already reacts to 'unauthenticated'. Guarded
+   * on the current status so a timer that fires during an unrelated logout
+   * cannot relabel a deliberate sign-out as an expired session.
+   */
+  expireSessionForInactivity: () => {
+    if (get().status !== 'authenticated') return;
+
+    authStorage.clear();
+    set({
+      user: null,
+      status: 'unauthenticated',
+      sessionEndReason: 'inactivity',
+    });
+  },
+
+  clearSessionEndReason: () => {
+    set({ sessionEndReason: null });
   },
 }));
 

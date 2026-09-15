@@ -57,6 +57,47 @@ export interface CustomerWire {
   location: string;
 }
 
+/*
+ * GET /customers/:id. Two confirmed divergences from CustomerWire (the listing
+ * served by GET /customers), which is why they are two types and not one:
+ * - `status` is the raw enum here ("active"/"inactive"), while the listing
+ *   serves a PT-BR label ("Ativo"/"Inativo") — see toCompanyStatus().
+ * - the listing serves `location` already joined as "Cidade - UF"; the detail
+ *   serves the address parts separately.
+ */
+export interface CustomerDetailWire {
+  id: string;
+  name: string;
+  document: string;
+  document_type: string;
+  status: string;
+  sector: { id: string; name: string } | null;
+  address: { city: string; state: string } | null;
+}
+
+export interface SectorWire {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+/*
+ * The request body for POST /customers is written down once, as the feature's
+ * CreateCompanyRequest — it already mirrors CreateCustomerDto key for key, so
+ * restating it here would be the same contract in two places.
+ *
+ * The response echoes the persisted address and timestamps too; only the
+ * fields the UI actually reads are typed.
+ */
+export interface CustomerCreatedWire {
+  id: string;
+  name: string;
+}
+
+export interface LinkCustomerEsgMetricsRequestWire {
+  metric_ids: string[];
+}
+
 export interface CreateEsgMetricRequestWire {
   name: string;
   unit: string;
@@ -69,6 +110,7 @@ export interface EsgMetricWire {
   name: string;
   unit: string;
   pillar: 'AMBIENTAL' | 'SOCIAL' | 'GOVERNANCA';
-  client_id: string | null;
+  /** Null for the global catalog; set on metrics owned by a single customer. */
+  customer_id: string | null;
   gri_standard_id: string | null;
 }

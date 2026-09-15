@@ -1,35 +1,85 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { ChevronDownIcon } from '../../../../components/ui/icons';
-import { MOCK_SECTORS } from '../../../../features/companies/sectors.mock';
-import {
-  MOCK_ESG_INDICATORS,
-  type EsgIndicator,
-} from '../../../../features/companies/esgIndicators.mock';
-import { maskCnpj, unmaskCnpj } from '../../../../features/companies/cnpj';
+import { maskCnpj } from '../../../../features/companies/cnpj';
+import { COMPANY_MESSAGES } from '../../../../features/companies/companyMessages';
 import type {
+  CreateCompanyField,
+  CreateCompanyFieldErrors,
   CreateCompanyFormState,
-  CreateCompanyRequest,
+  CreateCompanySubmission,
 } from '../../../../features/companies/createCompany.types';
-import { createEsgMetric } from '../../../../services/api/esgMetricsApi';
+import {
+  EMPTY_CREATE_COMPANY_FORM,
+  buildCreateCompanyRequest,
+  validateCreateCompany,
+} from '../../../../features/companies/createCompanyValidation';
+import type {
+  EsgIndicator,
+  Sector,
+} from '../../../../features/companies/types';
 import { ApiError } from '../../../../services/api/apiError';
+import {
+  createEsgMetric,
+  listEsgMetrics,
+} from '../../../../services/api/esgMetricsApi';
+import { listSectors } from '../../../../services/api/sectorsApi';
 
-const EMPTY_FORM: CreateCompanyFormState = {
-  name: '',
-  cnpj: '',
-  sectorId: '',
-  state: '',
-  city: '',
-  responsibleName: '',
-  responsibleEmail: '',
-  selectedIndicatorIds: [],
+const FIELD_CLASS =
+  'rounded-control min-h-[42px] w-full bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus';
+
+type LoadStatus = 'loading' | 'success' | 'error';
+
+type TextFieldProps = {
+  error?: string;
+  id: string;
+  inputMode?: 'numeric' | 'tel';
+  label: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  type?: 'text' | 'email';
+  value: string;
 };
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function TextField({
+  error,
+  id,
+  inputMode,
+  label,
+  onChange,
+  placeholder,
+  type = 'text',
+  value,
+}: TextFieldProps) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-[13px] font-bold text-text-primary" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        aria-describedby={error ? `${id}-error` : undefined}
+        aria-invalid={error ? true : undefined}
+        className={`${FIELD_CLASS} border ${error ? 'border-red-400' : 'border-border'}`}
+        id={id}
+        inputMode={inputMode}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        type={type}
+        value={value}
+      />
+      {error ? (
+        <p className="m-0 text-xs font-medium text-red-500" id={`${id}-error`}>
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 type CreateCompanyModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (payload: CreateCompanyRequest) => void;
+  /** Rejects with the backend's PT-BR message, which is shown without closing the modal. */
+  onSubmit: (submission: CreateCompanySubmission) => Promise<void>;
 };
 
 export function CreateCompanyModal({
@@ -37,9 +87,16 @@ export function CreateCompanyModal({
   onClose,
   onSubmit,
 }: CreateCompanyModalProps) {
-  const [form, setForm] = useState<CreateCompanyFormState>(EMPTY_FORM);
-  const [indicators, setIndicators] =
-    useState<EsgIndicator[]>(MOCK_ESG_INDICATORS);
+  const [form, setForm] = useState<CreateCompanyFormState>(
+    EMPTY_CREATE_COMPANY_FORM
+  );
+  const [fieldErrors, setFieldErrors] = useState<CreateCompanyFieldErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [sectorsStatus, setSectorsStatus] = useState<LoadStatus>('loading');
+  const [indicators, setIndicators] = useState<EsgIndicator[]>([]);
+  const [indicatorsError, setIndicatorsError] = useState<string | null>(null);
   const [indicatorQuery, setIndicatorQuery] = useState('');
   const [isIndicatorMenuOpen, setIsIndicatorMenuOpen] = useState(false);
   const [newIndicatorName, setNewIndicatorName] = useState('');
@@ -50,15 +107,57 @@ export function CreateCompanyModal({
     string | null
   >(null);
 
+  /*
+   * Both catalogs are (re)loaded every time the modal opens rather than once at
+   * mount: the admin can create an ESG metric here, and a sector can be added
+   * server-side between two registrations. Reopening keeps the previous result
+   * on screen while the refetch is in flight instead of flipping back to
+   * 'loading' — hence the initial state, and no status reset in the effect.
+   */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isCurrent = true;
+
+    listSectors()
+      .then((loaded) => {
+        if (!isCurrent) return;
+        setSectors(loaded);
+        setSectorsStatus('success');
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+        setSectorsStatus('error');
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isCurrent = true;
+
+    listEsgMetrics()
+      .then((loaded) => {
+        if (!isCurrent) return;
+        setIndicators(loaded);
+        setIndicatorsError(null);
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+        setIndicatorsError(COMPANY_MESSAGES.INDICATORS_FETCH_ERROR);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
-  const isFormValid =
-    form.name.trim() !== '' &&
-    unmaskCnpj(form.cnpj).length === 14 &&
-    form.sectorId !== '' &&
-    form.state.trim() !== '' &&
-    form.city.trim() !== '' &&
-    form.responsibleName.trim() !== '' &&
-    EMAIL_PATTERN.test(form.responsibleEmail);
+
   const unselectedIndicators = indicators.filter(
     (indicator) => !form.selectedIndicatorIds.includes(indicator.id)
   );
@@ -68,6 +167,37 @@ export function CreateCompanyModal({
         indicator.name.toLowerCase().includes(trimmedQuery)
       )
     : unselectedIndicators;
+
+  function updateField(field: CreateCompanyField, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+    clearFieldErrorIfFixed(field, value);
+  }
+
+  /*
+   * Validation still runs on submit — the submit button stays clickable on
+   * purpose, so every PT-BR message is reachable. This only ever takes a
+   * message back off the screen, once the field it belongs to passes, instead
+   * of leaving a corrected field looking broken until the next submit.
+   *
+   * No rule is restated here: `validateCreateCompany` is re-run over the value
+   * the user just typed and only its verdict for that one field is read. Every
+   * rule in it looks at its own field alone, so the sibling values copied from
+   * `form` cannot change the answer even if a keystroke lands before the state
+   * from the previous one has been applied.
+   */
+  function clearFieldErrorIfFixed(field: CreateCompanyField, value: string) {
+    setFieldErrors((current) => {
+      if (current[field] === undefined) return current;
+
+      const typed: CreateCompanyFormState = { ...form, [field]: value };
+      if (validateCreateCompany(typed)[field] !== undefined) return current;
+
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
   function selectIndicator(id: string) {
     setForm((current) => ({
       ...current,
@@ -75,6 +205,7 @@ export function CreateCompanyModal({
     }));
     setIndicatorQuery('');
   }
+
   function removeIndicator(id: string) {
     setForm((current) => ({
       ...current,
@@ -115,47 +246,55 @@ export function CreateCompanyModal({
       setCreateIndicatorError(
         error instanceof ApiError
           ? error.message
-          : 'Não foi possível criar o indicador.'
+          : COMPANY_MESSAGES.CREATE_INDICATOR_ERROR
       );
     } finally {
       setIsCreatingIndicator(false);
     }
   }
 
-  function handleCancel() {
-    setForm(EMPTY_FORM);
-    setIndicators(MOCK_ESG_INDICATORS);
+  function resetForm() {
+    setForm(EMPTY_CREATE_COMPANY_FORM);
+    setFieldErrors({});
+    setSubmitError(null);
     setIndicatorQuery('');
     setIsIndicatorMenuOpen(false);
     setNewIndicatorName('');
     setNewIndicatorUnit('');
     setNewIndicatorPillar('');
     setCreateIndicatorError(null);
+  }
+
+  function handleCancel() {
+    resetForm();
     onClose();
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isFormValid) return;
+    setSubmitError(null);
 
-    const payload: CreateCompanyRequest = {
-      name: form.name.trim(),
-      document: unmaskCnpj(form.cnpj),
-      document_type: 'cnpj',
-      sector_id: form.sectorId,
-      address: {
-        type: 'billing',
-        state: form.state.trim(),
-        city: form.city.trim(),
-      },
-      responsible_name: form.responsibleName.trim(),
-      responsible_email: form.responsibleEmail.trim(),
-      esg_indicator_ids: form.selectedIndicatorIds,
-    };
+    const errors = validateCreateCompany(form);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
-    // TODO(#45): swap for POST /api/customers once the backend exists.
-    onSubmit(payload);
-    setForm(EMPTY_FORM);
+    setIsSubmitting(true);
+
+    try {
+      await onSubmit({
+        company: buildCreateCompanyRequest(form),
+        esgMetricIds: form.selectedIndicatorIds,
+      });
+      resetForm();
+    } catch (error) {
+      setSubmitError(
+        error instanceof ApiError
+          ? error.message
+          : COMPANY_MESSAGES.CREATE_COMPANY_ERROR
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -167,7 +306,7 @@ export function CreateCompanyModal({
       role="dialog"
     >
       <div
-        className="shadow-card rounded-panel w-full max-w-[42rem] bg-surface p-6"
+        className="shadow-card rounded-panel max-h-[92vh] w-full max-w-[42rem] overflow-y-auto bg-surface p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="mb-5 flex items-start justify-between gap-4">
@@ -195,52 +334,40 @@ export function CreateCompanyModal({
 
         <hr className="mb-5 border-border" />
 
-        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+        <form
+          className="flex flex-col gap-5"
+          onSubmit={(event) => void handleSubmit(event)}
+        >
           <div className="grid grid-cols-[3fr_2fr] gap-4">
-            <div className="flex flex-col gap-2">
-              <label
-                className="text-[13px] font-bold text-text-primary"
-                htmlFor="company-name"
-              >
-                Nome da Empresa / Filial
-              </label>
-              <input
-                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
-                id="company-name"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                placeholder="Ex: Siderurgia Sul Porto Alegre"
-                value={form.name}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label
-                className="text-[13px] font-bold text-text-primary"
-                htmlFor="company-cnpj"
-              >
-                CNPJ
-              </label>
-              <input
-                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
-                id="company-cnpj"
-                inputMode="numeric"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    cnpj: maskCnpj(event.target.value),
-                  }))
-                }
-                placeholder="00.000.000/0000-00"
-                value={form.cnpj}
-              />
-            </div>
+            <TextField
+              error={fieldErrors.name}
+              id="company-name"
+              label="Nome da Empresa / Filial"
+              onChange={(value) => updateField('name', value)}
+              placeholder="Ex: Siderurgia Sul Porto Alegre"
+              value={form.name}
+            />
+            <TextField
+              error={fieldErrors.cnpj}
+              id="company-cnpj"
+              inputMode="numeric"
+              label="CNPJ"
+              onChange={(value) => updateField('cnpj', maskCnpj(value))}
+              placeholder="00.000.000/0000-00"
+              value={form.cnpj}
+            />
           </div>
 
-          <div className="grid grid-cols-[2fr_1fr_1fr] gap-4">
+          <div className="grid grid-cols-[3fr_2fr] gap-4">
+            <TextField
+              error={fieldErrors.email}
+              id="company-email"
+              label="E-mail da Empresa"
+              onChange={(value) => updateField('email', value)}
+              placeholder="contato@empresa.com"
+              type="email"
+              value={form.email}
+            />
             <div className="flex flex-col gap-2">
               <label
                 className="text-[13px] font-bold text-text-primary"
@@ -250,20 +377,24 @@ export function CreateCompanyModal({
               </label>
               <div className="relative">
                 <select
-                  className={`rounded-control min-h-[42px] w-full appearance-none border border-border bg-surface px-2.5 pr-9 outline-0 focus:border-focus ${form.sectorId === '' ? 'text-text-muted' : 'text-text-primary'}`}
+                  aria-describedby={
+                    fieldErrors.sectorId ? 'company-sector-error' : undefined
+                  }
+                  aria-invalid={fieldErrors.sectorId ? true : undefined}
+                  className={`rounded-control min-h-[42px] w-full appearance-none border bg-surface px-2.5 pr-9 outline-0 focus:border-focus ${fieldErrors.sectorId ? 'border-red-400' : 'border-border'} ${form.sectorId === '' ? 'text-text-muted' : 'text-text-primary'}`}
+                  disabled={sectorsStatus !== 'success'}
                   id="company-sector"
                   onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      sectorId: event.target.value,
-                    }))
+                    updateField('sectorId', event.target.value)
                   }
                   value={form.sectorId}
                 >
                   <option disabled hidden value="">
-                    Selecione o segmento
+                    {sectorsStatus === 'loading'
+                      ? 'Carregando segmentos...'
+                      : 'Selecione o segmento'}
                   </option>
-                  {MOCK_SECTORS.map((sector) => (
+                  {sectors.map((sector) => (
                     <option key={sector.id} value={sector.id}>
                       {sector.name}
                     </option>
@@ -273,91 +404,99 @@ export function CreateCompanyModal({
                   <ChevronDownIcon />
                 </span>
               </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label
-                className="text-[13px] font-bold text-text-primary"
-                htmlFor="company-state"
-              >
-                Estado
-              </label>
-              <input
-                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
-                id="company-state"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    state: event.target.value,
-                  }))
-                }
-                placeholder="Ex: RS"
-                value={form.state}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label
-                className="text-[13px] font-bold text-text-primary"
-                htmlFor="company-city"
-              >
-                Cidade
-              </label>
-              <input
-                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
-                id="company-city"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    city: event.target.value,
-                  }))
-                }
-                placeholder="Ex: Porto Alegre"
-                value={form.city}
-              />
+              {fieldErrors.sectorId ? (
+                <p
+                  className="m-0 text-xs font-medium text-red-500"
+                  id="company-sector-error"
+                >
+                  {fieldErrors.sectorId}
+                </p>
+              ) : null}
+              {sectorsStatus === 'error' ? (
+                <p
+                  className="m-0 text-xs font-medium text-red-500"
+                  role="alert"
+                >
+                  {COMPANY_MESSAGES.SECTORS_FETCH_ERROR}
+                </p>
+              ) : null}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <label
-                className="text-[13px] font-bold text-text-primary"
-                htmlFor="company-responsible-name"
-              >
-                Responsável Ambiental
-              </label>
-              <input
-                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
-                id="company-responsible-name"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    responsibleName: event.target.value,
-                  }))
-                }
-                placeholder="Nome completo do responsável"
-                value={form.responsibleName}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label
-                className="text-[13px] font-bold text-text-primary"
-                htmlFor="company-responsible-email"
-              >
-                E-mail do Responsável
-              </label>
-              <input
-                className="rounded-control min-h-[42px] w-full border border-border bg-surface px-2.5 text-text-primary outline-0 placeholder:text-text-muted focus:border-focus"
-                id="company-responsible-email"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    responsibleEmail: event.target.value,
-                  }))
-                }
-                placeholder="responsavel@empresa.com"
-                type="email"
-                value={form.responsibleEmail}
-              />
-            </div>
+          <div className="grid grid-cols-[3fr_1fr] gap-4">
+            <TextField
+              error={fieldErrors.street}
+              id="company-street"
+              label="Logradouro"
+              onChange={(value) => updateField('street', value)}
+              placeholder="Ex: Av. Assis Brasil"
+              value={form.street}
+            />
+            <TextField
+              error={fieldErrors.number}
+              id="company-number"
+              label="Número"
+              onChange={(value) => updateField('number', value)}
+              placeholder="Ex: 1234"
+              value={form.number}
+            />
+          </div>
+
+          <div className="grid grid-cols-[2fr_1fr_1fr] gap-4">
+            <TextField
+              error={fieldErrors.city}
+              id="company-city"
+              label="Cidade"
+              onChange={(value) => updateField('city', value)}
+              placeholder="Ex: Porto Alegre"
+              value={form.city}
+            />
+            <TextField
+              error={fieldErrors.state}
+              id="company-state"
+              label="Estado"
+              onChange={(value) => updateField('state', value)}
+              placeholder="Ex: RS"
+              value={form.state}
+            />
+            <TextField
+              error={fieldErrors.postalCode}
+              id="company-postal-code"
+              inputMode="numeric"
+              label="CEP"
+              onChange={(value) => updateField('postalCode', value)}
+              placeholder="00000-000"
+              value={form.postalCode}
+            />
+          </div>
+
+          <div className="grid grid-cols-[2fr_2fr_1fr] gap-4">
+            <TextField
+              error={fieldErrors.responsibleName}
+              id="company-responsible-name"
+              label="Responsável Ambiental"
+              onChange={(value) => updateField('responsibleName', value)}
+              placeholder="Nome completo do responsável"
+              value={form.responsibleName}
+            />
+            <TextField
+              error={fieldErrors.responsibleEmail}
+              id="company-responsible-email"
+              label="E-mail do Responsável"
+              onChange={(value) => updateField('responsibleEmail', value)}
+              placeholder="responsavel@empresa.com"
+              type="email"
+              value={form.responsibleEmail}
+            />
+            <TextField
+              error={fieldErrors.responsiblePhone}
+              id="company-responsible-phone"
+              inputMode="tel"
+              label="Telefone do Responsável"
+              onChange={(value) => updateField('responsiblePhone', value)}
+              placeholder="(51) 99999-0000"
+              value={form.responsiblePhone}
+            />
           </div>
 
           <hr className="m-0 border-border" />
@@ -429,6 +568,12 @@ export function CreateCompanyModal({
               )}
             </div>
 
+            {indicatorsError ? (
+              <p className="m-0 text-xs font-medium text-red-500" role="alert">
+                {indicatorsError}
+              </p>
+            ) : null}
+
             <div className="flex flex-wrap gap-2">
               {form.selectedIndicatorIds.map((id) => {
                 const indicator = indicators.find((item) => item.id === id);
@@ -493,7 +638,7 @@ export function CreateCompanyModal({
                   !newIndicatorUnit.trim() ||
                   !newIndicatorPillar
                 }
-                onClick={handleCreateIndicator}
+                onClick={() => void handleCreateIndicator()}
                 type="button"
               >
                 {isCreatingIndicator ? 'Criando...' : 'Criar'}
@@ -506,6 +651,16 @@ export function CreateCompanyModal({
             )}
           </section>
 
+          {submitError ? (
+            <p
+              aria-live="polite"
+              className="m-0 rounded-sm border border-[#fda29b] bg-[#fef3f2] px-3 py-2.5 text-[13px] font-semibold text-[#b42318]"
+              role="alert"
+            >
+              {submitError}
+            </p>
+          ) : null}
+
           <div className="mt-2 flex justify-end gap-3">
             <button
               className="rounded-control border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-muted cursor-pointer"
@@ -516,10 +671,10 @@ export function CreateCompanyModal({
             </button>
             <button
               className="rounded-panel cursor-pointer border-0 bg-primary px-4 py-2 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={!isFormValid}
+              disabled={isSubmitting || sectorsStatus !== 'success'}
               type="submit"
             >
-              Cadastrar Empresa
+              {isSubmitting ? 'Cadastrando...' : 'Cadastrar Empresa'}
             </button>
           </div>
         </form>
