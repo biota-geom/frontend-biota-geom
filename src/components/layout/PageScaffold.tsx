@@ -15,6 +15,12 @@ type PageScaffoldProps = {
   children: ReactNode;
   subtitle: string;
   title: string;
+  /**
+   * Supporting node rendered beside the title, such as a record count. It is
+   * a sibling of the `<h1>`, never part of it, so the page heading keeps the
+   * title as its accessible name.
+   */
+  titleAside?: ReactNode;
 };
 
 export function PageScaffold({
@@ -23,6 +29,7 @@ export function PageScaffold({
   children,
   subtitle,
   title,
+  titleAside,
 }: PageScaffoldProps) {
   const breadcrumbItems = breadcrumbs ?? [];
   const hasBreadcrumbs = breadcrumbItems.length > 0;
@@ -42,9 +49,15 @@ export function PageScaffold({
         <div className="mx-auto w-full">
           <header className="mb-8 flex items-start justify-between gap-6 max-[720px]:flex-col">
             <div>
-              <h1 className="m-0 text-3xl leading-[1.2] font-bold text-text-primary">
-                {title}
-              </h1>
+              {/* Stryker disable next-line all: styling-only wrapper class, untested on purpose (see README) */}
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="m-0 text-3xl leading-[1.2] font-bold text-text-primary">
+                  {title}
+                </h1>
+                {/* Undefined renders nothing, so pages that pass no aside keep
+                the previous markup. */}
+                {titleAside}
+              </div>
               <p className="mt-1.5 mb-0 text-[15px] leading-[1.45] text-text-secondary">
                 {subtitle}
               </p>

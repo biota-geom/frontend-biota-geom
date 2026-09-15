@@ -7,6 +7,7 @@ import { APP_ROUTES, buildCompanyRoutes } from '../../app/router/routes';
 import { COMPANY_MESSAGES } from '../../features/companies/companyMessages';
 import { useCompanies } from '../../features/companies/useCompanies';
 import {
+  getCompanyCountLabel,
   getComplianceTone,
   getStatusLabel,
 } from '../../pages/admin/Companies/companyCardFormatting';
@@ -195,6 +196,58 @@ describe('AdminCompaniesPage', () => {
     expect(
       screen.queryByRole('link', { name: /configurações/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('shows the registered company total in the header', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+
+    renderAppRoutes();
+
+    expect(await screen.findByText('3 empresas')).toBeInTheDocument();
+  });
+
+  it('keeps the header total on the whole portfolio when a filter reduces the listing', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    const user = setupUser();
+    renderAppRoutes();
+
+    expect(await screen.findByText('3 empresas')).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(/buscar por nome da filial/i),
+      'Agro'
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('article')).toHaveLength(1);
+    });
+    expect(screen.getByText('3 empresas')).toBeInTheDocument();
+  });
+
+  it('writes the header total in the singular for a single company', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([COMPANIES[0]]);
+
+    renderAppRoutes();
+
+    expect(await screen.findByText('1 empresa')).toBeInTheDocument();
+  });
+
+  it('holds back the header total while the listing is loading', async () => {
+    let resolveCompanies: (companies: typeof COMPANIES) => void = () => {};
+    vi.mocked(customersApi.listCompanies).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCompanies = resolve;
+      })
+    );
+
+    renderAppRoutes();
+
+    expect(await screen.findByText(/carregando empresas/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ empresas?$/)).not.toBeInTheDocument();
+
+    resolveCompanies(COMPANIES);
+
+    expect(await screen.findByText('3 empresas')).toBeInTheDocument();
   });
 
   it('shows an error state with a retry action when the fetch fails', async () => {
@@ -607,6 +660,17 @@ describe('getComplianceTone', () => {
     { compliance: 0, expected: '!text-red-500' },
   ])('returns $expected for $compliance%', ({ compliance, expected }) => {
     expect(getComplianceTone(compliance)).toBe(expected);
+  });
+});
+
+describe('getCompanyCountLabel', () => {
+  it.each([
+    { total: 0, expected: '0 empresas' },
+    { total: 1, expected: '1 empresa' },
+    { total: 2, expected: '2 empresas' },
+    { total: 7, expected: '7 empresas' },
+  ])('returns $expected for a total of $total', ({ total, expected }) => {
+    expect(getCompanyCountLabel(total)).toBe(expected);
   });
 });
 

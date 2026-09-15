@@ -40,6 +40,35 @@ describe('PageScaffold', () => {
     );
   });
 
+  it('renders the titleAside node beside the title, outside the heading', () => {
+    render(
+      <PageScaffold
+        subtitle="Subtítulo"
+        title="Título"
+        titleAside={<span>3 empresas</span>}
+      >
+        <p>Conteúdo</p>
+      </PageScaffold>
+    );
+
+    expect(screen.getByText('3 empresas')).toBeInTheDocument();
+    // An exact accessible name fails if the aside is rendered inside the h1.
+    expect(screen.getByRole('heading', { name: 'Título' })).toBeInTheDocument();
+  });
+
+  it('renders nothing beside the title when no titleAside is given', () => {
+    render(
+      <PageScaffold subtitle="Subtítulo" title="Título">
+        <p>Conteúdo</p>
+      </PageScaffold>
+    );
+
+    const heading = screen.getByRole('heading', { name: 'Título' });
+
+    expect(heading.parentElement).toHaveTextContent('Título');
+    expect(heading.parentElement?.childElementCount).toBe(1);
+  });
+
   it('renders no action button when no actions are given', () => {
     render(
       <PageScaffold subtitle="Subtítulo" title="Título">

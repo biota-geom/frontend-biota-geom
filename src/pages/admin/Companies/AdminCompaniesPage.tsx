@@ -24,7 +24,7 @@ import {
 } from '../../../features/companies/companyFilters';
 import { COMPANY_MESSAGES } from '../../../features/companies/companyMessages';
 import { useCompanies } from '../../../features/companies/useCompanies';
-import { getStatusLabel } from './companyCardFormatting';
+import { getCompanyCountLabel, getStatusLabel } from './companyCardFormatting';
 import { useState } from 'react';
 import { CompanyFilters } from './components/CompanyFilters';
 import { CreateCompanyModal } from './components/CreateCompanyModal';
@@ -53,6 +53,17 @@ export function AdminCompaniesPage() {
     () => filterCompanies(companies, filters),
     [companies, filters]
   );
+
+  /*
+   * US03 asks the header for the client's registered total, so the count reads
+   * `companies` and never `visibleCompanies`: it is the size of the portfolio,
+   * not of the current result set, and must hold still while the user types in
+   * the search or switches a filter. It stays hidden until there is a real
+   * number to show, so the header never flashes a misleading "0 empresas"
+   * while the listing is still loading or after it failed before any data
+   * arrived.
+   */
+  const hasLoadedTotal = status === 'success' || companies.length > 0;
 
   async function handleCreateCompany({
     company,
@@ -90,6 +101,13 @@ export function AdminCompaniesPage() {
       ]}
       subtitle="Gerencie os dados, licenças e conformidade das empresas cadastradas."
       title="Empresas cadastradas"
+      titleAside={
+        hasLoadedTotal ? (
+          <span className="rounded-control inline-flex min-h-6 items-center border border-border bg-surface-muted px-[11px] text-sm font-semibold text-text-secondary">
+            {getCompanyCountLabel(companies.length)}
+          </span>
+        ) : null
+      }
     >
       <CompanyFilters
         onChange={setFilters}
