@@ -44,23 +44,18 @@ const INDICATORS = [
 const VALID_INPUT = {
   name: 'Empresa Teste',
   cnpj: '77666555000144',
-  email: 'contato@empresa.com',
   sector: 'Siderurgia',
-  street: 'Av. Assis Brasil',
-  number: '1234',
   city: 'Porto Alegre',
   state: 'RS',
-  postalCode: '91010-000',
   responsibleName: 'Maria Silva',
   responsibleEmail: 'maria@empresa.com',
-  responsiblePhone: '(51) 99999-0000',
 };
 
 type FormOverrides = Partial<typeof VALID_INPUT>;
 
 /*
- * The form has twelve fields, and userEvent's default inter-key delay makes
- * filling it the slowest thing in this file. `delay: null` keeps every event
+ * userEvent's default inter-key delay makes filling the form the slowest thing
+ * in this file. `delay: null` keeps every event
  * userEvent dispatches, only without waiting a macrotask between keystrokes.
  */
 function setupUser() {
@@ -112,18 +107,13 @@ async function fillForm(
 
   await typeInto(/nome da empresa/i, values.name);
   await typeInto(/cnpj/i, values.cnpj);
-  await typeInto(/e-mail da empresa/i, values.email);
   if (values.sector) {
     await user.selectOptions(screen.getByLabelText(/segmento/i), values.sector);
   }
-  await typeInto(/logradouro/i, values.street);
-  await typeInto(/^número/i, values.number);
   await typeInto(/^cidade/i, values.city);
   await typeInto(/^estado/i, values.state);
-  await typeInto(/^cep/i, values.postalCode);
   await typeInto(/responsável ambiental/i, values.responsibleName);
   await typeInto(/e-mail do responsável/i, values.responsibleEmail);
-  await typeInto(/telefone do responsável/i, values.responsiblePhone);
 }
 
 beforeEach(() => {
@@ -227,16 +217,11 @@ describe('CreateCompanyModal validation', () => {
     for (const message of [
       COMPANY_MESSAGES.NAME_REQUIRED,
       COMPANY_MESSAGES.CNPJ_INVALID,
-      COMPANY_MESSAGES.EMAIL_INVALID,
       COMPANY_MESSAGES.SECTOR_REQUIRED,
-      COMPANY_MESSAGES.STREET_REQUIRED,
-      COMPANY_MESSAGES.NUMBER_REQUIRED,
       COMPANY_MESSAGES.CITY_REQUIRED,
       COMPANY_MESSAGES.STATE_REQUIRED,
-      COMPANY_MESSAGES.POSTAL_CODE_REQUIRED,
       COMPANY_MESSAGES.RESPONSIBLE_NAME_REQUIRED,
       COMPANY_MESSAGES.RESPONSIBLE_EMAIL_INVALID,
-      COMPANY_MESSAGES.RESPONSIBLE_PHONE_REQUIRED,
     ]) {
       expect(screen.getByText(message)).toBeInTheDocument();
     }
@@ -264,13 +249,13 @@ describe('CreateCompanyModal validation', () => {
     const { onSubmit } = renderModal();
     await waitForSectors();
 
-    await fillForm(user, { postalCode: '' });
+    await fillForm(user, { state: '' });
     await user.click(
       screen.getByRole('button', { name: /cadastrar empresa/i })
     );
 
     expect(
-      screen.getByText(COMPANY_MESSAGES.POSTAL_CODE_REQUIRED)
+      screen.getByText(COMPANY_MESSAGES.STATE_REQUIRED)
     ).toBeInTheDocument();
     expect(
       screen.queryByText(COMPANY_MESSAGES.NAME_REQUIRED)
@@ -318,16 +303,11 @@ describe('CreateCompanyModal live error clearing', () => {
   const ALL_MESSAGES = [
     COMPANY_MESSAGES.NAME_REQUIRED,
     COMPANY_MESSAGES.CNPJ_INVALID,
-    COMPANY_MESSAGES.EMAIL_INVALID,
     COMPANY_MESSAGES.SECTOR_REQUIRED,
-    COMPANY_MESSAGES.STREET_REQUIRED,
-    COMPANY_MESSAGES.NUMBER_REQUIRED,
     COMPANY_MESSAGES.CITY_REQUIRED,
     COMPANY_MESSAGES.STATE_REQUIRED,
-    COMPANY_MESSAGES.POSTAL_CODE_REQUIRED,
     COMPANY_MESSAGES.RESPONSIBLE_NAME_REQUIRED,
     COMPANY_MESSAGES.RESPONSIBLE_EMAIL_INVALID,
-    COMPANY_MESSAGES.RESPONSIBLE_PHONE_REQUIRED,
   ];
 
   async function submitEmptyForm(user: ReturnType<typeof userEvent.setup>) {
@@ -438,7 +418,6 @@ describe('CreateCompanyModal submit', () => {
 
     await fillForm(user, {
       name: '  Empresa Teste  ',
-      street: '  Av. Assis Brasil  ',
       city: '  Porto Alegre  ',
     });
 
@@ -457,17 +436,12 @@ describe('CreateCompanyModal submit', () => {
         document: '77666555000144',
         document_type: 'CNPJ',
         sector_id: 'sector-siderurgia',
-        email: 'contato@empresa.com',
         owner_name: 'Maria Silva',
         owner_email: 'maria@empresa.com',
-        owner_phone: '(51) 99999-0000',
         address: {
           type: 'BILLING',
-          street: 'Av. Assis Brasil',
-          number: '1234',
           city: 'Porto Alegre',
           state: 'RS',
-          postal_code: '91010-000',
           country_code: 'BR',
         },
       },
@@ -492,7 +466,7 @@ describe('CreateCompanyModal submit', () => {
       expect(screen.getByLabelText(/nome da empresa/i)).toHaveValue('');
     });
     expect(screen.getByLabelText(/cnpj/i)).toHaveValue('');
-    expect(screen.getByLabelText(/telefone do responsável/i)).toHaveValue('');
+    expect(screen.getByLabelText(/e-mail do responsável/i)).toHaveValue('');
   });
 
   it('shows "Cadastrando..." on a disabled button while the request is in flight', async () => {
@@ -873,7 +847,7 @@ describe('CreateCompanyModal cancel', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText(/nome da empresa/i)).toHaveValue('');
-    expect(screen.getByLabelText(/^cep/i)).toHaveValue('');
+    expect(screen.getByLabelText(/^cidade/i)).toHaveValue('');
     expect(screen.getByLabelText(/segmento/i)).toHaveValue('');
     expect(
       screen.getByPlaceholderText(/buscar ou criar indicador/i)

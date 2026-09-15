@@ -119,16 +119,9 @@ async function openCreateModal(user: ReturnType<typeof userEvent.setup>) {
 async function fillCompanyForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/nome da empresa/i), 'Empresa Teste');
   await user.type(screen.getByLabelText(/cnpj/i), '77666555000144');
-  await user.type(
-    screen.getByLabelText(/e-mail da empresa/i),
-    'contato@empresa.com'
-  );
   await user.selectOptions(screen.getByLabelText(/segmento/i), 'Siderurgia');
-  await user.type(screen.getByLabelText(/logradouro/i), 'Av. Assis Brasil');
-  await user.type(screen.getByLabelText(/^número/i), '1234');
   await user.type(screen.getByLabelText(/^cidade/i), 'Porto Alegre');
   await user.type(screen.getByLabelText(/^estado/i), 'RS');
-  await user.type(screen.getByLabelText(/^cep/i), '91010-000');
   await user.type(
     screen.getByLabelText(/responsável ambiental/i),
     'Maria Silva'
@@ -137,10 +130,6 @@ async function fillCompanyForm(user: ReturnType<typeof userEvent.setup>) {
     screen.getByLabelText(/e-mail do responsável/i),
     'maria@empresa.com'
   );
-  await user.type(
-    screen.getByLabelText(/telefone do responsável/i),
-    '(51) 99999-0000'
-  );
 }
 
 const EXPECTED_CREATE_PAYLOAD = {
@@ -148,17 +137,12 @@ const EXPECTED_CREATE_PAYLOAD = {
   document: '77666555000144',
   document_type: 'CNPJ',
   sector_id: 'sector-siderurgia',
-  email: 'contato@empresa.com',
   owner_name: 'Maria Silva',
   owner_email: 'maria@empresa.com',
-  owner_phone: '(51) 99999-0000',
   address: {
     type: 'BILLING',
-    street: 'Av. Assis Brasil',
-    number: '1234',
     city: 'Porto Alegre',
     state: 'RS',
-    postal_code: '91010-000',
     country_code: 'BR',
   },
 };
@@ -417,7 +401,7 @@ describe('AdminCompaniesPage', () => {
       screen.getByText(COMPANY_MESSAGES.NAME_REQUIRED)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(COMPANY_MESSAGES.RESPONSIBLE_PHONE_REQUIRED)
+      screen.getByText(COMPANY_MESSAGES.RESPONSIBLE_EMAIL_INVALID)
     ).toBeInTheDocument();
     expect(companiesApi.createCompany).not.toHaveBeenCalled();
     expect(

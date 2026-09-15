@@ -10,16 +10,11 @@ import {
 const VALID_FORM: CreateCompanyFormState = {
   name: 'Unidade Industrial RS',
   cnpj: '77.666.555/0001-44',
-  email: 'contato@unidade.com.br',
   sectorId: '01a0a21c-fd40-762b-a1a9-744bd7cf47ee',
-  street: 'Av. Assis Brasil',
-  number: '1234',
   city: 'Porto Alegre',
   state: 'RS',
-  postalCode: '91010-000',
   responsibleName: 'Maria Silva',
   responsibleEmail: 'maria@unidade.com.br',
-  responsiblePhone: '(51) 99999-0000',
   selectedIndicatorIds: ['metric-1'],
 };
 
@@ -32,16 +27,11 @@ describe('validateCreateCompany', () => {
     expect(validateCreateCompany(EMPTY_CREATE_COMPANY_FORM)).toEqual({
       name: COMPANY_MESSAGES.NAME_REQUIRED,
       cnpj: COMPANY_MESSAGES.CNPJ_INVALID,
-      email: COMPANY_MESSAGES.EMAIL_INVALID,
       sectorId: COMPANY_MESSAGES.SECTOR_REQUIRED,
-      street: COMPANY_MESSAGES.STREET_REQUIRED,
-      number: COMPANY_MESSAGES.NUMBER_REQUIRED,
       city: COMPANY_MESSAGES.CITY_REQUIRED,
       state: COMPANY_MESSAGES.STATE_REQUIRED,
-      postalCode: COMPANY_MESSAGES.POSTAL_CODE_REQUIRED,
       responsibleName: COMPANY_MESSAGES.RESPONSIBLE_NAME_REQUIRED,
       responsibleEmail: COMPANY_MESSAGES.RESPONSIBLE_EMAIL_INVALID,
-      responsiblePhone: COMPANY_MESSAGES.RESPONSIBLE_PHONE_REQUIRED,
     });
   });
 
@@ -52,29 +42,9 @@ describe('validateCreateCompany', () => {
       value: '12.345.678/0001-9',
       message: COMPANY_MESSAGES.CNPJ_INVALID,
     },
-    {
-      field: 'email',
-      value: 'sem-arroba',
-      message: COMPANY_MESSAGES.EMAIL_INVALID,
-    },
     { field: 'sectorId', value: '', message: COMPANY_MESSAGES.SECTOR_REQUIRED },
-    {
-      field: 'street',
-      value: '   ',
-      message: COMPANY_MESSAGES.STREET_REQUIRED,
-    },
-    {
-      field: 'number',
-      value: '   ',
-      message: COMPANY_MESSAGES.NUMBER_REQUIRED,
-    },
     { field: 'city', value: '   ', message: COMPANY_MESSAGES.CITY_REQUIRED },
     { field: 'state', value: '   ', message: COMPANY_MESSAGES.STATE_REQUIRED },
-    {
-      field: 'postalCode',
-      value: '   ',
-      message: COMPANY_MESSAGES.POSTAL_CODE_REQUIRED,
-    },
     {
       field: 'responsibleName',
       value: '   ',
@@ -84,11 +54,6 @@ describe('validateCreateCompany', () => {
       field: 'responsibleEmail',
       value: 'maria@empresa',
       message: COMPANY_MESSAGES.RESPONSIBLE_EMAIL_INVALID,
-    },
-    {
-      field: 'responsiblePhone',
-      value: '   ',
-      message: COMPANY_MESSAGES.RESPONSIBLE_PHONE_REQUIRED,
     },
   ] as const;
 
@@ -108,34 +73,40 @@ describe('buildCreateCompanyRequest', () => {
       buildCreateCompanyRequest({
         ...VALID_FORM,
         name: '  Unidade Industrial RS  ',
-        email: '  contato@unidade.com.br  ',
-        street: '  Av. Assis Brasil  ',
-        number: '  1234  ',
         city: '  Porto Alegre  ',
         state: '  RS  ',
-        postalCode: '  91010-000  ',
         responsibleName: '  Maria Silva  ',
         responsibleEmail: '  maria@unidade.com.br  ',
-        responsiblePhone: '  (51) 99999-0000  ',
       })
     ).toEqual({
       name: 'Unidade Industrial RS',
       document: '77666555000144',
       document_type: 'CNPJ',
       sector_id: '01a0a21c-fd40-762b-a1a9-744bd7cf47ee',
-      email: 'contato@unidade.com.br',
       owner_name: 'Maria Silva',
       owner_email: 'maria@unidade.com.br',
-      owner_phone: '(51) 99999-0000',
       address: {
         type: 'BILLING',
-        street: 'Av. Assis Brasil',
-        number: '1234',
         city: 'Porto Alegre',
         state: 'RS',
-        postal_code: '91010-000',
         country_code: 'BR',
       },
     });
+  });
+
+  /*
+   * The company's own e-mail and phone, and the street-level address, are
+   * optional on the backend precisely because this form does not ask for them.
+   * Sending them as empty strings would satisfy the type but store blanks, so
+   * the payload must leave the keys out entirely.
+   */
+  it('omits the keys the form does not collect', () => {
+    const request = buildCreateCompanyRequest(VALID_FORM);
+
+    expect(request).not.toHaveProperty('email');
+    expect(request).not.toHaveProperty('owner_phone');
+    expect(request.address).not.toHaveProperty('street');
+    expect(request.address).not.toHaveProperty('number');
+    expect(request.address).not.toHaveProperty('postal_code');
   });
 });

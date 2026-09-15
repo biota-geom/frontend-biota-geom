@@ -1,17 +1,22 @@
 /*
- * Mirrors the backend's CreateCustomerDto field by field: snake_case keys,
- * UPPERCASE enum members (DocumentType / AddressType) and every field
- * required (@IsNotEmpty). This is the body POST /customers receives as-is,
- * so it is the one place the contract is written down on the frontend.
+ * Mirrors the backend's CreateCustomerDto field by field: snake_case keys and
+ * UPPERCASE enum members (DocumentType / AddressType). This is the body
+ * POST /customers receives as-is, so it is the one place the contract is
+ * written down on the frontend.
+ *
+ * The optional fields are the ones the registration form deliberately does not
+ * ask for — the company's own e-mail and phone, and the street-level part of
+ * the address. They stay in the model for whoever fills them in later, and the
+ * backend accepts the payload without them.
  */
 export type CreateCompanyAddress = {
   /** BILLING | SHIPPING on the backend; the registration form only files a billing address. */
   type: 'BILLING';
-  street: string;
-  number: string;
+  street?: string;
+  number?: string;
   city: string;
   state: string;
-  postal_code: string;
+  postal_code?: string;
   country_code: string;
 };
 
@@ -22,10 +27,10 @@ export type CreateCompanyRequest = {
   /** CPF | CNPJ on the backend; this flow registers legal entities only. */
   document_type: 'CNPJ';
   sector_id: string;
-  email: string;
+  email?: string;
   owner_name: string;
   owner_email: string;
-  owner_phone: string;
+  owner_phone?: string;
   address: CreateCompanyAddress;
 };
 
@@ -48,16 +53,11 @@ export type CreateCompanySubmission = {
 export type CreateCompanyFormState = {
   name: string;
   cnpj: string;
-  email: string;
   sectorId: string;
-  street: string;
-  number: string;
   city: string;
   state: string;
-  postalCode: string;
   responsibleName: string;
   responsibleEmail: string;
-  responsiblePhone: string;
   selectedIndicatorIds: string[];
 };
 

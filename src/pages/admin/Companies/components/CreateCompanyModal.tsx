@@ -358,16 +358,7 @@ export function CreateCompanyModal({
             />
           </div>
 
-          <div className="grid grid-cols-[3fr_2fr] gap-4">
-            <TextField
-              error={fieldErrors.email}
-              id="company-email"
-              label="E-mail da Empresa"
-              onChange={(value) => updateField('email', value)}
-              placeholder="contato@empresa.com"
-              type="email"
-              value={form.email}
-            />
+          <div className="grid grid-cols-[2fr_1fr_1fr] gap-4">
             <div className="flex flex-col gap-2">
               <label
                 className="text-[13px] font-bold text-text-primary"
@@ -421,36 +412,6 @@ export function CreateCompanyModal({
                 </p>
               ) : null}
             </div>
-          </div>
-
-          <div className="grid grid-cols-[3fr_1fr] gap-4">
-            <TextField
-              error={fieldErrors.street}
-              id="company-street"
-              label="Logradouro"
-              onChange={(value) => updateField('street', value)}
-              placeholder="Ex: Av. Assis Brasil"
-              value={form.street}
-            />
-            <TextField
-              error={fieldErrors.number}
-              id="company-number"
-              label="Número"
-              onChange={(value) => updateField('number', value)}
-              placeholder="Ex: 1234"
-              value={form.number}
-            />
-          </div>
-
-          <div className="grid grid-cols-[2fr_1fr_1fr] gap-4">
-            <TextField
-              error={fieldErrors.city}
-              id="company-city"
-              label="Cidade"
-              onChange={(value) => updateField('city', value)}
-              placeholder="Ex: Porto Alegre"
-              value={form.city}
-            />
             <TextField
               error={fieldErrors.state}
               id="company-state"
@@ -460,17 +421,16 @@ export function CreateCompanyModal({
               value={form.state}
             />
             <TextField
-              error={fieldErrors.postalCode}
-              id="company-postal-code"
-              inputMode="numeric"
-              label="CEP"
-              onChange={(value) => updateField('postalCode', value)}
-              placeholder="00000-000"
-              value={form.postalCode}
+              error={fieldErrors.city}
+              id="company-city"
+              label="Cidade"
+              onChange={(value) => updateField('city', value)}
+              placeholder="Ex: Porto Alegre"
+              value={form.city}
             />
           </div>
 
-          <div className="grid grid-cols-[2fr_2fr_1fr] gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <TextField
               error={fieldErrors.responsibleName}
               id="company-responsible-name"
@@ -487,15 +447,6 @@ export function CreateCompanyModal({
               placeholder="responsavel@empresa.com"
               type="email"
               value={form.responsibleEmail}
-            />
-            <TextField
-              error={fieldErrors.responsiblePhone}
-              id="company-responsible-phone"
-              inputMode="tel"
-              label="Telefone do Responsável"
-              onChange={(value) => updateField('responsiblePhone', value)}
-              placeholder="(51) 99999-0000"
-              value={form.responsiblePhone}
             />
           </div>
 
