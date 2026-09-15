@@ -27,9 +27,15 @@ export interface RefreshResponseWire {
   user: UserWire;
 }
 
+/*
+ * `message` has two shapes on the wire, both legitimate: routes that throw an
+ * HttpException by hand (all of /auth) send a plain string, while routes whose
+ * DTO goes through Nest's ValidationPipe (/customers) send one string per
+ * failed class-validator constraint — {"message":["Informe um CNPJ válido."]}.
+ */
 export interface ApiErrorWire {
   statusCode: number;
-  message: string;
+  message: string | string[];
   error: string;
 }
 

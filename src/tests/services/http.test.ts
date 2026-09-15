@@ -316,4 +316,107 @@ describe('http request()', () => {
       'Não foi possível concluir a operação. Tente novamente mais tarde.'
     );
   });
+
+  it('surfaces the single validation message when the server sends it as an array', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(400, {
+        statusCode: 400,
+        message: ['Informe um CNPJ válido.'],
+        error: 'Bad Request',
+      })
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(400);
+    expect((error as ApiError).message).toBe('Informe um CNPJ válido.');
+  });
+
+  it('joins every validation message when the server sends several', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(400, {
+        statusCode: 400,
+        message: ['Informe um CNPJ válido.', 'Informe o nome da empresa.'],
+        error: 'Bad Request',
+      })
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
+    expect((error as ApiError).message).toBe(
+      'Informe um CNPJ válido. Informe o nome da empresa.'
+    );
+  });
+
+  it('falls back to the generic message when the message array is empty', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(400, { statusCode: 400, message: [], error: 'Bad Request' })
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
+    expect((error as ApiError).status).toBe(400);
+    expect((error as ApiError).message).toBe(
+      'Não foi possível concluir a operação. Tente novamente mais tarde.'
+    );
+  });
+
+  it('falls back to the generic message when the message array holds no strings', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(400, {
+        statusCode: 400,
+        message: [{ constraint: 'isCnpj' }, 42, null],
+        error: 'Bad Request',
+      })
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
+    expect((error as ApiError).message).toBe(
+      'Não foi possível concluir a operação. Tente novamente mais tarde.'
+    );
+  });
+
+  it('falls back to the generic message when the message array holds only blank strings', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(400, {
+        statusCode: 400,
+        message: ['', '   '],
+        error: 'Bad Request',
+      })
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
+    expect((error as ApiError).message).toBe(
+      'Não foi possível concluir a operação. Tente novamente mais tarde.'
+    );
+  });
+
+  it('keeps the usable entries when the message array mixes strings and other values', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(400, {
+        statusCode: 400,
+        message: [null, 'Informe um CNPJ válido.', 7],
+        error: 'Bad Request',
+      })
+    );
+
+    const error = await request('/x', { requiresAuth: false }).catch(
+      (caught: unknown) => caught
+    );
+
+    expect((error as ApiError).message).toBe('Informe um CNPJ válido.');
+  });
 });

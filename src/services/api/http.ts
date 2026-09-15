@@ -65,11 +65,36 @@ async function performRefresh(): Promise<void> {
 }
 
 function isApiErrorWire(value: unknown): value is ApiErrorWire {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { message?: unknown }).message === 'string'
-  );
+  if (typeof value !== 'object' || value === null) return false;
+
+  /*
+   * An array is as valid a `message` as a string: Nest's ValidationPipe answers
+   * a rejected DTO with one entry per failed constraint, so every /customers
+   * route reports its real reason ("Informe um CNPJ válido.") this way. Reading
+   * only the string shape is what used to bury those behind the generic text.
+   */
+  const { message } = value as { message?: unknown };
+  return typeof message === 'string' || Array.isArray(message);
+}
+
+/*
+ * Null — never an empty string — when the payload carries nothing a user could
+ * act on (an empty array, entries that aren't strings, blanks only), so the
+ * caller falls back to GENERIC_ERROR_MESSAGE rather than raising a wordless
+ * ApiError. The string shape is passed through untouched, empty included.
+ *
+ * Each constraint message is a whole sentence server-side, so joining several
+ * with a space reads as one line instead of needing punctuation invented here.
+ */
+function toErrorMessage(message: string | string[]): string | null {
+  if (typeof message === 'string') return message;
+
+  const reasons = message
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+
+  return reasons.length > 0 ? reasons.join(' ') : null;
 }
 
 async function parseBody(response: Response): Promise<unknown> {
@@ -129,9 +154,9 @@ export async function request<T>(
   const payload = await parseBody(response);
 
   if (!response.ok) {
-    const message = isApiErrorWire(payload)
-      ? payload.message
-      : GENERIC_ERROR_MESSAGE;
+    const message =
+      (isApiErrorWire(payload) ? toErrorMessage(payload.message) : null) ??
+      GENERIC_ERROR_MESSAGE;
     throw new ApiError(response.status, message);
   }
 
