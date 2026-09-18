@@ -221,6 +221,26 @@ describe('http request()', () => {
     expect(fetchMock.mock.calls[1]![1]?.body).toBeUndefined();
   });
 
+  it('sends a FormData body as-is, without a Content-Type header', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(jsonResponse(201, {}));
+    const formData = new FormData();
+    formData.append('type', 'LO');
+
+    await request('/x', {
+      requiresAuth: false,
+      method: 'POST',
+      body: formData,
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init?.body).toBe(formData);
+    expect(
+      (init?.headers as Record<string, string> | undefined)?.['Content-Type']
+    ).toBeUndefined();
+  });
+
   it('replays the original method and body on the post-refresh retry', async () => {
     authStorage.setTokens('expired-access', 'refresh-1');
     const fetchMock = vi

@@ -20,6 +20,14 @@ const buttonVariants = cva('', {
       /* Primary form submit — the login/register call to action. */
       primary:
         'rounded-panel min-h-[45px] border-0 bg-primary text-[15px] font-extrabold text-white shadow-control transition-[background-color,transform] duration-[160ms] hover:bg-primary-strong active:translate-y-px focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary/30 disabled:cursor-not-allowed disabled:opacity-70',
+      /*
+       * Confirm action in a modal footer, e.g. "Salvar Licença". Unlike
+       * `primary`, which stretches to its container in the login/register
+       * forms, this one is auto-width next to a Cancel button — so the
+       * horizontal padding has to live here or the label touches the edge.
+       */
+      dialogPrimary:
+        'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white shadow-control transition-[background-color] duration-[160ms] hover:bg-primary-strong focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary/30 disabled:cursor-not-allowed disabled:opacity-70',
       /* Page-header action, e.g. "Nova Empresa". */
       action:
         'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white disabled:cursor-default disabled:opacity-100 max-[720px]:w-full',

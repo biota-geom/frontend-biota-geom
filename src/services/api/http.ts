@@ -19,6 +19,11 @@ const SESSION_EXPIRED_MESSAGE = 'Sua sessão expirou. Faça login novamente.';
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+  /**
+   * A `FormData` body (e.g. a file upload) is sent as-is, with no
+   * `Content-Type` set — the browser fills in `multipart/form-data` with the
+   * correct boundary itself. Anything else is JSON-encoded, as before.
+   */
   body?: unknown;
   /** Attach the stored access token and allow the 401-refresh-retry flow. */
   requiresAuth?: boolean;
@@ -118,9 +123,10 @@ export async function request<T>(
     skipAuthRefresh = false,
   } = options;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const isFormData = body instanceof FormData;
+  const headers: Record<string, string> = isFormData
+    ? {}
+    : { 'Content-Type': 'application/json' };
   if (requiresAuth) {
     const accessToken = authStorage.getAccessToken();
     if (accessToken) {
@@ -133,7 +139,11 @@ export async function request<T>(
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: isFormData
+        ? body
+        : body !== undefined
+          ? JSON.stringify(body)
+          : undefined,
     });
   } catch {
     throw new ApiError(0, NETWORK_ERROR_MESSAGE, { isNetworkError: true });
