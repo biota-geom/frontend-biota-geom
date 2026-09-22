@@ -120,3 +120,23 @@ export interface EsgMetricWire {
   customer_id: string | null;
   gri_standard_id: string | null;
 }
+
+export interface IssuingAgencyWire {
+  id: string;
+  name: string;
+  acronym: string | null;
+}
+
+export interface LicenseWire {
+  id: string;
+  customer_id: string;
+  type: string;
+  process_number: string;
+  issuing_agency_id: string;
+  issuing_agency_name: string | null;
+  issue_date: string;
+  expiration_date: string;
+  status: string;
+  document_url: string;
+  created_at: string;
+}

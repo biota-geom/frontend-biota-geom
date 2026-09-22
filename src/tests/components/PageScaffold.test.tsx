@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PageScaffold } from '../../components/layout/PageScaffold';
 
 describe('PageScaffold', () => {
@@ -109,5 +110,24 @@ describe('PageScaffold', () => {
     const button = screen.getByRole('button', { name: /nova empresa/i });
 
     expect(button.querySelector('svg')).not.toBeInTheDocument();
+  });
+
+  it("calls an action's onClick handler when the button is pressed", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+
+    render(
+      <PageScaffold
+        actions={[{ label: 'Nova Licença', onClick }]}
+        subtitle="Subtítulo"
+        title="Título"
+      >
+        <p>Conteúdo</p>
+      </PageScaffold>
+    );
+
+    await user.click(screen.getByRole('button', { name: /nova licença/i }));
+
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
