@@ -28,6 +28,6 @@ function toCompany(wire: CustomerWire): Company {
 }
 
 export async function listCompanies(): Promise<Company[]> {
-  const wire = await request<CustomerWire[]>('/customers');
+  const wire = await request<CustomerWire[]>('/api/customers');
   return wire.map(toCompany);
 }

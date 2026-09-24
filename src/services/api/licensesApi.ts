@@ -41,10 +41,13 @@ export async function createLicense(
   formData.append('expiration_date', input.expirationDate);
   formData.append('document_file', input.documentFile);
 
-  const wire = await request<LicenseWire>(`/customers/${customerId}/licenses`, {
-    method: 'POST',
-    body: formData,
-  });
+  const wire = await request<LicenseWire>(
+    `/api/customers/${customerId}/licenses`,
+    {
+      method: 'POST',
+      body: formData,
+    }
+  );
 
   return toLicense(wire);
 }

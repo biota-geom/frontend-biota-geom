@@ -34,7 +34,7 @@ describe('authApi', () => {
       passwordConfirmation: 'Sup3r$ecret!',
     });
 
-    expect(request).toHaveBeenCalledWith('/auth/register', {
+    expect(request).toHaveBeenCalledWith('/api/auth/register', {
       method: 'POST',
       requiresAuth: false,
       body: {
@@ -73,7 +73,7 @@ describe('authApi', () => {
       password: 'Sup3r$ecret!',
     });
 
-    expect(request).toHaveBeenCalledWith('/auth/login', {
+    expect(request).toHaveBeenCalledWith('/api/auth/login', {
       method: 'POST',
       requiresAuth: false,
       body: { email: 'john.doe@biotageom.com.br', password: 'Sup3r$ecret!' },
@@ -92,7 +92,7 @@ describe('authApi', () => {
 
     const result = await refresh('refresh-1');
 
-    expect(request).toHaveBeenCalledWith('/auth/refresh', {
+    expect(request).toHaveBeenCalledWith('/api/auth/refresh', {
       method: 'POST',
       requiresAuth: false,
       skipAuthRefresh: true,

@@ -11,6 +11,6 @@ function toIssuingAgency(wire: IssuingAgencyWire): IssuingAgency {
 }
 
 export async function listIssuingAgencies(): Promise<IssuingAgency[]> {
-  const wire = await request<IssuingAgencyWire[]>('/issuing-agencies');
+  const wire = await request<IssuingAgencyWire[]>('/api/issuing-agencies');
   return wire.map(toIssuingAgency);
 }

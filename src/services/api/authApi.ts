@@ -28,7 +28,7 @@ function toAuthSession(wire: AuthResponseWire): AuthSession {
 }
 
 export async function register(input: RegisterInput): Promise<AuthSession> {
-  const wire = await request<AuthResponseWire>('/auth/register', {
+  const wire = await request<AuthResponseWire>('/api/auth/register', {
     method: 'POST',
     requiresAuth: false,
     body: {
@@ -43,7 +43,7 @@ export async function register(input: RegisterInput): Promise<AuthSession> {
 }
 
 export async function login(input: LoginInput): Promise<AuthSession> {
-  const wire = await request<AuthResponseWire>('/auth/login', {
+  const wire = await request<AuthResponseWire>('/api/auth/login', {
     method: 'POST',
     requiresAuth: false,
     body: { email: input.email, password: input.password },
@@ -55,7 +55,7 @@ export async function login(input: LoginInput): Promise<AuthSession> {
 export async function refresh(
   refreshToken: string
 ): Promise<{ user: AuthUser; accessToken: string }> {
-  const wire = await request<RefreshResponseWire>('/auth/refresh', {
+  const wire = await request<RefreshResponseWire>('/api/auth/refresh', {
     method: 'POST',
     requiresAuth: false,
     skipAuthRefresh: true,

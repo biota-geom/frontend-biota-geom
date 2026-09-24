@@ -24,7 +24,7 @@ describe('sectorsApi', () => {
 
     const sectors = await listSectors();
 
-    expect(request).toHaveBeenCalledWith('/sectors');
+    expect(request).toHaveBeenCalledWith('/api/sectors');
     expect(sectors).toEqual([
       {
         id: '01a0a21c-fd40-762b-a1a9-744bd7cf47ee',

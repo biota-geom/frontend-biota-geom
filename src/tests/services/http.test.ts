@@ -74,7 +74,7 @@ describe('http request()', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const path = String(input);
-      if (path.includes('/auth/refresh')) {
+      if (path.includes('/api/auth/refresh')) {
         refreshCallCount += 1;
         return Promise.resolve(
           jsonResponse(200, {
@@ -103,7 +103,7 @@ describe('http request()', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const path = String(input);
-      const status = path.includes('/auth/refresh') ? 401 : 401;
+      const status = path.includes('/api/auth/refresh') ? 401 : 401;
       return Promise.resolve(
         jsonResponse(status, { message: 'Sua sessão expirou.' })
       );
@@ -268,7 +268,7 @@ describe('http request()', () => {
     let protectedCalls = 0;
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      if (String(input).includes('/auth/refresh')) {
+      if (String(input).includes('/api/auth/refresh')) {
         return Promise.resolve(
           jsonResponse(200, {
             access_token: 'new-access',

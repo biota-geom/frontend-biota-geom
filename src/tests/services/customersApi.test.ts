@@ -29,7 +29,7 @@ describe('customersApi', () => {
 
     const companies = await listCompanies();
 
-    expect(request).toHaveBeenCalledWith('/customers');
+    expect(request).toHaveBeenCalledWith('/api/customers');
     expect(companies).toEqual([
       {
         id: 'customer-1',

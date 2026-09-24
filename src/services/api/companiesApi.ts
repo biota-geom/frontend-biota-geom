@@ -18,7 +18,7 @@ import type {
  * so no status is special-cased here.
  */
 export async function getCompanyById(companyId: string): Promise<Company> {
-  const wire = await request<CustomerDetailWire>(`/customers/${companyId}`);
+  const wire = await request<CustomerDetailWire>(`/api/customers/${companyId}`);
 
   return {
     id: wire.id,
@@ -45,7 +45,7 @@ export async function getCompanyById(companyId: string): Promise<Company> {
 export async function createCompany(
   input: CreateCompanyRequest
 ): Promise<CreatedCompany> {
-  const wire = await request<CustomerCreatedWire>('/customers', {
+  const wire = await request<CustomerCreatedWire>('/api/customers', {
     method: 'POST',
     body: input,
   });
@@ -60,7 +60,7 @@ export async function linkCompanyEsgMetrics(
 ): Promise<void> {
   const body: LinkCustomerEsgMetricsRequestWire = { metric_ids: metricIds };
 
-  await request<void>(`/customers/${companyId}/esg-metrics`, {
+  await request<void>(`/api/customers/${companyId}/esg-metrics`, {
     method: 'POST',
     body,
   });
