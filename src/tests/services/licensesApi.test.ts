@@ -5,7 +5,8 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { createLicense } = await import('../../services/api/licensesApi');
+const { createLicense, listLicenses } =
+  await import('../../services/api/licensesApi');
 
 describe('licensesApi', () => {
   it('createLicense() posts a FormData body and maps the response to the domain shape', async () => {
@@ -60,6 +61,59 @@ describe('licensesApi', () => {
       status: 'Vencida',
       documentUrl: 'https://bucket.aws.com/licenses/lo-118-2020.pdf',
       createdAt: '2020-01-10T00:00:00.000Z',
+    });
+  });
+
+  it('listLicenses() fetches the panel and maps summary/licenses to the domain shape', async () => {
+    vi.mocked(request).mockResolvedValue({
+      summary: { total: 2, regular: 1, attention: 0, expired: 1 },
+      licenses: [
+        {
+          id: 'license-1',
+          type: 'Licença Prévia (LP)',
+          process_number: 'LP nº 482/2024',
+          issuing_agency: 'FEPAM',
+          issue_date: '2024-03-12T00:00:00.000Z',
+          expiration_date: '2026-03-12T00:00:00.000Z',
+          status: 'Regular',
+        },
+        {
+          id: 'license-2',
+          type: 'Licença de Operação (LO)',
+          process_number: 'LO nº 118/2020',
+          issuing_agency: null,
+          issue_date: '2020-01-10T00:00:00.000Z',
+          expiration_date: '2025-01-10T00:00:00.000Z',
+          status: 'Vencida',
+        },
+      ],
+    });
+
+    const panel = await listLicenses('customer-1');
+
+    expect(request).toHaveBeenCalledWith('/customers/customer-1/licenses');
+    expect(panel).toEqual({
+      summary: { total: 2, regular: 1, attention: 0, expired: 1 },
+      licenses: [
+        {
+          id: 'license-1',
+          type: 'Licença Prévia (LP)',
+          processNumber: 'LP nº 482/2024',
+          issuingAgency: 'FEPAM',
+          issueDate: '2024-03-12T00:00:00.000Z',
+          expirationDate: '2026-03-12T00:00:00.000Z',
+          status: 'Regular',
+        },
+        {
+          id: 'license-2',
+          type: 'Licença de Operação (LO)',
+          processNumber: 'LO nº 118/2020',
+          issuingAgency: null,
+          issueDate: '2020-01-10T00:00:00.000Z',
+          expirationDate: '2025-01-10T00:00:00.000Z',
+          status: 'Vencida',
+        },
+      ],
     });
   });
 });
