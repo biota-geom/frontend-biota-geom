@@ -17,6 +17,7 @@ describe('customersApi', () => {
         status: 'Ativo',
         segment: 'Siderurgia',
         location: 'Porto Alegre - RS',
+        conformity_percentage: 96,
       },
       {
         id: 'customer-2',
@@ -24,6 +25,7 @@ describe('customersApi', () => {
         status: 'Inativo',
         segment: '',
         location: 'São Paulo - SP',
+        conformity_percentage: null,
       },
     ]);
 
@@ -37,6 +39,7 @@ describe('customersApi', () => {
         status: 'active',
         segment: 'Siderurgia',
         location: 'Porto Alegre - RS',
+        conformityPercentage: 96,
       },
       {
         id: 'customer-2',
@@ -44,6 +47,7 @@ describe('customersApi', () => {
         status: 'inactive',
         segment: '',
         location: 'São Paulo - SP',
+        conformityPercentage: null,
       },
     ]);
   });

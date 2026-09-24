@@ -8,7 +8,7 @@ import { COMPANY_MESSAGES } from '../../features/companies/companyMessages';
 import { useCompanies } from '../../features/companies/useCompanies';
 import {
   getCompanyCountLabel,
-  getComplianceTone,
+  getConformityColor,
   getStatusLabel,
 } from '../../pages/admin/Companies/companyCardFormatting';
 import { ApiError } from '../../services/api/apiError';
@@ -64,6 +64,7 @@ const COMPANIES = [
     status: 'active' as const,
     segment: 'Siderurgia',
     location: 'Porto Alegre - RS',
+    conformityPercentage: 96,
   },
   {
     id: 'customer-2',
@@ -71,6 +72,7 @@ const COMPANIES = [
     status: 'active' as const,
     segment: 'Metalúrgica',
     location: 'Sorocaba - SP',
+    conformityPercentage: 80,
   },
   {
     id: 'customer-3',
@@ -78,6 +80,7 @@ const COMPANIES = [
     status: 'inactive' as const,
     segment: 'Agronegócio',
     location: 'Sorriso - MT',
+    conformityPercentage: 45,
   },
 ];
 
@@ -188,6 +191,43 @@ describe('AdminCompaniesPage', () => {
     renderAppRoutes();
 
     expect(await screen.findByText('3 empresas')).toBeInTheDocument();
+  });
+
+  it('renders the conformity percentage and its traffic-light indicator', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+
+    renderAppRoutes();
+
+    expect(await screen.findByText('96%')).toHaveClass('text-green-500');
+    expect(screen.getByText('80%')).toHaveClass('text-orange-400');
+    expect(screen.getByText('45%')).toHaveClass('text-red-500');
+    expect(screen.getByTestId('conformity-indicator-customer-1')).toHaveClass(
+      'inline-flex',
+      'bg-green-500'
+    );
+    expect(screen.getByTestId('conformity-indicator-customer-2')).toHaveClass(
+      'bg-orange-400'
+    );
+    expect(screen.getByTestId('conformity-indicator-customer-3')).toHaveClass(
+      'bg-red-500'
+    );
+  });
+
+  it('renders a neutral indicator and dash when conformity is unavailable', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([
+      { ...COMPANIES[0], conformityPercentage: null },
+    ]);
+
+    renderAppRoutes();
+
+    const indicator = await screen.findByTestId(
+      'conformity-indicator-customer-1'
+    );
+    const conformity = indicator.closest('dd');
+
+    expect(indicator).toHaveClass('inline-flex', 'bg-gray-400');
+    expect(conformity).toHaveTextContent('—');
+    expect(conformity).not.toHaveTextContent('%');
   });
 
   it('keeps the header total on the whole portfolio when a filter reduces the listing', async () => {
@@ -634,16 +674,16 @@ describe('AdminCompaniesPage', () => {
   });
 });
 
-describe('getComplianceTone', () => {
+describe('getConformityColor', () => {
   it.each([
-    { compliance: 100, expected: '!text-primary-strong' },
-    { compliance: 90, expected: '!text-primary-strong' },
-    { compliance: 89, expected: '!text-amber-500' },
-    { compliance: 70, expected: '!text-amber-500' },
-    { compliance: 69, expected: '!text-red-500' },
-    { compliance: 0, expected: '!text-red-500' },
-  ])('returns $expected for $compliance%', ({ compliance, expected }) => {
-    expect(getComplianceTone(compliance)).toBe(expected);
+    { percentage: 100, expected: 'bg-green-500' },
+    { percentage: 95, expected: 'bg-green-500' },
+    { percentage: 94, expected: 'bg-orange-400' },
+    { percentage: 70, expected: 'bg-orange-400' },
+    { percentage: 69, expected: 'bg-red-500' },
+    { percentage: 0, expected: 'bg-red-500' },
+  ])('returns $expected for $percentage%', ({ percentage, expected }) => {
+    expect(getConformityColor(percentage)).toBe(expected);
   });
 });
 

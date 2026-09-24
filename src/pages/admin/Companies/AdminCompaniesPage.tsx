@@ -24,7 +24,12 @@ import {
 } from '../../../features/companies/companyFilters';
 import { COMPANY_MESSAGES } from '../../../features/companies/companyMessages';
 import { useCompanies } from '../../../features/companies/useCompanies';
-import { getCompanyCountLabel, getStatusLabel } from './companyCardFormatting';
+import {
+  getCompanyCountLabel,
+  getConformityColor,
+  getConformityTextColor,
+  getStatusLabel,
+} from './companyCardFormatting';
 import { useState } from 'react';
 import { CompanyFilters } from './components/CompanyFilters';
 import { CreateCompanyModal } from './components/CreateCompanyModal';
@@ -213,7 +218,7 @@ export function AdminCompaniesPage() {
                 </CardAction>
               </CardHeader>
 
-              {/* Licenças/Conformidade/Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
+              {/* Licenças/Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
               <CardContent className="[&_dd]:text-text-muted" variant="company">
                 <div>
                   <dt>Licenças</dt>
@@ -222,8 +227,26 @@ export function AdminCompaniesPage() {
                 <div>
                   <dt>Conformidade</dt>
                   <dd>
-                    <span className="size-2 shrink-0 rounded-full bg-current" />
-                    —
+                    <span
+                      aria-hidden="true"
+                      className={`inline-flex size-2 shrink-0 rounded-full ${
+                        company.conformityPercentage == null
+                          ? 'bg-gray-400'
+                          : getConformityColor(company.conformityPercentage)
+                      }`}
+                      data-testid={`conformity-indicator-${company.id}`}
+                    />
+                    {company.conformityPercentage == null ? (
+                      '—'
+                    ) : (
+                      <span
+                        className={getConformityTextColor(
+                          company.conformityPercentage
+                        )}
+                      >
+                        {company.conformityPercentage}%
+                      </span>
+                    )}
                   </dd>
                 </div>
                 <div>
