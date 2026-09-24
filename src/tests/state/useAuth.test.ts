@@ -50,7 +50,7 @@ describe('useAuth store', () => {
       expect(authStorage.getRefreshToken()).toBeNull();
     });
 
-    it('restores the session via /auth/refresh when the refresh token still looks valid', async () => {
+    it('restores the session via /api/auth/refresh when the refresh token still looks valid', async () => {
       const valid = makeToken({ exp: Math.floor(Date.now() / 1000) + 3600 });
       authStorage.setTokens('old-access', valid);
       vi.mocked(authApi.refresh).mockResolvedValue({
