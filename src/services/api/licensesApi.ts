@@ -1,6 +1,15 @@
-import type { License, LicenseType } from '../../features/licenses/types';
+import type {
+  License,
+  LicensePanelItem,
+  LicensesPanel,
+  LicenseType,
+} from '../../features/licenses/types';
 import { request } from './http';
-import type { LicenseWire } from './types';
+import type {
+  LicensePanelItemWire,
+  LicensePanelResponseWire,
+  LicenseWire,
+} from './types';
 
 export interface CreateLicenseInput {
   type: LicenseType;
@@ -47,4 +56,27 @@ export async function createLicense(
   });
 
   return toLicense(wire);
+}
+
+function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {
+  return {
+    id: wire.id,
+    type: wire.type,
+    processNumber: wire.process_number,
+    issuingAgency: wire.issuing_agency,
+    issueDate: wire.issue_date,
+    expirationDate: wire.expiration_date,
+    status: wire.status,
+  };
+}
+
+export async function listLicenses(customerId: string): Promise<LicensesPanel> {
+  const wire = await request<LicensePanelResponseWire>(
+    `/customers/${customerId}/licenses`
+  );
+
+  return {
+    summary: wire.summary,
+    licenses: wire.licenses.map(toLicensePanelItem),
+  };
 }

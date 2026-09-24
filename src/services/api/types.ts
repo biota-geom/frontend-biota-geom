@@ -140,3 +140,31 @@ export interface LicenseWire {
   document_url: string;
   created_at: string;
 }
+
+/*
+ * GET /customers/:customerId/licenses. Its `licenses[].type`/`status` are
+ * already PT-BR display labels ("Licença Prévia (LP)", "Vencida"), unlike
+ * LicenseWire's `type` (raw "LP"/"LI"/"LO" enum) from the create endpoint —
+ * two different wire shapes on purpose, mirrored by two domain types.
+ */
+export interface LicenseSummaryWire {
+  total: number;
+  regular: number;
+  attention: number;
+  expired: number;
+}
+
+export interface LicensePanelItemWire {
+  id: string;
+  type: string;
+  process_number: string;
+  issuing_agency: string | null;
+  issue_date: string;
+  expiration_date: string;
+  status: string;
+}
+
+export interface LicensePanelResponseWire {
+  summary: LicenseSummaryWire;
+  licenses: LicensePanelItemWire[];
+}
