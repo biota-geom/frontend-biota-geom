@@ -37,7 +37,7 @@ describe('licensesApi', () => {
 
     expect(request).toHaveBeenCalledTimes(1);
     const [path, options] = vi.mocked(request).mock.calls[0]!;
-    expect(path).toBe('/customers/customer-1/licenses');
+    expect(path).toBe('/api/customers/customer-1/licenses');
     expect(options?.method).toBe('POST');
 
     const formData = options?.body as FormData;

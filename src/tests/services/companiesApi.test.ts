@@ -44,7 +44,7 @@ describe('companiesApi', () => {
 
     const company = await getCompanyById('company-1');
 
-    expect(request).toHaveBeenCalledWith('/customers/company-1');
+    expect(request).toHaveBeenCalledWith('/api/customers/company-1');
     expect(company).toEqual({
       id: 'company-1',
       name: 'Unidade Industrial Ouro Preto',
@@ -114,7 +114,7 @@ describe('companiesApi', () => {
 
     const created = await createCompany(CREATE_REQUEST);
 
-    expect(request).toHaveBeenCalledWith('/customers', {
+    expect(request).toHaveBeenCalledWith('/api/customers', {
       method: 'POST',
       body: CREATE_REQUEST,
     });
@@ -140,9 +140,12 @@ describe('companiesApi', () => {
 
     await linkCompanyEsgMetrics('customer-9', ['metric-1', 'metric-2']);
 
-    expect(request).toHaveBeenCalledWith('/customers/customer-9/esg-metrics', {
-      method: 'POST',
-      body: { metric_ids: ['metric-1', 'metric-2'] },
-    });
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-9/esg-metrics',
+      {
+        method: 'POST',
+        body: { metric_ids: ['metric-1', 'metric-2'] },
+      }
+    );
   });
 });

@@ -11,6 +11,6 @@ function toSector(wire: SectorWire): Sector {
 }
 
 export async function listSectors(): Promise<Sector[]> {
-  const wire = await request<SectorWire[]>('/sectors');
+  const wire = await request<SectorWire[]>('/api/sectors');
   return wire.map(toSector);
 }

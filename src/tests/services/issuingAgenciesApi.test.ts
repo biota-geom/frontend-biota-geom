@@ -17,7 +17,7 @@ describe('issuingAgenciesApi', () => {
 
     const agencies = await listIssuingAgencies();
 
-    expect(request).toHaveBeenCalledWith('/issuing-agencies');
+    expect(request).toHaveBeenCalledWith('/api/issuing-agencies');
     expect(agencies).toEqual([
       { id: 'agency-1', name: 'FEPAM', acronym: 'FEPAM' },
       { id: 'agency-2', name: 'IBAMA', acronym: null },
