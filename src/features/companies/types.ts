@@ -4,6 +4,11 @@ export interface Company {
   status: 'active' | 'inactive';
   segment: string;
   location: string;
+  /**
+   * Percentage returned by GET /api/customers. The company detail endpoint
+   * does not expose this summary value yet, so it is absent in that context.
+   */
+  conformityPercentage?: number | null;
 }
 
 /** Business segment a company is linked to — served by GET /sectors. */

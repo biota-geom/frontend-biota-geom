@@ -24,6 +24,7 @@ function toCompany(wire: CustomerWire): Company {
     status: toCompanyStatus(wire.status),
     segment: wire.segment,
     location: wire.location,
+    conformityPercentage: wire.conformity_percentage,
   };
 }
 
