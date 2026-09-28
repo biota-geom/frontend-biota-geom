@@ -47,6 +47,8 @@ export interface LicensePanelItem {
   issueDate: string;
   expirationDate: string;
   status: string;
+  /** URL of the license PDF document, or null when none is stored yet. */
+  documentUrl: string | null;
 }
 
 export interface LicensesPanel {

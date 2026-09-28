@@ -76,6 +76,7 @@ describe('licensesApi', () => {
           issue_date: '2024-03-12T00:00:00.000Z',
           expiration_date: '2026-03-12T00:00:00.000Z',
           status: 'Regular',
+          document_url: 'https://bucket.aws.com/licenses/lp-482-2024.pdf',
         },
         {
           id: 'license-2',
@@ -85,6 +86,7 @@ describe('licensesApi', () => {
           issue_date: '2020-01-10T00:00:00.000Z',
           expiration_date: '2025-01-10T00:00:00.000Z',
           status: 'Vencida',
+          document_url: null,
         },
       ],
     });
@@ -103,6 +105,7 @@ describe('licensesApi', () => {
           issueDate: '2024-03-12T00:00:00.000Z',
           expirationDate: '2026-03-12T00:00:00.000Z',
           status: 'Regular',
+          documentUrl: 'https://bucket.aws.com/licenses/lp-482-2024.pdf',
         },
         {
           id: 'license-2',
@@ -112,6 +115,7 @@ describe('licensesApi', () => {
           issueDate: '2020-01-10T00:00:00.000Z',
           expirationDate: '2025-01-10T00:00:00.000Z',
           status: 'Vencida',
+          documentUrl: null,
         },
       ],
     });

@@ -56,6 +56,7 @@ const LICENSES_PANEL = {
       issueDate: '2024-03-12T00:00:00.000Z',
       expirationDate: '2026-03-12T00:00:00.000Z',
       status: 'Regular',
+      documentUrl: 'https://bucket.aws.com/licenses/lp-482-2024.pdf',
     },
     {
       id: 'license-2',
@@ -65,6 +66,7 @@ const LICENSES_PANEL = {
       issueDate: '2021-08-22T00:00:00.000Z',
       expirationDate: '2026-08-22T00:00:00.000Z',
       status: 'Atenção',
+      documentUrl: null,
     },
     {
       id: 'license-3',
@@ -74,6 +76,7 @@ const LICENSES_PANEL = {
       issueDate: '2020-01-10T00:00:00.000Z',
       expirationDate: '2025-01-10T00:00:00.000Z',
       status: 'Vencida',
+      documentUrl: 'https://bucket.aws.com/licenses/lo-118-2020.pdf',
     },
   ],
 };
@@ -284,5 +287,61 @@ describe('CompanyLicensesPage', () => {
 
     expect(row).not.toBeNull();
     expect(row).toHaveTextContent('Regular');
+  });
+
+  it('renders skeleton rows while the licenses are loading', async () => {
+    // Delay the API response so the loading state is visible during the test.
+    vi.mocked(licensesApi.listLicenses).mockImplementation(
+      () => new Promise(() => {})
+    );
+
+    renderLicensesPage();
+
+    // The skeleton uses animate-pulse spans — at least one must be present.
+    await waitFor(() =>
+      expect(document.querySelector('.animate-pulse')).toBeInTheDocument()
+    );
+  });
+
+  it('shows an empty state with a "+ Nova Licença" shortcut when there are no licenses', async () => {
+    vi.mocked(licensesApi.listLicenses).mockResolvedValue({
+      summary: { total: 0, regular: 0, attention: 0, expired: 0 },
+      licenses: [],
+    });
+
+    renderLicensesPage();
+
+    expect(
+      await screen.findByText(/nenhuma licença cadastrada/i)
+    ).toBeInTheDocument();
+    // The empty state includes a shortcut button to open the modal.
+    expect(
+      screen.getAllByRole('button', { name: /\+\s*nova licença/i })
+    ).not.toHaveLength(0);
+  });
+
+  it('renders an "Abrir PDF" link that points to the document_url in a new tab', async () => {
+    renderLicensesPage();
+
+    // Two licenses in LICENSES_PANEL have a documentUrl; pick the first one.
+    const pdfLinks = await screen.findAllByRole('link', { name: /abrir pdf/i });
+    const firstLink = pdfLinks[0]!;
+    expect(firstLink).toHaveAttribute(
+      'href',
+      'https://bucket.aws.com/licenses/lp-482-2024.pdf'
+    );
+    expect(firstLink).toHaveAttribute('target', '_blank');
+    expect(firstLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('does not render an "Abrir PDF" link when document_url is null', async () => {
+    renderLicensesPage();
+
+    await screen.findByText('LP nº 482/2024');
+    // license-2 (OUT nº 085/2021) has documentUrl: null — it renders
+    // "Sem PDF" text instead of a link.
+    const row = screen.getByText('OUT nº 085/2021').closest('tr')!;
+    expect(within(row).getByText(/sem pdf/i)).toBeInTheDocument();
+    expect(within(row).queryByRole('link', { name: /abrir pdf/i })).toBeNull();
   });
 });
