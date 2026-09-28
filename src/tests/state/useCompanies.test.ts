@@ -14,6 +14,8 @@ const COMPANY = {
   status: 'active' as const,
   segment: 'Siderurgia',
   location: 'Porto Alegre - RS',
+  totalLicenses: 6,
+  updatedAt: '2026-09-17T14:30:00.000Z',
 };
 
 describe('useCompanies store', () => {

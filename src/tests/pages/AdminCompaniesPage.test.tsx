@@ -64,6 +64,8 @@ const COMPANIES = [
     status: 'active' as const,
     segment: 'Siderurgia',
     location: 'Porto Alegre - RS',
+    totalLicenses: 6,
+    updatedAt: '2026-09-17T14:30:00.000Z',
   },
   {
     id: 'customer-2',
@@ -71,6 +73,8 @@ const COMPANIES = [
     status: 'active' as const,
     segment: 'Metalúrgica',
     location: 'Sorocaba - SP',
+    totalLicenses: 0,
+    updatedAt: '2026-09-10T08:00:00.000Z',
   },
   {
     id: 'customer-3',
@@ -78,6 +82,8 @@ const COMPANIES = [
     status: 'inactive' as const,
     segment: 'Agronegócio',
     location: 'Sorriso - MT',
+    totalLicenses: 2,
+    updatedAt: '2026-08-01T12:00:00.000Z',
   },
 ];
 

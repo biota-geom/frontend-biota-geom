@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
 import { buildCompanyRoutes } from '../../app/router/routes';
-import type { Company } from '../../features/companies/types';
+import type { CompanyListItem } from '../../features/companies/types';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { ApiError } from '../../services/api/apiError';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
@@ -36,12 +36,14 @@ const customersApi = await import('../../services/api/customersApi');
 
 const COMPANY_ID = 'customer-1';
 
-const COMPANY_IN_CONTEXT: Company = {
+const COMPANY_IN_CONTEXT: CompanyListItem = {
   id: COMPANY_ID,
   name: 'Unidade Industrial Ouro Preto',
   status: 'active',
   segment: 'Mineração',
   location: 'Ouro Preto - MG',
+  totalLicenses: 1,
+  updatedAt: '2026-09-01T12:00:00.000Z',
 };
 
 function renderLicensesPage() {
