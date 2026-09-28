@@ -152,7 +152,7 @@ describe('CompanyLayout', () => {
 
   it('keeps the context loaded across every company route', async () => {
     for (const route of [
-      'obligations',
+      'conditions',
       'legislation',
       'indicators',
       'documents',
@@ -216,10 +216,9 @@ describe('CompanyLayout', () => {
       'href',
       '/companies/customer-1/licenses'
     );
-    expect(screen.getByRole('link', { name: 'Obrigações' })).toHaveAttribute(
-      'href',
-      '/companies/customer-1/obligations'
-    );
+    expect(
+      screen.getByRole('link', { name: 'Condicionantes' })
+    ).toHaveAttribute('href', '/companies/customer-1/conditions');
     expect(screen.getByRole('link', { name: 'Legislação' })).toHaveAttribute(
       'href',
       '/companies/customer-1/legislation'
