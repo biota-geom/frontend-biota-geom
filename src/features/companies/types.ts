@@ -4,6 +4,8 @@ export interface Company {
   status: 'active' | 'inactive';
   segment: string;
   location: string;
+  attentionCount?: number;
+  expiredCount?: number;
 }
 
 /** Business segment a company is linked to — served by GET /sectors. */

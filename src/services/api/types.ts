@@ -61,6 +61,8 @@ export interface CustomerWire {
   status: string;
   segment: string;
   location: string;
+  attention_count: number;
+  expired_count: number;
 }
 
 /*

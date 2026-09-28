@@ -229,15 +229,15 @@ export function AdminCompaniesPage() {
                 <div>
                   <dt>Atenção</dt>
                   <dd>
-                    <span className="size-2 shrink-0 rounded-full bg-current" />
-                    —
+                    <span className="size-2 shrink-0 rounded-full bg-yellow-400" />
+                    {company.attentionCount ?? 0}
                   </dd>
                 </div>
                 <div>
                   <dt>Vencido</dt>
                   <dd>
-                    <span className="size-2 shrink-0 rounded-full bg-current" />
-                    —
+                    <span className="size-2 shrink-0 rounded-full bg-red-500" />
+                    {company.expiredCount ?? 0}
                   </dd>
                 </div>
               </CardContent>

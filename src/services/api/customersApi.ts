@@ -24,9 +24,10 @@ function toCompany(wire: CustomerWire): Company {
     status: toCompanyStatus(wire.status),
     segment: wire.segment,
     location: wire.location,
+    attentionCount: wire.attention_count,
+    expiredCount: wire.expired_count,
   };
 }
-
 export async function listCompanies(): Promise<Company[]> {
   const wire = await request<CustomerWire[]>('/api/customers');
   return wire.map(toCompany);
