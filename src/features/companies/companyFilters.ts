@@ -61,10 +61,10 @@ export function listSegmentOptions(companies: Company[]): string[] {
  * already loaded listing — adequate for the MVP's data volume; revisit when
  * the listing gains server-side pagination.
  */
-export function filterCompanies(
-  companies: Company[],
+export function filterCompanies<T extends Company>(
+  companies: T[],
   { search, segment, status }: CompanyFilterValues
-): Company[] {
+): T[] {
   const query = normalizeSearchText(search);
 
   return companies.filter((company) => {
