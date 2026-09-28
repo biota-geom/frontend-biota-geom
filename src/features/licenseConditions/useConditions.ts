@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../services/api/apiError';
 import { listLicenseConditions } from '../../services/api/licenseConditionsApi';
 import type { LicenseCondition } from './types';
@@ -46,5 +46,37 @@ export function useConditions(customerId: string | undefined) {
     };
   }, [customerId]);
 
-  return { conditions, error, status };
+  /*
+   * In place, without re-sorting: the API orders the listing by risk and due
+   * date, and reproducing that order here would be the same rule written
+   * twice. An edited condition keeps its row and only its own contents — the
+   * recalculated risk level included — change.
+   */
+  const replaceCondition = useCallback((updated: LicenseCondition) => {
+    setConditions((current) =>
+      current.map((condition) =>
+        condition.id === updated.id ? updated : condition
+      )
+    );
+  }, []);
+
+  const removeCondition = useCallback((conditionId: string) => {
+    setConditions((current) =>
+      current.filter((condition) => condition.id !== conditionId)
+    );
+  }, []);
+
+  /** Puts the list back as it was when an optimistic removal is rejected. */
+  const restoreConditions = useCallback((previous: LicenseCondition[]) => {
+    setConditions(previous);
+  }, []);
+
+  return {
+    conditions,
+    error,
+    status,
+    replaceCondition,
+    removeCondition,
+    restoreConditions,
+  };
 }

@@ -43,7 +43,17 @@ function formatDueDate(value: string): string {
   );
 }
 
-export function ConditionCard({ condition }: { condition: LicenseCondition }) {
+type ConditionCardProps = {
+  condition: LicenseCondition;
+  onDelete: (condition: LicenseCondition) => void;
+  onEdit: (condition: LicenseCondition) => void;
+};
+
+export function ConditionCard({
+  condition,
+  onDelete,
+  onEdit,
+}: ConditionCardProps) {
   const style = RISK_STYLES[condition.riskLevel];
   const StatusIcon = style.symbol;
 
@@ -98,6 +108,7 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
         <button
           aria-label={`Editar ${condition.title}`}
           className="rounded-control flex h-7 w-7 items-center justify-center bg-surface-muted text-text-secondary"
+          onClick={() => onEdit(condition)}
           type="button"
         >
           <Pencil size={16} strokeWidth={2} />
@@ -105,6 +116,7 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
         <button
           aria-label={`Excluir ${condition.title}`}
           className="rounded-control flex h-7 w-7 items-center justify-center bg-rose-100 text-rose-500"
+          onClick={() => onDelete(condition)}
           type="button"
         >
           <Trash2 size={16} strokeWidth={2} />

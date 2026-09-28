@@ -28,6 +28,13 @@ const buttonVariants = cva('', {
        */
       dialogPrimary:
         'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white shadow-control transition-[background-color] duration-[160ms] hover:bg-primary-strong focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary/30 disabled:cursor-not-allowed disabled:opacity-70',
+      /*
+       * Destructive confirm in a modal footer, e.g. "Remover" on the delete
+       * alert — `dialogPrimary` with the danger palette, since a confirmation
+       * that destroys data must not read as the safe, affirmative choice.
+       */
+      dialogDanger:
+        'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-red-600 px-4 text-sm font-extrabold text-white shadow-control transition-[background-color] duration-[160ms] hover:bg-red-700 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-red-600/30 disabled:cursor-not-allowed disabled:opacity-70',
       /* Page-header action, e.g. "Nova Empresa". */
       action:
         'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white disabled:cursor-default disabled:opacity-100 max-[720px]:w-full',

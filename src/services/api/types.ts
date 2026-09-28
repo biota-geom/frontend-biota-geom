@@ -174,6 +174,7 @@ export interface LicenseConditionWire {
   title: string;
   description: string;
   category: string;
+  license_id: string;
   due_date: string;
   risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
 }
