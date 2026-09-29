@@ -28,6 +28,7 @@ const company: CompanyListItem = {
   status: 'active',
   segment: 'Siderurgia',
   location: 'Porto Alegre - RS',
+  conformityPercentage: null,
   totalLicenses: 6,
   updatedAt: '2026-09-17T14:30:00.000Z',
 };

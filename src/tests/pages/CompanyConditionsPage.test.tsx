@@ -32,6 +32,7 @@ const COMPANY_IN_CONTEXT: CompanyListItem = {
   status: 'active',
   segment: 'Mineração',
   location: 'Ouro Preto - MG',
+  conformityPercentage: null,
   totalLicenses: 1,
   updatedAt: '2026-09-01T12:00:00.000Z',
 };

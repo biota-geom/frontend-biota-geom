@@ -29,6 +29,7 @@ const OURO_PRETO: CompanyListItem = {
   status: 'active',
   segment: 'Mineração',
   location: 'Ouro Preto - MG',
+  conformityPercentage: null,
   totalLicenses: 1,
   updatedAt: '2026-09-01T12:00:00.000Z',
 };
@@ -39,6 +40,7 @@ const CARAJAS: CompanyListItem = {
   status: 'active',
   segment: 'Mineração',
   location: 'Parauapebas - PA',
+  conformityPercentage: null,
   totalLicenses: 1,
   updatedAt: '2026-09-01T12:00:00.000Z',
 };

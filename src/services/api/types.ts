@@ -61,6 +61,7 @@ export interface CustomerWire {
   status: string;
   segment: string;
   location: string;
+  conformity_percentage: number | null;
   total_licenses: number;
   updated_at: string;
 }

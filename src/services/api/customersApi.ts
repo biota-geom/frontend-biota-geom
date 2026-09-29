@@ -24,6 +24,7 @@ function toCompanyListItem(wire: CustomerWire): CompanyListItem {
     status: toCompanyStatus(wire.status),
     segment: wire.segment,
     location: wire.location,
+    conformityPercentage: wire.conformity_percentage,
     totalLicenses: wire.total_licenses,
     updatedAt: wire.updated_at,
   };

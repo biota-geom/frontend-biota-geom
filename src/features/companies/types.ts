@@ -12,6 +12,8 @@ export interface Company {
  * because GET /api/customers/:id does not serve these fields.
  */
 export interface CompanyListItem extends Company {
+  /** Null when the company has no obligations to assess. */
+  conformityPercentage: number | null;
   totalLicenses: number;
   /** ISO 8601 timestamp of the company's last change. */
   updatedAt: string;

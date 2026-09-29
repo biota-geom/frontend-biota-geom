@@ -27,6 +27,8 @@ import { useCompanies } from '../../../features/companies/useCompanies';
 import {
   formatLastUpdate,
   getCompanyCountLabel,
+  getConformityColor,
+  getConformityTextColor,
   getStatusLabel,
 } from './companyCardFormatting';
 import { useState } from 'react';
@@ -217,7 +219,7 @@ export function AdminCompaniesPage() {
                 </CardAction>
               </CardHeader>
 
-              {/* Conformidade/Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
+              {/* Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
               <CardContent variant="company">
                 <div>
                   <dt>Licenças</dt>
@@ -225,9 +227,33 @@ export function AdminCompaniesPage() {
                 </div>
                 <div>
                   <dt>Conformidade</dt>
-                  <dd className="!text-text-muted">
-                    <span className="size-2 shrink-0 rounded-full bg-current" />
-                    —
+                  <dd
+                    className={
+                      company.conformityPercentage == null
+                        ? '!text-text-muted'
+                        : undefined
+                    }
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`inline-flex size-2 shrink-0 rounded-full ${
+                        company.conformityPercentage == null
+                          ? 'bg-gray-400'
+                          : getConformityColor(company.conformityPercentage)
+                      }`}
+                      data-testid={`conformity-indicator-${company.id}`}
+                    />
+                    {company.conformityPercentage == null ? (
+                      '—'
+                    ) : (
+                      <span
+                        className={getConformityTextColor(
+                          company.conformityPercentage
+                        )}
+                      >
+                        {company.conformityPercentage}%
+                      </span>
+                    )}
                   </dd>
                 </div>
                 <div>

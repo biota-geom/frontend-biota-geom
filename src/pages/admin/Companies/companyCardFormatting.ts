@@ -1,15 +1,23 @@
 import { type Company } from '../../../features/companies/types';
 
-export function getComplianceTone(compliance: number) {
-  if (compliance >= 90) {
-    return '!text-primary-strong';
-  }
+const CONFORMITY_COLORS = {
+  green: { indicator: 'bg-green-500', text: 'text-green-500' },
+  orange: { indicator: 'bg-orange-400', text: 'text-orange-400' },
+  red: { indicator: 'bg-red-500', text: 'text-red-500' },
+} as const;
 
-  if (compliance >= 70) {
-    return '!text-amber-500';
-  }
+function getConformityColors(percentage: number) {
+  if (percentage >= 95) return CONFORMITY_COLORS.green;
+  if (percentage >= 70) return CONFORMITY_COLORS.orange;
+  return CONFORMITY_COLORS.red;
+}
 
-  return '!text-red-500';
+export function getConformityColor(percentage: number): string {
+  return getConformityColors(percentage).indicator;
+}
+
+export function getConformityTextColor(percentage: number): string {
+  return getConformityColors(percentage).text;
 }
 
 export function getStatusLabel(status: Company['status']) {
