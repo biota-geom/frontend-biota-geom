@@ -72,6 +72,7 @@ describe('CompanyConditionsPage', () => {
           issueDate: '2020-01-10T00:00:00.000Z',
           expirationDate: '2099-01-10T00:00:00.000Z',
           status: 'Regular',
+          conditionsSummary: { total: 0, attended: 0 },
         },
       ],
     });

@@ -33,6 +33,11 @@ export interface LicenseSummary {
   expired: number;
 }
 
+export interface LicenseConditionsSummary {
+  total: number;
+  attended: number;
+}
+
 /**
  * A row of the "Painel de Licenças" table (GET /customers/:id/licenses).
  * `type` and `status` are already PT-BR display labels served by the API —
@@ -47,6 +52,7 @@ export interface LicensePanelItem {
   issueDate: string;
   expirationDate: string;
   status: string;
+  conditionsSummary: LicenseConditionsSummary;
 }
 
 export interface LicensesPanel {

@@ -157,6 +157,11 @@ export interface LicenseSummaryWire {
   expired: number;
 }
 
+export interface LicenseConditionsSummaryWire {
+  total: number;
+  attended: number;
+}
+
 export interface LicensePanelItemWire {
   id: string;
   type: string;
@@ -165,6 +170,7 @@ export interface LicensePanelItemWire {
   issue_date: string;
   expiration_date: string;
   status: string;
+  conditions_summary: LicenseConditionsSummaryWire;
 }
 
 export interface LicensePanelResponseWire {

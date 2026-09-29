@@ -70,6 +70,10 @@ function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {
     issueDate: wire.issue_date,
     expirationDate: wire.expiration_date,
     status: wire.status,
+    conditionsSummary: {
+      total: wire.conditions_summary.total,
+      attended: wire.conditions_summary.attended,
+    },
   };
 }
 

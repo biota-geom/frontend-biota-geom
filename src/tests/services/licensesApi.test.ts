@@ -76,6 +76,7 @@ describe('licensesApi', () => {
           issue_date: '2024-03-12T00:00:00.000Z',
           expiration_date: '2026-03-12T00:00:00.000Z',
           status: 'Regular',
+          conditions_summary: { total: 8, attended: 6 },
         },
         {
           id: 'license-2',
@@ -85,6 +86,7 @@ describe('licensesApi', () => {
           issue_date: '2020-01-10T00:00:00.000Z',
           expiration_date: '2025-01-10T00:00:00.000Z',
           status: 'Vencida',
+          conditions_summary: { total: 0, attended: 0 },
         },
       ],
     });
@@ -103,6 +105,7 @@ describe('licensesApi', () => {
           issueDate: '2024-03-12T00:00:00.000Z',
           expirationDate: '2026-03-12T00:00:00.000Z',
           status: 'Regular',
+          conditionsSummary: { total: 8, attended: 6 },
         },
         {
           id: 'license-2',
@@ -112,6 +115,7 @@ describe('licensesApi', () => {
           issueDate: '2020-01-10T00:00:00.000Z',
           expirationDate: '2025-01-10T00:00:00.000Z',
           status: 'Vencida',
+          conditionsSummary: { total: 0, attended: 0 },
         },
       ],
     });
