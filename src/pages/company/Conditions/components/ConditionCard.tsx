@@ -49,7 +49,7 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
 
   return (
     <article
-      aria-label={condition.title}
+      aria-label={condition.name}
       className={`rounded-panel flex items-center gap-4 border-2 bg-surface p-5 shadow-[0_2px_6px_rgba(0,0,0,0.04)] ${style.border} max-[720px]:items-start max-[720px]:p-4`}
     >
       <span
@@ -62,7 +62,7 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="m-0 text-base leading-[1.2] font-bold text-text-primary">
-            {condition.title}
+            {condition.name}
           </h2>
           <span
             className={`rounded-control px-2 py-0.5 text-[11px] leading-[1.2] font-extrabold ${style.badge}`}
@@ -71,9 +71,11 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
           </span>
         </div>
 
-        <p className="mt-1.5 mb-0 text-sm leading-[1.35] text-text-secondary">
-          {condition.description}
-        </p>
+        {condition.description ? (
+          <p className="mt-1.5 mb-0 text-sm leading-[1.35] text-text-secondary">
+            {condition.description}
+          </p>
+        ) : null}
 
         <dl className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <div className="flex items-center gap-1.5">
@@ -82,6 +84,14 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
               {condition.category}
             </dd>
           </div>
+          {condition.responsibleAgency ? (
+            <div className="flex items-center gap-1.5">
+              <dt className="text-text-muted">Órgão responsável:</dt>
+              <dd className="m-0 font-semibold text-text-secondary">
+                {condition.responsibleAgency}
+              </dd>
+            </div>
+          ) : null}
           <div className="flex items-center gap-1.5">
             <dt className="text-text-muted">Vencimento:</dt>
             <dd className="m-0 font-semibold text-text-primary">
@@ -96,14 +106,14 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
         className="flex shrink-0 items-center gap-2"
       >
         <button
-          aria-label={`Editar ${condition.title}`}
+          aria-label={`Editar ${condition.name}`}
           className="rounded-control flex h-7 w-7 items-center justify-center bg-surface-muted text-text-secondary"
           type="button"
         >
           <Pencil size={16} strokeWidth={2} />
         </button>
         <button
-          aria-label={`Excluir ${condition.title}`}
+          aria-label={`Excluir ${condition.name}`}
           className="rounded-control flex h-7 w-7 items-center justify-center bg-rose-100 text-rose-500"
           type="button"
         >
