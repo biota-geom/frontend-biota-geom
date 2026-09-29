@@ -180,3 +180,8 @@ export interface LicenseConditionWire {
   due_date: string;
   risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
 }
+
+export interface LicenseConditionsResponseWire {
+  total: number;
+  data: LicenseConditionWire[];
+}

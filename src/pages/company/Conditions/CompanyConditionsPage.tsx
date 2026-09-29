@@ -1,20 +1,35 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
+import type { LicenseConditionStatusFilter } from '../../../features/licenseConditions/types';
 import { useConditions } from '../../../features/licenseConditions/useConditions';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { ConditionCard } from './components/ConditionCard';
+import { ConditionsToolbar } from './components/ConditionsToolbar';
 
 export function CompanyConditionsPage() {
   const breadcrumbs = useCompanyBreadcrumbs('Condicionantes');
   const { companyId } = useParams<{ companyId: string }>();
-  const { conditions, error, status } = useConditions(companyId);
+  const [statusFilter, setStatusFilter] =
+    useState<LicenseConditionStatusFilter>('all');
+  const { conditions, error, status, total } = useConditions(
+    companyId,
+    statusFilter
+  );
 
   return (
     <PageScaffold
       breadcrumbs={breadcrumbs}
       subtitle="Acompanhamento de condicionantes e prazos regulatórios."
-      title="Monitor de Condicionantes Ambientais"
+      title="Monitor de Gestão Ambiental"
     >
+      <ConditionsToolbar
+        disabled={status === 'loading' || status === 'idle'}
+        onStatusChange={setStatusFilter}
+        status={statusFilter}
+        total={total}
+      />
+
       {status === 'loading' || status === 'idle' ? (
         <p className="rounded-panel border border-border bg-surface p-6 text-sm font-semibold text-text-secondary">
           Carregando condicionantes...
@@ -32,7 +47,9 @@ export function CompanyConditionsPage() {
 
       {status === 'success' && conditions.length === 0 ? (
         <p className="rounded-panel border border-border bg-surface p-6 text-sm font-semibold text-text-secondary">
-          Nenhuma condicionante cadastrada para esta empresa.
+          {statusFilter === 'all'
+            ? 'Nenhuma condicionante cadastrada para esta empresa.'
+            : 'Nenhuma condicionante encontrada para o status selecionado.'}
         </p>
       ) : null}
 

@@ -1,6 +1,13 @@
-import type { LicenseCondition } from '../../features/licenseConditions/types';
+import type {
+  LicenseCondition,
+  LicenseConditionsResult,
+  LicenseConditionStatusFilter,
+} from '../../features/licenseConditions/types';
 import { request } from './http';
-import type { LicenseConditionWire } from './types';
+import type {
+  LicenseConditionWire,
+  LicenseConditionsResponseWire,
+} from './types';
 
 function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
   return {
@@ -14,11 +21,17 @@ function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
 }
 
 export async function listLicenseConditions(
-  customerId: string
-): Promise<LicenseCondition[]> {
-  const wire = await request<LicenseConditionWire[]>(
-    `/api/customers/${customerId}/license-conditions`
+  customerId: string,
+  status: LicenseConditionStatusFilter
+): Promise<LicenseConditionsResult> {
+  const query =
+    status === 'all' ? '' : `?${new URLSearchParams({ status }).toString()}`;
+  const wire = await request<LicenseConditionsResponseWire>(
+    `/api/customers/${customerId}/license-conditions${query}`
   );
 
-  return wire.map(toLicenseCondition);
+  return {
+    conditions: wire.data.map(toLicenseCondition),
+    total: wire.total,
+  };
 }

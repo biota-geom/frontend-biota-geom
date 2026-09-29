@@ -9,32 +9,48 @@ const { listLicenseConditions } =
   await import('../../services/api/licenseConditionsApi');
 
 describe('licenseConditionsApi', () => {
-  it('listLicenseConditions() fetches the customer-scoped endpoint and maps the wire shape', async () => {
-    vi.mocked(request).mockResolvedValue([
-      {
-        id: 'condition-1',
-        title: 'Automonitoramento Atmosférico',
-        description: 'Avaliação periódica de emissões.',
-        category: 'Emissões',
-        due_date: '2026-02-11T00:00:00.000Z',
-        risk_level: 'RISK',
-      },
-    ]);
+  it('fetches all customer conditions and maps the response', async () => {
+    vi.mocked(request).mockResolvedValue({
+      total: 1,
+      data: [
+        {
+          id: 'condition-1',
+          title: 'Automonitoramento Atmosférico',
+          description: 'Avaliação periódica de emissões.',
+          category: 'Emissões',
+          due_date: '2026-02-11T00:00:00.000Z',
+          risk_level: 'RISK',
+        },
+      ],
+    });
 
-    const conditions = await listLicenseConditions('customer-1');
+    const result = await listLicenseConditions('customer-1', 'all');
 
     expect(request).toHaveBeenCalledWith(
       '/api/customers/customer-1/license-conditions'
     );
-    expect(conditions).toEqual([
-      {
-        id: 'condition-1',
-        title: 'Automonitoramento Atmosférico',
-        description: 'Avaliação periódica de emissões.',
-        category: 'Emissões',
-        dueDate: '2026-02-11T00:00:00.000Z',
-        riskLevel: 'RISK',
-      },
-    ]);
+    expect(result).toEqual({
+      total: 1,
+      conditions: [
+        {
+          id: 'condition-1',
+          title: 'Automonitoramento Atmosférico',
+          description: 'Avaliação periódica de emissões.',
+          category: 'Emissões',
+          dueDate: '2026-02-11T00:00:00.000Z',
+          riskLevel: 'RISK',
+        },
+      ],
+    });
+  });
+
+  it('adds the selected risk status to the query string', async () => {
+    vi.mocked(request).mockResolvedValue({ total: 0, data: [] });
+
+    await listLicenseConditions('customer-1', 'RISK');
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/license-conditions?status=RISK'
+    );
   });
 });

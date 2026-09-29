@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
 import { buildCompanyRoutes } from '../../app/router/routes';
@@ -58,30 +59,33 @@ describe('CompanyConditionsPage', () => {
   });
 
   it('loads and renders the condition cards from the API', async () => {
-    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue([
-      {
-        id: 'condition-risk',
-        title: 'Automonitoramento Atmosférico',
-        description: 'Avaliação periódica de emissões.',
-        category: 'Emissões',
-        dueDate: '2026-02-11T00:00:00.000Z',
-        riskLevel: 'RISK',
-      },
-      {
-        id: 'condition-regular',
-        title: 'MTR - Manifesto de Transporte de Resíduos',
-        description: 'Emissão de manifesto obrigatório.',
-        category: 'Resíduos',
-        dueDate: '2026-05-20T00:00:00.000Z',
-        riskLevel: 'REGULAR',
-      },
-    ]);
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 2,
+      conditions: [
+        {
+          id: 'condition-risk',
+          title: 'Automonitoramento Atmosférico',
+          description: 'Avaliação periódica de emissões.',
+          category: 'Emissões',
+          dueDate: '2026-02-11T00:00:00.000Z',
+          riskLevel: 'RISK',
+        },
+        {
+          id: 'condition-regular',
+          title: 'MTR - Manifesto de Transporte de Resíduos',
+          description: 'Emissão de manifesto obrigatório.',
+          category: 'Resíduos',
+          dueDate: '2026-05-20T00:00:00.000Z',
+          riskLevel: 'REGULAR',
+        },
+      ],
+    });
 
     renderConditionsPage();
 
     expect(
       screen.getByRole('heading', {
-        name: 'Monitor de Condicionantes Ambientais',
+        name: 'Monitor de Gestão Ambiental',
       })
     ).toBeInTheDocument();
     expect(
@@ -92,9 +96,14 @@ describe('CompanyConditionsPage', () => {
 
     await waitFor(() =>
       expect(licenseConditionsApi.listLicenseConditions).toHaveBeenCalledWith(
-        COMPANY_ID
+        COMPANY_ID,
+        'all'
       )
     );
+
+    expect(
+      screen.getByText('2 condicionantes registradas')
+    ).toBeInTheDocument();
 
     expect(
       screen.getByText('Automonitoramento Atmosférico')
@@ -117,5 +126,115 @@ describe('CompanyConditionsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Não foi possível listar as condicionantes.'
     );
+  });
+
+  it('reloads the list and counter when filtering and resetting the status', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockImplementation(
+      async (_customerId, status) => {
+        if (status === 'RISK') {
+          return {
+            total: 1,
+            conditions: [
+              {
+                id: 'condition-risk',
+                title: 'Automonitoramento Atmosférico',
+                description: 'Avaliação periódica de emissões.',
+                category: 'Emissões',
+                dueDate: '2026-02-11T00:00:00.000Z',
+                riskLevel: 'RISK',
+              },
+            ],
+          };
+        }
+
+        return {
+          total: 2,
+          conditions: [
+            {
+              id: 'condition-risk',
+              title: 'Automonitoramento Atmosférico',
+              description: 'Avaliação periódica de emissões.',
+              category: 'Emissões',
+              dueDate: '2026-02-11T00:00:00.000Z',
+              riskLevel: 'RISK',
+            },
+            {
+              id: 'condition-regular',
+              title: 'MTR - Manifesto de Transporte de Resíduos',
+              description: 'Emissão de manifesto obrigatório.',
+              category: 'Resíduos',
+              dueDate: '2026-05-20T00:00:00.000Z',
+              riskLevel: 'REGULAR',
+            },
+          ],
+        };
+      }
+    );
+
+    renderConditionsPage();
+
+    expect(
+      await screen.findByText('2 condicionantes registradas')
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Filtrar status' }));
+    await user.click(screen.getByRole('option', { name: 'Risco' }));
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.listLicenseConditions).toHaveBeenCalledWith(
+        COMPANY_ID,
+        'RISK'
+      )
+    );
+    expect(
+      await screen.findByText('1 condicionantes registradas')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('MTR - Manifesto de Transporte de Resíduos')
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Filtrar status' }));
+    await user.click(screen.getByRole('option', { name: 'Todos' }));
+
+    await waitFor(() =>
+      expect(
+        licenseConditionsApi.listLicenseConditions
+      ).toHaveBeenLastCalledWith(COMPANY_ID, 'all')
+    );
+    expect(
+      await screen.findByText('2 condicionantes registradas')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('MTR - Manifesto de Transporte de Resíduos')
+    ).toBeInTheDocument();
+  });
+
+  it('shows a filter-specific empty state and keeps the toolbar available', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockImplementation(
+      async (_customerId, status) =>
+        status === 'ATTENTION'
+          ? { total: 0, conditions: [] }
+          : { total: 1, conditions: [] }
+    );
+
+    renderConditionsPage();
+
+    await screen.findByRole('combobox', { name: 'Filtrar status' });
+    await user.click(screen.getByRole('combobox', { name: 'Filtrar status' }));
+    await user.click(screen.getByRole('option', { name: 'Atenção' }));
+
+    expect(
+      await screen.findByText(
+        'Nenhuma condicionante encontrada para o status selecionado.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('0 condicionantes registradas')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Filtrar status' })
+    ).toBeInTheDocument();
   });
 });
