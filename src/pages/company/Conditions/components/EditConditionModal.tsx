@@ -161,12 +161,19 @@ function EditConditionForm({
       <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
         <Label htmlFor="condition-category">Categoria</Label>
         <Select onValueChange={setCategory} value={category}>
-          <SelectTrigger className="w-full" id="condition-category">
+          <SelectTrigger
+            className="w-full cursor-pointer"
+            id="condition-category"
+          >
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
             {categoryOptions.map((option) => (
-              <SelectItem key={option} value={option}>
+              <SelectItem
+                className="cursor-pointer"
+                key={option}
+                value={option}
+              >
                 {option}
               </SelectItem>
             ))}
@@ -181,7 +188,10 @@ function EditConditionForm({
           onValueChange={setLicenseId}
           value={licenseId}
         >
-          <SelectTrigger className="w-full" id="condition-license">
+          <SelectTrigger
+            className="w-full cursor-pointer"
+            id="condition-license"
+          >
             <SelectValue
               placeholder={
                 isLoadingLicenses ? 'Carregando...' : 'Selecione a licença'
@@ -190,7 +200,11 @@ function EditConditionForm({
           </SelectTrigger>
           <SelectContent>
             {licenses.map((license) => (
-              <SelectItem key={license.id} value={license.id}>
+              <SelectItem
+                className="cursor-pointer"
+                key={license.id}
+                value={license.id}
+              >
                 {toLicenseLabel(license)}
               </SelectItem>
             ))}
@@ -259,10 +273,16 @@ function EditConditionForm({
       ) : null}
 
       <DialogFooter className="col-span-2 max-[560px]:col-span-1">
-        <Button onClick={onClose} type="button" variant="subtle">
+        <Button
+          className="cursor-pointer"
+          onClick={onClose}
+          type="button"
+          variant="subtle"
+        >
           Cancelar
         </Button>
         <Button
+          className="cursor-pointer"
           disabled={!isFormValid || isSubmitting}
           type="submit"
           variant="dialogPrimary"

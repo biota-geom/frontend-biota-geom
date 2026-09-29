@@ -107,7 +107,7 @@ export function ConditionCard({
       >
         <button
           aria-label={`Editar ${condition.title}`}
-          className="rounded-control flex h-7 w-7 items-center justify-center bg-surface-muted text-text-secondary"
+          className="rounded-control flex h-7 w-7 cursor-pointer items-center justify-center bg-surface-muted text-text-secondary"
           onClick={() => onEdit(condition)}
           type="button"
         >
@@ -115,7 +115,7 @@ export function ConditionCard({
         </button>
         <button
           aria-label={`Excluir ${condition.title}`}
-          className="rounded-control flex h-7 w-7 items-center justify-center bg-rose-100 text-rose-500"
+          className="rounded-control flex h-7 w-7 cursor-pointer items-center justify-center bg-rose-100 text-rose-500"
           onClick={() => onDelete(condition)}
           type="button"
         >
