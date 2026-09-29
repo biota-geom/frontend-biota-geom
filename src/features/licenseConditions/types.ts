@@ -15,6 +15,12 @@ export interface LicenseCondition {
   riskLevel: LicenseConditionRiskLevel;
 }
 
+export interface LicenseConditionsCompliance {
+  totalActive: number;
+  inCompliance: number;
+  compliancePercentage: number;
+}
+
 export interface LicenseConditionsResult {
   conditions: LicenseCondition[];
   total: number;

@@ -5,10 +5,32 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { createLicenseCondition, listLicenseConditions } =
-  await import('../../services/api/licenseConditionsApi');
+const {
+  createLicenseCondition,
+  getLicenseConditionsCompliance,
+  listLicenseConditions,
+} = await import('../../services/api/licenseConditionsApi');
 
 describe('licenseConditionsApi', () => {
+  it('fetches the customer compliance summary and maps it', async () => {
+    vi.mocked(request).mockResolvedValue({
+      total_active: 8,
+      in_compliance: 4,
+      compliance_percentage: 50,
+    });
+
+    const result = await getLicenseConditionsCompliance('customer-1');
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/license-conditions/compliance'
+    );
+    expect(result).toEqual({
+      totalActive: 8,
+      inCompliance: 4,
+      compliancePercentage: 50,
+    });
+  });
+
   it('fetches all customer conditions and maps the response', async () => {
     vi.mocked(request).mockResolvedValue({
       total: 1,

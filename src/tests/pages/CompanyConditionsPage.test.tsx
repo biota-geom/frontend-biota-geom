@@ -18,6 +18,7 @@ vi.mock('../../services/api/customersApi', () => ({
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   listLicenseConditions: vi.fn(),
+  getLicenseConditionsCompliance: vi.fn(),
   createLicenseCondition: vi.fn(),
 }));
 vi.mock('../../services/api/licensesApi', () => ({
@@ -61,6 +62,13 @@ describe('CompanyConditionsPage', () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([
       COMPANY_IN_CONTEXT,
     ]);
+    vi.mocked(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).mockResolvedValue({
+      totalActive: 0,
+      inCompliance: 0,
+      compliancePercentage: 100,
+    });
     vi.mocked(licensesApi.listLicenses).mockResolvedValue({
       summary: { total: 1, regular: 1, attention: 0, expired: 0 },
       licenses: [
@@ -139,6 +147,77 @@ describe('CompanyConditionsPage', () => {
     expect(
       screen.getByText('MTR - Manifesto de Transporte de Resíduos')
     ).toBeInTheDocument();
+  });
+
+  it('renders the overall compliance card above the filters', async () => {
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).mockResolvedValue({
+      totalActive: 8,
+      inCompliance: 4,
+      compliancePercentage: 50,
+    });
+
+    renderConditionsPage();
+
+    const card = await screen.findByRole('region', {
+      name: 'Conformidade Geral',
+    });
+    expect(card).toHaveTextContent('4 de 8 condicionantes em dia');
+    expect(card).toHaveTextContent('50%');
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '50'
+    );
+    expect(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).toHaveBeenCalledWith(COMPANY_ID);
+    // Positioned before the status filter toolbar.
+    expect(
+      card.compareDocumentPosition(screen.getByRole('combobox')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it('shows an alert when the compliance summary fails to load', async () => {
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).mockRejectedValue(
+      new ApiError(500, 'Não foi possível calcular a conformidade.')
+    );
+
+    renderConditionsPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível calcular a conformidade.'
+    );
+    expect(
+      screen.queryByRole('region', { name: 'Conformidade Geral' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('falls back to a generic message when the compliance error is unexpected', async () => {
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).mockRejectedValue(new Error('network down'));
+
+    renderConditionsPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível carregar a conformidade geral.'
+    );
   });
 
   it('shows the API error message when loading fails', async () => {
@@ -298,7 +377,7 @@ describe('CompanyConditionsPage', () => {
     expect(licenseConditionsApi.createLicenseCondition).not.toHaveBeenCalled();
   });
 
-  it('creates a condition, closes the modal, shows a toast and refetches the cards', async () => {
+  it('creates a condition, closes the modal, shows a toast and refetches the cards and compliance', async () => {
     const user = userEvent.setup();
     const createdCondition = {
       id: 'condition-new',
@@ -314,6 +393,17 @@ describe('CompanyConditionsPage', () => {
     vi.mocked(licenseConditionsApi.listLicenseConditions)
       .mockResolvedValueOnce({ total: 0, conditions: [] })
       .mockResolvedValue({ total: 1, conditions: [createdCondition] });
+    vi.mocked(licenseConditionsApi.getLicenseConditionsCompliance)
+      .mockResolvedValueOnce({
+        totalActive: 1,
+        inCompliance: 0,
+        compliancePercentage: 0,
+      })
+      .mockResolvedValue({
+        totalActive: 2,
+        inCompliance: 1,
+        compliancePercentage: 50,
+      });
     vi.mocked(licenseConditionsApi.createLicenseCondition).mockResolvedValue({
       id: createdCondition.id,
       license_id: createdCondition.licenseId,
@@ -379,5 +469,11 @@ describe('CompanyConditionsPage', () => {
       )
     );
     expect(await screen.findByText(createdCondition.name)).toBeInTheDocument();
+    expect(
+      await screen.findByText('1 de 2 condicionantes em dia')
+    ).toBeInTheDocument();
+    expect(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).toHaveBeenCalledTimes(2);
   });
 });
