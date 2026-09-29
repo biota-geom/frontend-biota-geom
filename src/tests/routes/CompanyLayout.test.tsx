@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
-import type { Company } from '../../features/companies/types';
+import type { CompanyListItem } from '../../features/companies/types';
 import { useCompanies } from '../../features/companies/useCompanies';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { ApiError } from '../../services/api/apiError';
@@ -23,20 +23,26 @@ vi.mock('../../services/api/customersApi', () => ({
 const mockedGetCompanyById = vi.mocked(getCompanyById);
 const mockedListCompanies = vi.mocked(listCompanies);
 
-const OURO_PRETO: Company = {
+const OURO_PRETO: CompanyListItem = {
   id: 'customer-1',
   name: 'Unidade Industrial Ouro Preto',
   status: 'active',
   segment: 'Mineração',
   location: 'Ouro Preto - MG',
+  conformityPercentage: null,
+  totalLicenses: 1,
+  updatedAt: '2026-09-01T12:00:00.000Z',
 };
 
-const CARAJAS: Company = {
+const CARAJAS: CompanyListItem = {
   id: 'customer-2',
   name: 'Complexo Minerário Carajás',
   status: 'active',
   segment: 'Mineração',
   location: 'Parauapebas - PA',
+  conformityPercentage: null,
+  totalLicenses: 1,
+  updatedAt: '2026-09-01T12:00:00.000Z',
 };
 
 const REGISTERED_COMPANIES = [OURO_PRETO, CARAJAS];
@@ -152,7 +158,7 @@ describe('CompanyLayout', () => {
 
   it('keeps the context loaded across every company route', async () => {
     for (const route of [
-      'obligations',
+      'conditions',
       'legislation',
       'indicators',
       'documents',
@@ -216,10 +222,9 @@ describe('CompanyLayout', () => {
       'href',
       '/companies/customer-1/licenses'
     );
-    expect(screen.getByRole('link', { name: 'Obrigações' })).toHaveAttribute(
-      'href',
-      '/companies/customer-1/obligations'
-    );
+    expect(
+      screen.getByRole('link', { name: 'Condicionantes' })
+    ).toHaveAttribute('href', '/companies/customer-1/conditions');
     expect(screen.getByRole('link', { name: 'Legislação' })).toHaveAttribute(
       'href',
       '/companies/customer-1/legislation'

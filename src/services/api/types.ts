@@ -62,6 +62,8 @@ export interface CustomerWire {
   segment: string;
   location: string;
   conformity_percentage: number | null;
+  total_licenses: number;
+  updated_at: string;
 }
 
 /*
@@ -168,4 +170,13 @@ export interface LicensePanelItemWire {
 export interface LicensePanelResponseWire {
   summary: LicenseSummaryWire;
   licenses: LicensePanelItemWire[];
+}
+
+export interface LicenseConditionWire {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  due_date: string;
+  risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
 }

@@ -31,3 +31,19 @@ export function getStatusLabel(status: Company['status']) {
 export function getCompanyCountLabel(total: number) {
   return total === 1 ? '1 empresa' : `${total} empresas`;
 }
+
+/*
+ * Pinned to Brasília time so the day shown does not depend on the viewer's
+ * machine clock: a change made at 23:30 in Porto Alegre is still that day.
+ */
+const LAST_UPDATE_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'America/Sao_Paulo',
+});
+
+/** Card footer date in the Brazilian `dd/MM/yyyy` form, from an ISO string. */
+export function formatLastUpdate(isoDate: string) {
+  return LAST_UPDATE_FORMAT.format(new Date(isoDate));
+}

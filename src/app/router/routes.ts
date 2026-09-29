@@ -13,7 +13,7 @@ export const APP_ROUTES = {
     dashboard: '/companies/:companyId/dashboard',
     licenses: '/companies/:companyId/licenses',
     licenseDetails: '/companies/:companyId/licenses/:licenseId',
-    obligations: '/companies/:companyId/obligations',
+    conditions: '/companies/:companyId/conditions',
     legislation: '/companies/:companyId/legislation',
     indicators: '/companies/:companyId/indicators',
     documents: '/companies/:companyId/documents',
@@ -25,7 +25,7 @@ export const buildCompanyRoutes = {
   licenses: (companyId: string) => `/companies/${companyId}/licenses`,
   licenseDetails: (companyId: string, licenseId: string) =>
     `/companies/${companyId}/licenses/${licenseId}`,
-  obligations: (companyId: string) => `/companies/${companyId}/obligations`,
+  conditions: (companyId: string) => `/companies/${companyId}/conditions`,
   legislation: (companyId: string) => `/companies/${companyId}/legislation`,
   indicators: (companyId: string) => `/companies/${companyId}/indicators`,
   documents: (companyId: string) => `/companies/${companyId}/documents`,

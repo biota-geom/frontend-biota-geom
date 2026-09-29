@@ -7,6 +7,7 @@ import { APP_ROUTES, buildCompanyRoutes } from '../../app/router/routes';
 import { COMPANY_MESSAGES } from '../../features/companies/companyMessages';
 import { useCompanies } from '../../features/companies/useCompanies';
 import {
+  formatLastUpdate,
   getCompanyCountLabel,
   getConformityColor,
   getStatusLabel,
@@ -65,6 +66,8 @@ const COMPANIES = [
     segment: 'Siderurgia',
     location: 'Porto Alegre - RS',
     conformityPercentage: 96,
+    totalLicenses: 6,
+    updatedAt: '2026-09-17T14:30:00.000Z',
   },
   {
     id: 'customer-2',
@@ -73,6 +76,8 @@ const COMPANIES = [
     segment: 'Metalúrgica',
     location: 'Sorocaba - SP',
     conformityPercentage: 80,
+    totalLicenses: 0,
+    updatedAt: '2026-09-10T08:00:00.000Z',
   },
   {
     id: 'customer-3',
@@ -81,6 +86,8 @@ const COMPANIES = [
     segment: 'Agronegócio',
     location: 'Sorriso - MT',
     conformityPercentage: 45,
+    totalLicenses: 2,
+    updatedAt: '2026-08-01T12:00:00.000Z',
   },
 ];
 
@@ -182,6 +189,36 @@ describe('AdminCompaniesPage', () => {
     expect(screen.queryByText(/alertas/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /configurações/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows each company's license total and last update date on its card", async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+
+    renderAppRoutes();
+
+    const withLicenses = await screen.findByRole('article', {
+      name: /unidade industrial rs/i,
+    });
+    expect(
+      within(withLicenses).getByText('Licenças').nextElementSibling
+    ).toHaveTextContent(/^6$/);
+    expect(
+      within(withLicenses).getByText('Última atualização: 17/09/2026')
+    ).toBeInTheDocument();
+
+    // Zero is a real count, not a missing value: it must not fall back to "—".
+    const withoutLicenses = screen.getByRole('article', {
+      name: /fábrica são paulo/i,
+    });
+    expect(
+      within(withoutLicenses).getByText('Licenças').nextElementSibling
+    ).toHaveTextContent(/^0$/);
+    expect(
+      within(withoutLicenses).getByText('Última atualização: 10/09/2026')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/última atualização: —/i)
     ).not.toBeInTheDocument();
   });
 
@@ -705,5 +742,16 @@ describe('getStatusLabel', () => {
 
   it('returns "Inativo" for an inactive company', () => {
     expect(getStatusLabel('inactive')).toBe('Inativo');
+  });
+});
+
+describe('formatLastUpdate', () => {
+  it.each([
+    { isoDate: '2026-09-17T14:30:00.000Z', expected: '17/09/2026' },
+    { isoDate: '2026-01-05T12:00:00.000Z', expected: '05/01/2026' },
+    // 23:30 in Brasília is already the next day in UTC.
+    { isoDate: '2026-09-18T02:30:00.000Z', expected: '17/09/2026' },
+  ])('formats $isoDate as $expected', ({ isoDate, expected }) => {
+    expect(formatLastUpdate(isoDate)).toBe(expected);
   });
 });
