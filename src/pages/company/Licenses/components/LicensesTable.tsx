@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { buildCompanyRoutes } from '../../../../app/router/routes';
 import { ArrowRightIcon } from '../../../../components/ui/icons';
+import { formatConditionStatus } from '../../../../features/licenses/conditionStatusFormatting';
 import { getLicenseStatusBadgeTone } from '../../../../features/licenses/licenseStatusFormatting';
 import type { LicensePanelItem } from '../../../../features/licenses/types';
 import { cn } from '../../../../utils/cn';
@@ -42,6 +43,9 @@ export function LicensesTable({ companyId, licenses }: LicensesTableProps) {
               Status
             </th>
             <th className="px-5 py-3 text-xs font-semibold text-text-muted">
+              Condicionantes
+            </th>
+            <th className="px-5 py-3 text-xs font-semibold text-text-muted">
               <span className="sr-only">Ações</span>
             </th>
           </tr>
@@ -76,6 +80,12 @@ export function LicensesTable({ companyId, licenses }: LicensesTableProps) {
                 >
                   {license.status}
                 </span>
+              </td>
+              <td className="whitespace-nowrap px-5 py-4 text-text-secondary">
+                {formatConditionStatus(
+                  license.conditionsSummary.attended,
+                  license.conditionsSummary.total
+                )}
               </td>
               <td className="px-5 py-4 text-right">
                 <Link

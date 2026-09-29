@@ -59,6 +59,7 @@ const LICENSES_PANEL = {
       issueDate: '2024-03-12T00:00:00.000Z',
       expirationDate: '2026-03-12T00:00:00.000Z',
       status: 'Regular',
+      conditionsSummary: { total: 8, attended: 6 },
     },
     {
       id: 'license-2',
@@ -68,6 +69,7 @@ const LICENSES_PANEL = {
       issueDate: '2021-08-22T00:00:00.000Z',
       expirationDate: '2026-08-22T00:00:00.000Z',
       status: 'Atenção',
+      conditionsSummary: { total: 4, attended: 4 },
     },
     {
       id: 'license-3',
@@ -77,6 +79,7 @@ const LICENSES_PANEL = {
       issueDate: '2020-01-10T00:00:00.000Z',
       expirationDate: '2025-01-10T00:00:00.000Z',
       status: 'Vencida',
+      conditionsSummary: { total: 0, attended: 0 },
     },
   ],
 };
@@ -287,5 +290,22 @@ describe('CompanyLicensesPage', () => {
 
     expect(row).not.toBeNull();
     expect(row).toHaveTextContent('Regular');
+  });
+
+  it('renders the "Condicionantes" column with the summary served by the backend', async () => {
+    renderLicensesPage();
+
+    expect(
+      await screen.findByRole('columnheader', { name: 'Condicionantes' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('LP nº 482/2024').closest('tr')).toHaveTextContent(
+      '6 de 8 atendidas'
+    );
+    expect(screen.getByText('OUT nº 085/2021').closest('tr')).toHaveTextContent(
+      'Todas atendidas'
+    );
+    expect(screen.getByText('LO nº 118/2020').closest('tr')).toHaveTextContent(
+      'Análise pendente'
+    );
   });
 });
