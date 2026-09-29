@@ -190,6 +190,11 @@ export interface LicenseConditionWire {
   risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
 }
 
+export interface LicenseConditionsResponseWire {
+  total: number;
+  data: LicenseConditionWire[];
+}
+
 export interface LicenseConditionCreatedWire {
   id: string;
   license_id: string;
