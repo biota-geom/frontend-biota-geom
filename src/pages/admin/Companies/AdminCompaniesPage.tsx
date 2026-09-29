@@ -33,7 +33,7 @@ import {
 } from './companyCardFormatting';
 import { useState } from 'react';
 import { CompanyFilters } from './components/CompanyFilters';
-import { CreateCompanyModal } from './components/CreateCompanyModal';
+import { NewCompanyModal } from './components/NewCompanyModal';
 import type { CreateCompanySubmission } from '../../../features/companies/createCompany.types';
 import { ApiError } from '../../../services/api/apiError';
 import {
@@ -288,7 +288,7 @@ export function AdminCompaniesPage() {
           ))}
         </section>
       ) : null}
-      <CreateCompanyModal
+      <NewCompanyModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateCompany}
