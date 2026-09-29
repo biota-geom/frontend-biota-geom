@@ -1,12 +1,5 @@
 import { z } from 'zod';
 
-export const LICENSE_CONDITION_CATEGORIES = [
-  'Resíduos',
-  'Recursos Hídricos',
-  'Emissões',
-  'Geral',
-] as const;
-
 export const LICENSE_CONDITION_STATUSES = [
   'Regular',
   'Atenção',
@@ -29,16 +22,7 @@ export function createLicenseConditionSchema(now = new Date()) {
       .trim()
       .min(1, 'Informe o nome da condicionante.')
       .max(160, 'O nome deve ter no máximo 160 caracteres.'),
-    category: z
-      .string()
-      .min(1, 'Selecione a categoria.')
-      .refine(
-        (value) =>
-          LICENSE_CONDITION_CATEGORIES.includes(
-            value as (typeof LICENSE_CONDITION_CATEGORIES)[number]
-          ),
-        'Selecione uma categoria válida.'
-      ),
+    esgMetricId: z.string().min(1, 'Selecione a categoria.'),
     licenseId: z.string().min(1, 'Selecione a licença vinculada.'),
     responsibleAgency: z
       .string()
