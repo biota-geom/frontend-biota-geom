@@ -1,4 +1,13 @@
 import { type FormEvent, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/shadcn/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/shadcn/dialog';
 import { ChevronDownIcon } from '../../../../components/ui/icons';
 import { maskCnpj } from '../../../../features/companies/cnpj';
 import { COMPANY_MESSAGES } from '../../../../features/companies/companyMessages';
@@ -75,18 +84,18 @@ function TextField({
   );
 }
 
-type CreateCompanyModalProps = {
+type NewCompanyModalProps = {
   isOpen: boolean;
   onClose: () => void;
   /** Rejects with the backend's PT-BR message, which is shown without closing the modal. */
   onSubmit: (submission: CreateCompanySubmission) => Promise<void>;
 };
 
-export function CreateCompanyModal({
+export function NewCompanyModal({
   isOpen,
   onClose,
   onSubmit,
-}: CreateCompanyModalProps) {
+}: NewCompanyModalProps) {
   const [form, setForm] = useState<CreateCompanyFormState>(
     EMPTY_CREATE_COMPANY_FORM
   );
@@ -270,6 +279,10 @@ export function CreateCompanyModal({
     onClose();
   }
 
+  function handleOpenChange(open: boolean) {
+    if (!open) handleCancel();
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError(null);
@@ -298,41 +311,17 @@ export function CreateCompanyModal({
   }
 
   return (
-    <div
-      aria-labelledby="create-company-title"
-      aria-modal="true"
-      className="fixed inset-0 z-50 grid place-items-center bg-[#1f2a3d]/40 px-4"
-      onClick={handleCancel}
-      role="dialog"
-    >
-      <div
-        className="shadow-card rounded-panel max-h-[92vh] w-full max-w-[42rem] overflow-y-auto bg-surface p-6"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2
-              className="m-0 text-xl font-bold text-text-primary"
-              id="create-company-title"
-            >
-              Cadastrar Nova Empresa
-            </h2>
-            <p className="mt-1 mb-0 text-sm text-text-secondary">
-              Insira as informações gerais e selecione os indicadores ESG
-              aplicáveis.
-            </p>
-          </div>
-          <button
-            aria-label="Fechar"
-            className="rounded-control grid size-8 shrink-0 place-items-center border-0 bg-transparent text-text-muted hover:bg-surface-muted hover:text-text-secondary cursor-pointer"
-            onClick={handleCancel}
-            type="button"
-          >
-            ×
-          </button>
-        </header>
-
-        <hr className="mb-5 border-border" />
+    <Dialog onOpenChange={handleOpenChange} open={isOpen}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold">
+            Cadastrar Nova Empresa
+          </DialogTitle>
+          <DialogDescription>
+            Insira as informações gerais e selecione os indicadores ESG
+            aplicáveis.
+          </DialogDescription>
+        </DialogHeader>
 
         <form
           className="flex flex-col gap-5"
@@ -612,24 +601,20 @@ export function CreateCompanyModal({
             </p>
           ) : null}
 
-          <div className="mt-2 flex justify-end gap-3">
-            <button
-              className="rounded-control border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-muted cursor-pointer"
-              onClick={handleCancel}
-              type="button"
-            >
+          <DialogFooter className="mt-2">
+            <Button onClick={handleCancel} type="button" variant="subtle">
               Cancelar
-            </button>
-            <button
-              className="rounded-panel cursor-pointer border-0 bg-primary px-4 py-2 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
+            </Button>
+            <Button
               disabled={isSubmitting || sectorsStatus !== 'success'}
               type="submit"
+              variant="dialogPrimary"
             >
               {isSubmitting ? 'Cadastrando...' : 'Cadastrar Empresa'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

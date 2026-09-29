@@ -174,14 +174,29 @@ export interface LicensePanelResponseWire {
 
 export interface LicenseConditionWire {
   id: string;
-  title: string;
-  description: string;
+  license_id: string;
+  name: string;
+  description: string | null;
   category: string;
+  responsible_agency: string | null;
   due_date: string;
+  status: 'Regular' | 'Atenção' | 'Risco';
   risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
 }
 
 export interface LicenseConditionsResponseWire {
   total: number;
   data: LicenseConditionWire[];
+}
+
+export interface LicenseConditionCreatedWire {
+  id: string;
+  license_id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  responsible_agency: string | null;
+  due_date: string;
+  status: 'Regular' | 'Atenção' | 'Risco';
+  created_at: string;
 }

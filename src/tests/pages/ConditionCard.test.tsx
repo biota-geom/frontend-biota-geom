@@ -8,10 +8,13 @@ describe('ConditionCard', () => {
       <ConditionCard
         condition={{
           id: 'condition-1',
-          title: 'Automonitoramento Atmosférico',
+          licenseId: 'license-1',
+          name: 'Automonitoramento Atmosférico',
           description: 'Avaliação periódica de emissões.',
           category: 'Emissões',
+          responsibleAgency: 'FEPAM',
           dueDate: '2026-02-11T00:00:00.000Z',
+          status: 'Regular',
           riskLevel: 'RISK',
         }}
       />
@@ -39,10 +42,13 @@ describe('ConditionCard', () => {
       <ConditionCard
         condition={{
           id: 'condition-2',
-          title: 'Relatório Semestral de Efluentes Líquidos',
+          licenseId: 'license-1',
+          name: 'Relatório Semestral de Efluentes Líquidos',
           description: 'Laudos de análises físico-químicas.',
           category: 'Recursos Hídricos',
+          responsibleAgency: 'FEPAM',
           dueDate: '2026-04-01T00:00:00.000Z',
+          status: 'Atenção',
           riskLevel: 'ATTENTION',
         }}
       />

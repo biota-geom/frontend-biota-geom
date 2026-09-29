@@ -13,6 +13,7 @@ export function useConditions(
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<ConditionsStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     if (!customerId) return;
@@ -53,7 +54,13 @@ export function useConditions(
     return () => {
       isCurrent = false;
     };
-  }, [customerId, statusFilter]);
+  }, [customerId, reloadVersion, statusFilter]);
 
-  return { conditions, error, status, total };
+  return {
+    conditions,
+    error,
+    refetch: () => setReloadVersion((version) => version + 1),
+    status,
+    total,
+  };
 }
