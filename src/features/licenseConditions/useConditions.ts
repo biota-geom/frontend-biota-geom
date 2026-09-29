@@ -9,6 +9,7 @@ export function useConditions(customerId: string | undefined) {
   const [conditions, setConditions] = useState<LicenseCondition[]>([]);
   const [status, setStatus] = useState<ConditionsStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     if (!customerId) return;
@@ -44,7 +45,12 @@ export function useConditions(customerId: string | undefined) {
     return () => {
       isCurrent = false;
     };
-  }, [customerId]);
+  }, [customerId, reloadVersion]);
 
-  return { conditions, error, status };
+  return {
+    conditions,
+    error,
+    status,
+    refetch: () => setReloadVersion((version) => version + 1),
+  };
 }
