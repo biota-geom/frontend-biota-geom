@@ -78,30 +78,33 @@ describe('CompanyConditionsPage', () => {
   });
 
   it('loads and renders the condition cards from the API', async () => {
-    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue([
-      {
-        id: 'condition-risk',
-        licenseId: 'license-1',
-        name: 'Automonitoramento Atmosférico',
-        description: 'Avaliação periódica de emissões.',
-        category: 'Emissões',
-        responsibleAgency: 'FEPAM',
-        dueDate: '2026-02-11T00:00:00.000Z',
-        status: 'Regular',
-        riskLevel: 'RISK',
-      },
-      {
-        id: 'condition-regular',
-        licenseId: 'license-1',
-        name: 'MTR - Manifesto de Transporte de Resíduos',
-        description: 'Emissão de manifesto obrigatório.',
-        category: 'Resíduos',
-        responsibleAgency: 'FEPAM',
-        dueDate: '2026-05-20T00:00:00.000Z',
-        status: 'Regular',
-        riskLevel: 'REGULAR',
-      },
-    ]);
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 2,
+      conditions: [
+        {
+          id: 'condition-risk',
+          licenseId: 'license-1',
+          name: 'Automonitoramento Atmosférico',
+          description: 'Avaliação periódica de emissões.',
+          category: 'Emissões',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-02-11T00:00:00.000Z',
+          status: 'Regular',
+          riskLevel: 'RISK',
+        },
+        {
+          id: 'condition-regular',
+          licenseId: 'license-1',
+          name: 'MTR - Manifesto de Transporte de Resíduos',
+          description: 'Emissão de manifesto obrigatório.',
+          category: 'Resíduos',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-05-20T00:00:00.000Z',
+          status: 'Regular',
+          riskLevel: 'REGULAR',
+        },
+      ],
+    });
 
     renderConditionsPage();
 
@@ -118,9 +121,14 @@ describe('CompanyConditionsPage', () => {
 
     await waitFor(() =>
       expect(licenseConditionsApi.listLicenseConditions).toHaveBeenCalledWith(
-        COMPANY_ID
+        COMPANY_ID,
+        'all'
       )
     );
+
+    expect(
+      screen.getByText('2 condicionantes registradas')
+    ).toBeInTheDocument();
 
     expect(
       screen.getByText('Automonitoramento Atmosférico')
@@ -145,9 +153,131 @@ describe('CompanyConditionsPage', () => {
     );
   });
 
+  it('reloads the list and counter when filtering and resetting the status', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockImplementation(
+      async (_customerId, status) => {
+        if (status === 'RISK') {
+          return {
+            total: 1,
+            conditions: [
+              {
+                id: 'condition-risk',
+                licenseId: 'license-1',
+                name: 'Automonitoramento Atmosférico',
+                description: 'Avaliação periódica de emissões.',
+                category: 'Emissões',
+                responsibleAgency: 'FEPAM',
+                dueDate: '2026-02-11T00:00:00.000Z',
+                status: 'Regular',
+                riskLevel: 'RISK',
+              },
+            ],
+          };
+        }
+
+        return {
+          total: 2,
+          conditions: [
+            {
+              id: 'condition-risk',
+              licenseId: 'license-1',
+              name: 'Automonitoramento Atmosférico',
+              description: 'Avaliação periódica de emissões.',
+              category: 'Emissões',
+              responsibleAgency: 'FEPAM',
+              dueDate: '2026-02-11T00:00:00.000Z',
+              status: 'Regular',
+              riskLevel: 'RISK',
+            },
+            {
+              id: 'condition-regular',
+              licenseId: 'license-1',
+              name: 'MTR - Manifesto de Transporte de Resíduos',
+              description: 'Emissão de manifesto obrigatório.',
+              category: 'Resíduos',
+              responsibleAgency: 'FEPAM',
+              dueDate: '2026-05-20T00:00:00.000Z',
+              status: 'Regular',
+              riskLevel: 'REGULAR',
+            },
+          ],
+        };
+      }
+    );
+
+    renderConditionsPage();
+
+    expect(
+      await screen.findByText('2 condicionantes registradas')
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Filtrar status' }));
+    await user.click(screen.getByRole('option', { name: 'Risco' }));
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.listLicenseConditions).toHaveBeenCalledWith(
+        COMPANY_ID,
+        'RISK'
+      )
+    );
+    expect(
+      await screen.findByText('1 condicionantes registradas')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('MTR - Manifesto de Transporte de Resíduos')
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Filtrar status' }));
+    await user.click(screen.getByRole('option', { name: 'Todos' }));
+
+    await waitFor(() =>
+      expect(
+        licenseConditionsApi.listLicenseConditions
+      ).toHaveBeenLastCalledWith(COMPANY_ID, 'all')
+    );
+    expect(
+      await screen.findByText('2 condicionantes registradas')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('MTR - Manifesto de Transporte de Resíduos')
+    ).toBeInTheDocument();
+  });
+
+  it('shows a filter-specific empty state and keeps the toolbar available', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockImplementation(
+      async (_customerId, status) =>
+        status === 'ATTENTION'
+          ? { total: 0, conditions: [] }
+          : { total: 1, conditions: [] }
+    );
+
+    renderConditionsPage();
+
+    await screen.findByRole('combobox', { name: 'Filtrar status' });
+    await user.click(screen.getByRole('combobox', { name: 'Filtrar status' }));
+    await user.click(screen.getByRole('option', { name: 'Atenção' }));
+
+    expect(
+      await screen.findByText(
+        'Nenhuma condicionante encontrada para o status selecionado.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('0 condicionantes registradas')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Filtrar status' })
+    ).toBeInTheDocument();
+  });
+
   it('shows field errors when name and due date are empty', async () => {
     const user = userEvent.setup();
-    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue([]);
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
 
     renderConditionsPage();
     await user.click(
@@ -182,8 +312,8 @@ describe('CompanyConditionsPage', () => {
       riskLevel: 'REGULAR' as const,
     };
     vi.mocked(licenseConditionsApi.listLicenseConditions)
-      .mockResolvedValueOnce([])
-      .mockResolvedValue([createdCondition]);
+      .mockResolvedValueOnce({ total: 0, conditions: [] })
+      .mockResolvedValue({ total: 1, conditions: [createdCondition] });
     vi.mocked(licenseConditionsApi.createLicenseCondition).mockResolvedValue({
       id: createdCondition.id,
       license_id: createdCondition.licenseId,
