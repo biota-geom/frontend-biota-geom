@@ -2,12 +2,13 @@ import type {
   CreateCompanyRequest,
   CreatedCompany,
 } from '../../features/companies/createCompany.types';
-import type { Company } from '../../features/companies/types';
+import type { Company, EsgIndicator } from '../../features/companies/types';
 import { toCompanyStatus } from './customersApi';
 import { request } from './http';
 import type {
   CustomerCreatedWire,
   CustomerDetailWire,
+  EsgMetricWire,
   LinkCustomerEsgMetricsRequestWire,
 } from './types';
 
@@ -64,4 +65,22 @@ export async function linkCompanyEsgMetrics(
     method: 'POST',
     body,
   });
+}
+
+/*
+ * GRI parameters linked to the company (US02) — the only valid categories for
+ * its environmental conditions.
+ */
+export async function listCompanyEsgMetrics(
+  companyId: string
+): Promise<EsgIndicator[]> {
+  const wire = await request<EsgMetricWire[]>(
+    `/api/customers/${companyId}/esg-metrics`
+  );
+
+  return wire.map((metric) => ({
+    id: metric.id,
+    name: metric.name,
+    unit: metric.unit,
+  }));
 }
