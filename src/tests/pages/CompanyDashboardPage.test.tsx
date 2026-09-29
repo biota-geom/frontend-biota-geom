@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
-import type { Company } from '../../features/companies/types';
+import type { CompanyListItem } from '../../features/companies/types';
 import { useCompanies } from '../../features/companies/useCompanies';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { ApiError } from '../../services/api/apiError';
@@ -22,12 +22,14 @@ vi.mock('../../services/api/customersApi', () => ({
 const mockedGetCompanyById = vi.mocked(getCompanyById);
 const mockedListCompanies = vi.mocked(listCompanies);
 
-const company: Company = {
+const company: CompanyListItem = {
   id: 'company-1',
   name: 'Unidade Industrial RS',
   status: 'active',
   segment: 'Siderurgia',
   location: 'Porto Alegre - RS',
+  totalLicenses: 6,
+  updatedAt: '2026-09-17T14:30:00.000Z',
 };
 
 beforeEach(() => {

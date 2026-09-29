@@ -9,7 +9,7 @@ const { listCompanies, toCompanyStatus } =
   await import('../../services/api/customersApi');
 
 describe('customersApi', () => {
-  it('listCompanies() fetches /customers and maps status to the domain shape', async () => {
+  it('listCompanies() fetches /customers and maps it to the domain shape', async () => {
     vi.mocked(request).mockResolvedValue([
       {
         id: 'customer-1',
@@ -17,6 +17,8 @@ describe('customersApi', () => {
         status: 'Ativo',
         segment: 'Siderurgia',
         location: 'Porto Alegre - RS',
+        total_licenses: 6,
+        updated_at: '2026-09-17T14:30:00.000Z',
       },
       {
         id: 'customer-2',
@@ -24,6 +26,8 @@ describe('customersApi', () => {
         status: 'Inativo',
         segment: '',
         location: 'São Paulo - SP',
+        total_licenses: 0,
+        updated_at: '2026-09-10T08:00:00.000Z',
       },
     ]);
 
@@ -37,6 +41,8 @@ describe('customersApi', () => {
         status: 'active',
         segment: 'Siderurgia',
         location: 'Porto Alegre - RS',
+        totalLicenses: 6,
+        updatedAt: '2026-09-17T14:30:00.000Z',
       },
       {
         id: 'customer-2',
@@ -44,6 +50,8 @@ describe('customersApi', () => {
         status: 'inactive',
         segment: '',
         location: 'São Paulo - SP',
+        totalLicenses: 0,
+        updatedAt: '2026-09-10T08:00:00.000Z',
       },
     ]);
   });

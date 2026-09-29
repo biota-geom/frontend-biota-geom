@@ -24,7 +24,11 @@ import {
 } from '../../../features/companies/companyFilters';
 import { COMPANY_MESSAGES } from '../../../features/companies/companyMessages';
 import { useCompanies } from '../../../features/companies/useCompanies';
-import { getCompanyCountLabel, getStatusLabel } from './companyCardFormatting';
+import {
+  formatLastUpdate,
+  getCompanyCountLabel,
+  getStatusLabel,
+} from './companyCardFormatting';
 import { useState } from 'react';
 import { CompanyFilters } from './components/CompanyFilters';
 import { CreateCompanyModal } from './components/CreateCompanyModal';
@@ -213,29 +217,29 @@ export function AdminCompaniesPage() {
                 </CardAction>
               </CardHeader>
 
-              {/* Licenças/Conformidade/Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
-              <CardContent className="[&_dd]:text-text-muted" variant="company">
+              {/* Conformidade/Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
+              <CardContent variant="company">
                 <div>
                   <dt>Licenças</dt>
-                  <dd>—</dd>
+                  <dd>{company.totalLicenses}</dd>
                 </div>
                 <div>
                   <dt>Conformidade</dt>
-                  <dd>
+                  <dd className="!text-text-muted">
                     <span className="size-2 shrink-0 rounded-full bg-current" />
                     —
                   </dd>
                 </div>
                 <div>
                   <dt>Atenção</dt>
-                  <dd>
+                  <dd className="!text-text-muted">
                     <span className="size-2 shrink-0 rounded-full bg-current" />
                     —
                   </dd>
                 </div>
                 <div>
                   <dt>Vencido</dt>
-                  <dd>
+                  <dd className="!text-text-muted">
                     <span className="size-2 shrink-0 rounded-full bg-current" />
                     —
                   </dd>
@@ -243,7 +247,9 @@ export function AdminCompaniesPage() {
               </CardContent>
 
               <CardFooter variant="company">
-                <span>Última atualização: —</span>
+                <span>
+                  Última atualização: {formatLastUpdate(company.updatedAt)}
+                </span>
                 <Link
                   className="inline-flex items-center gap-[7px] whitespace-nowrap text-sm font-extrabold text-primary-strong no-underline hover:underline hover:underline-offset-[3px]"
                   to={buildCompanyRoutes.dashboard(company.id)}
