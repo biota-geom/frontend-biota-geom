@@ -200,3 +200,16 @@ export interface LicenseConditionCreatedWire {
   status: 'Regular' | 'Atenção' | 'Risco';
   created_at: string;
 }
+
+export interface LicenseConditionBatchItemWire {
+  item_number: string;
+  description: string;
+  condition_type: string;
+  periodicity: string;
+  deadline: string;
+  responsible_name: string;
+}
+
+export interface CreateLicenseConditionsRequestWire {
+  conditions: LicenseConditionBatchItemWire[];
+}

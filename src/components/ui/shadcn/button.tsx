@@ -28,6 +28,9 @@ const buttonVariants = cva('', {
        */
       dialogPrimary:
         'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white shadow-control transition-[background-color] duration-[160ms] hover:bg-primary-strong focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary/30 disabled:cursor-not-allowed disabled:opacity-70',
+      /* Tinted "add row" action inside a form, e.g. */
+      addRow:
+        'rounded-control inline-flex min-h-[34px] items-center justify-center gap-2 border-0 bg-[#d8f8ea] px-3 text-[13px] font-bold text-primary-strong transition-[background-color] duration-[160ms] hover:bg-[#c3f0dc] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-70',
       /* Page-header action, e.g. "Nova Empresa". */
       action:
         'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-primary px-4 text-sm font-extrabold text-white disabled:cursor-default disabled:opacity-100 max-[720px]:w-full',

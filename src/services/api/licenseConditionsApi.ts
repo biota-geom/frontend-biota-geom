@@ -6,10 +6,20 @@ import type {
 } from '../../features/licenseConditions/types';
 import { request } from './http';
 import type {
+  CreateLicenseConditionsRequestWire,
   LicenseConditionCreatedWire,
   LicenseConditionWire,
   LicenseConditionsResponseWire,
 } from './types';
+
+export interface LicenseConditionBatchItemInput {
+  itemNumber: string;
+  description: string;
+  conditionType: string;
+  periodicity: string;
+  deadline: string;
+  responsibleName: string;
+}
 
 export interface CreateLicenseConditionInput {
   name: string;
@@ -69,4 +79,25 @@ export async function createLicenseCondition(
       },
     }
   );
+}
+
+export async function createLicenseConditions(
+  licenseId: string,
+  conditions: LicenseConditionBatchItemInput[]
+): Promise<void> {
+  const body: CreateLicenseConditionsRequestWire = {
+    conditions: conditions.map((condition) => ({
+      item_number: condition.itemNumber,
+      description: condition.description,
+      condition_type: condition.conditionType,
+      periodicity: condition.periodicity,
+      deadline: condition.deadline,
+      responsible_name: condition.responsibleName,
+    })),
+  };
+
+  await request<unknown>(`/api/licenses/${licenseId}/conditions`, {
+    method: 'POST',
+    body,
+  });
 }

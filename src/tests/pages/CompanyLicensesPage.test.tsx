@@ -28,12 +28,17 @@ vi.mock('../../services/api/companiesApi', () => ({
 vi.mock('../../services/api/customersApi', () => ({
   listCompanies: vi.fn(),
 }));
+vi.mock('../../services/api/licenseConditionsApi', () => ({
+  createLicenseConditions: vi.fn(),
+}));
 
 const issuingAgenciesApi =
   await import('../../services/api/issuingAgenciesApi');
 const licensesApi = await import('../../services/api/licensesApi');
 const companiesApi = await import('../../services/api/companiesApi');
 const customersApi = await import('../../services/api/customersApi');
+const licenseConditionsApi =
+  await import('../../services/api/licenseConditionsApi');
 
 const COMPANY_ID = 'customer-1';
 
@@ -112,6 +117,52 @@ async function openModalAndFillRequiredFields(
   await user.type(screen.getByLabelText(/data de validade/i), '2025-01-10');
 
   await user.upload(screen.getByLabelText(/upload de arquivo/i), pdfFile());
+}
+
+const CREATED_LICENSE = {
+  id: 'license-9',
+  customerId: COMPANY_ID,
+  type: 'LO' as const,
+  processNumber: 'LO nº 118/2020',
+  issuingAgencyId: 'agency-1',
+  issuingAgencyName: 'FEPAM',
+  issueDate: '2020-01-10T00:00:00.000Z',
+  expirationDate: '2025-01-10T00:00:00.000Z',
+  status: 'Vencida',
+  documentUrl: 'https://bucket.aws.com/licenses/lo-118-2020.pdf',
+  createdAt: '2020-01-10T00:00:00.000Z',
+};
+
+async function fillConditionRow(
+  user: ReturnType<typeof userEvent.setup>,
+  n: number
+) {
+  await user.type(
+    screen.getByLabelText(`Nº do item da condicionante ${n}`),
+    '3.1'
+  );
+  await user.type(
+    screen.getByLabelText(`Descrição da condicionante ${n}`),
+    'Monitoramento hidroquímico'
+  );
+  await user.click(
+    screen.getByRole('combobox', { name: `Tipo da condicionante ${n}` })
+  );
+  await user.click(await screen.findByRole('option', { name: 'Periódico' }));
+  await user.click(
+    screen.getByRole('combobox', {
+      name: `Periodicidade da condicionante ${n}`,
+    })
+  );
+  await user.click(await screen.findByRole('option', { name: 'Anual' }));
+  await user.type(
+    screen.getByLabelText(`Prazo da condicionante ${n}`),
+    '2026-10-30'
+  );
+  await user.type(
+    screen.getByLabelText(`Responsável pela condicionante ${n}`),
+    'Lucas Silva'
+  );
 }
 
 describe('CompanyLicensesPage', () => {
@@ -287,5 +338,122 @@ describe('CompanyLicensesPage', () => {
 
     expect(row).not.toBeNull();
     expect(row).toHaveTextContent('Regular');
+  });
+
+  it('adds an empty condition row and removes it again', async () => {
+    const user = userEvent.setup();
+    renderLicensesPage();
+    await user.click(screen.getByRole('button', { name: /nova licença/i }));
+
+    await user.click(
+      screen.getByRole('button', { name: /adicionar condicionante/i })
+    );
+    expect(screen.getByLabelText('Descrição da condicionante 1')).toHaveValue(
+      ''
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /remover condicionante 1/i })
+    );
+    expect(
+      screen.queryByLabelText('Descrição da condicionante 1')
+    ).not.toBeInTheDocument();
+  });
+
+  it('creates the license first, then posts the conditions with the new license id', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.createLicense).mockResolvedValue(CREATED_LICENSE);
+    vi.mocked(licenseConditionsApi.createLicenseConditions).mockResolvedValue(
+      undefined
+    );
+
+    renderLicensesPage();
+    await openModalAndFillRequiredFields(user);
+    await user.click(
+      screen.getByRole('button', { name: /adicionar condicionante/i })
+    );
+    await fillConditionRow(user, 1);
+    await user.click(screen.getByRole('button', { name: /salvar licença/i }));
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.createLicenseConditions).toHaveBeenCalledWith(
+        'license-9',
+        [
+          {
+            itemNumber: '3.1',
+            description: 'Monitoramento hidroquímico',
+            conditionType: 'Periódico',
+            periodicity: 'Anual',
+            deadline: '2026-10-30T00:00:00.000Z',
+            responsibleName: 'Lucas Silva',
+          },
+        ]
+      )
+    );
+    expect(
+      vi.mocked(licensesApi.createLicense).mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      vi.mocked(licenseConditionsApi.createLicenseConditions).mock
+        .invocationCallOrder[0]
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: /^nova licença$/i })
+      ).not.toBeInTheDocument()
+    );
+  });
+
+  it('keeps the modal open when the conditions fail and retries only the conditions', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.createLicense).mockResolvedValue(CREATED_LICENSE);
+    vi.mocked(licenseConditionsApi.createLicenseConditions)
+      .mockRejectedValueOnce(new ApiError(400, 'Prazo inválido.'))
+      .mockResolvedValueOnce(undefined);
+
+    renderLicensesPage();
+    await openModalAndFillRequiredFields(user);
+    await user.click(
+      screen.getByRole('button', { name: /adicionar condicionante/i })
+    );
+    await fillConditionRow(user, 1);
+
+    await user.click(screen.getByRole('button', { name: /salvar licença/i }));
+    expect(await screen.findByText(/prazo inválido\./i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /^nova licença$/i })
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /salvar licença/i }));
+    await waitFor(() =>
+      expect(
+        licenseConditionsApi.createLicenseConditions
+      ).toHaveBeenCalledTimes(2)
+    );
+    expect(licensesApi.createLicense).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables "Salvar Licença" while the transaction is in flight', async () => {
+    const user = userEvent.setup();
+    let resolveLicense: (license: typeof CREATED_LICENSE) => void = () => {};
+    vi.mocked(licensesApi.createLicense).mockReturnValue(
+      new Promise((resolve) => {
+        resolveLicense = resolve;
+      })
+    );
+
+    renderLicensesPage();
+    await openModalAndFillRequiredFields(user);
+    await user.click(screen.getByRole('button', { name: /salvar licença/i }));
+
+    expect(
+      await screen.findByRole('button', { name: /salvando/i })
+    ).toBeDisabled();
+
+    resolveLicense(CREATED_LICENSE);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: /^nova licença$/i })
+      ).not.toBeInTheDocument()
+    );
   });
 });

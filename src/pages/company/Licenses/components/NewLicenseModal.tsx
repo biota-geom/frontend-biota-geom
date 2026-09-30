@@ -1,4 +1,6 @@
-import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Controller, useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
   Dialog,
@@ -19,6 +21,13 @@ import {
   SelectValue,
 } from '@/components/ui/shadcn/select';
 import {
+  CREATE_LICENSE_DEFAULT_VALUES,
+  createLicenseSchema,
+  LICENSE_TYPES,
+  toUtcIsoDate,
+  type CreateLicenseForm,
+} from '../../../../features/licenses/createLicenseValidation';
+import {
   LICENSE_TYPE_LABELS,
   type IssuingAgency,
   type License,
@@ -26,17 +35,15 @@ import {
 } from '../../../../features/licenses/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { listIssuingAgencies } from '../../../../services/api/issuingAgenciesApi';
+import { createLicenseConditions } from '../../../../services/api/licenseConditionsApi';
 import { createLicense } from '../../../../services/api/licensesApi';
-
-const LICENSE_TYPES: LicenseType[] = ['LP', 'LI', 'LO'];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+import { LicenseConditionsTable } from './LicenseConditionsTable';
 
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível cadastrar a licença. Tente novamente mais tarde.';
-const INVALID_FILE_TYPE_MESSAGE = 'O arquivo deve estar no formato PDF.';
-const FILE_TOO_LARGE_MESSAGE = 'O arquivo não pode ultrapassar 5MB.';
-const INVALID_DATE_RANGE_MESSAGE =
-  'A data de validade deve ser posterior à data de emissão.';
+const CONDITIONS_ERROR_PREFIX =
+  'A licença foi cadastrada, mas as condicionantes não foram salvas.';
+const CONDITIONS_ERROR_FALLBACK = 'Tente novamente.';
 
 type NewLicenseModalProps = {
   companyId: string;
@@ -51,19 +58,23 @@ export function NewLicenseModal({
   onOpenChange,
   open,
 }: NewLicenseModalProps) {
-  const [type, setType] = useState<LicenseType | ''>('');
-  const [processNumber, setProcessNumber] = useState('');
-  const [issuingAgencyId, setIssuingAgencyId] = useState('');
-  const [issueDate, setIssueDate] = useState('');
-  const [expirationDate, setExpirationDate] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-
   const [issuingAgencies, setIssuingAgencies] = useState<IssuingAgency[]>([]);
   const [isLoadingAgencies, setIsLoadingAgencies] = useState(false);
+  const [createdLicense, setCreatedLicense] = useState<License | null>(null);
 
-  const [fileError, setFileError] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const {
+    control,
+    formState: { errors, isSubmitting, isValid },
+    handleSubmit,
+    register,
+    reset,
+    setError,
+    setValue,
+  } = useForm<CreateLicenseForm>({
+    defaultValues: CREATE_LICENSE_DEFAULT_VALUES,
+    mode: 'onChange',
+    resolver: zodResolver(createLicenseSchema),
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -89,158 +100,160 @@ export function NewLicenseModal({
     };
   }, [open]);
 
-  function resetForm() {
-    setType('');
-    setProcessNumber('');
-    setIssuingAgencyId('');
-    setIssueDate('');
-    setExpirationDate('');
-    setFile(null);
-    setFileError(null);
-    setFormError(null);
+  function closeAndReset() {
+    reset(CREATE_LICENSE_DEFAULT_VALUES);
+    setCreatedLicense(null);
+    onOpenChange(false);
   }
 
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) resetForm();
-    onOpenChange(nextOpen);
+    if (nextOpen) {
+      onOpenChange(true);
+      return;
+    }
+    if (isSubmitting) return;
+    closeAndReset();
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0] ?? null;
-
-    if (!selected) {
-      setFile(null);
-      setFileError(null);
-      return;
-    }
-
-    if (selected.type !== 'application/pdf') {
-      setFile(null);
-      setFileError(INVALID_FILE_TYPE_MESSAGE);
-      event.target.value = '';
-      return;
-    }
-
-    if (selected.size > MAX_FILE_SIZE_BYTES) {
-      setFile(null);
-      setFileError(FILE_TOO_LARGE_MESSAGE);
-      event.target.value = '';
-      return;
-    }
-
-    setFile(selected);
-    setFileError(null);
+    setValue('file', event.target.files?.[0] ?? null, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
   }
 
-  const isDateRangeInvalid = Boolean(
-    issueDate && expirationDate && expirationDate <= issueDate
-  );
-  const isFormValid = Boolean(
-    type &&
-    processNumber.trim() &&
-    issuingAgencyId &&
-    issueDate &&
-    expirationDate &&
-    !isDateRangeInvalid &&
-    file &&
-    !fileError
-  );
+  const submit = handleSubmit(async (values) => {
+    let license = createdLicense;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setFormError(null);
-
-    if (!isFormValid || !type || !file) return;
-
-    setIsSubmitting(true);
-    try {
-      const license = await createLicense(companyId, {
-        type,
-        processNumber: processNumber.trim(),
-        issuingAgencyId,
-        issueDate,
-        expirationDate,
-        documentFile: file,
-      });
+    if (!license) {
+      try {
+        license = await createLicense(companyId, {
+          type: values.type as LicenseType,
+          processNumber: values.processNumber,
+          issuingAgencyId: values.issuingAgencyId,
+          issueDate: values.issueDate,
+          expirationDate: values.expirationDate,
+          // the schema guarantees a non-null PDF here
+          documentFile: values.file as File,
+        });
+      } catch (error) {
+        setError('root', {
+          message:
+            error instanceof ApiError ? error.message : GENERIC_ERROR_MESSAGE,
+        });
+        return;
+      }
+      setCreatedLicense(license);
       onCreated?.(license);
-      handleOpenChange(false);
-    } catch (error) {
-      setFormError(
-        error instanceof ApiError ? error.message : GENERIC_ERROR_MESSAGE
-      );
-    } finally {
-      setIsSubmitting(false);
     }
-  }
+
+    if (values.conditions.length > 0) {
+      try {
+        await createLicenseConditions(
+          license.id,
+          values.conditions.map((condition) => ({
+            itemNumber: condition.itemNumber,
+            description: condition.description,
+            conditionType: condition.conditionType,
+            periodicity: condition.periodicity,
+            deadline: toUtcIsoDate(condition.deadline),
+            responsibleName: condition.responsibleName,
+          }))
+        );
+      } catch (error) {
+        setError('root', {
+          message: `${CONDITIONS_ERROR_PREFIX} ${
+            error instanceof ApiError
+              ? error.message
+              : CONDITIONS_ERROR_FALLBACK
+          }`,
+        });
+        return;
+      }
+    }
+
+    closeAndReset();
+  });
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Nova Licença</DialogTitle>
           <DialogDescription>
-            Preencha os dados da licença ambiental e anexe o documento em PDF.
+            Preencha os dados da licença ambiental, anexe o documento em PDF e
+            adicione as condicionantes iniciais.
           </DialogDescription>
         </DialogHeader>
 
         <form
           className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1"
-          onSubmit={(event) => void handleSubmit(event)}
+          noValidate
+          onSubmit={(event) => void submit(event)}
         >
           <div className="flex flex-col gap-2">
             <Label htmlFor="license-type">Tipo de Licença</Label>
-            <Select
-              onValueChange={(value) => setType(value as LicenseType)}
-              value={type}
-            >
-              <SelectTrigger className="w-full" id="license-type">
-                <SelectValue placeholder="Selecione o tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                {LICENSE_TYPES.map((licenseType) => (
-                  <SelectItem key={licenseType} value={licenseType}>
-                    {LICENSE_TYPE_LABELS[licenseType]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              control={control}
+              name="type"
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger className="w-full" id="license-type">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LICENSE_TYPES.map((licenseType) => (
+                      <SelectItem key={licenseType} value={licenseType}>
+                        {LICENSE_TYPE_LABELS[licenseType]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="process-number">Nº do Processo / Licença</Label>
             <InputGroup variant="field">
               <Input
+                {...register('processNumber')}
                 id="process-number"
-                onChange={(event) => setProcessNumber(event.target.value)}
                 placeholder="Ex: LO nº 118/2020"
-                required
-                value={processNumber}
               />
             </InputGroup>
           </div>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="issuing-agency">Órgão Emissor</Label>
-            <Select
-              disabled={isLoadingAgencies}
-              onValueChange={setIssuingAgencyId}
-              value={issuingAgencyId}
-            >
-              <SelectTrigger className="w-full" id="issuing-agency">
-                <SelectValue
-                  placeholder={
-                    isLoadingAgencies ? 'Carregando...' : 'Selecione o órgão'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {issuingAgencies.map((agency) => (
-                  <SelectItem key={agency.id} value={agency.id}>
-                    {agency.acronym ?? agency.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              control={control}
+              name="issuingAgencyId"
+              render={({ field }) => (
+                <Select
+                  disabled={isLoadingAgencies}
+                  onValueChange={field.onChange}
+                  value={field.value}
+                >
+                  <SelectTrigger className="w-full" id="issuing-agency">
+                    <SelectValue
+                      placeholder={
+                        isLoadingAgencies
+                          ? 'Carregando...'
+                          : 'Selecione o órgão'
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {issuingAgencies.map((agency) => (
+                      <SelectItem key={agency.id} value={agency.id}>
+                        {agency.acronym ?? agency.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div aria-hidden="true" className="max-[560px]:hidden" />
@@ -248,33 +261,28 @@ export function NewLicenseModal({
           <div className="flex flex-col gap-2">
             <Label htmlFor="issue-date">Data de Emissão</Label>
             <InputGroup variant="field">
-              <Input
-                id="issue-date"
-                onChange={(event) => setIssueDate(event.target.value)}
-                required
-                type="date"
-                value={issueDate}
-              />
+              <Input {...register('issueDate')} id="issue-date" type="date" />
             </InputGroup>
           </div>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="expiration-date">Data de Validade</Label>
-            <InputGroup variant="field">
+            <InputGroup
+              aria-invalid={Boolean(errors.expirationDate)}
+              variant="field"
+            >
               <Input
+                {...register('expirationDate')}
                 id="expiration-date"
-                onChange={(event) => setExpirationDate(event.target.value)}
-                required
                 type="date"
-                value={expirationDate}
               />
             </InputGroup>
-            {isDateRangeInvalid ? (
+            {errors.expirationDate ? (
               <p
                 className="m-0 text-[13px] font-semibold text-red-600"
                 role="alert"
               >
-                {INVALID_DATE_RANGE_MESSAGE}
+                {errors.expirationDate.message}
               </p>
             ) : null}
           </div>
@@ -288,28 +296,35 @@ export function NewLicenseModal({
               onChange={handleFileChange}
               type="file"
             />
-            {fileError ? (
+            {errors.file ? (
               <p
                 className="m-0 text-[13px] font-semibold text-red-600"
                 role="alert"
               >
-                {fileError}
+                {errors.file.message}
               </p>
             ) : null}
           </div>
 
-          {formError ? (
+          <LicenseConditionsTable
+            control={control}
+            disabled={isSubmitting}
+            register={register}
+          />
+
+          {errors.root ? (
             <p
               aria-live="polite"
               className="col-span-2 m-0 rounded-sm border border-[#fda29b] bg-[#fef3f2] px-3 py-2.5 text-[13px] font-semibold text-[#b42318] max-[560px]:col-span-1"
               role="alert"
             >
-              {formError}
+              {errors.root.message}
             </p>
           ) : null}
 
           <DialogFooter className="col-span-2 max-[560px]:col-span-1">
             <Button
+              disabled={isSubmitting}
               onClick={() => handleOpenChange(false)}
               type="button"
               variant="subtle"
@@ -317,7 +332,7 @@ export function NewLicenseModal({
               Cancelar
             </Button>
             <Button
-              disabled={!isFormValid || isSubmitting}
+              disabled={!isValid || isSubmitting}
               type="submit"
               variant="dialogPrimary"
             >
