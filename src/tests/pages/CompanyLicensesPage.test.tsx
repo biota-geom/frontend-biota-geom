@@ -212,11 +212,13 @@ describe('CompanyLicensesPage', () => {
     });
 
     expect(
-      screen.getByText('O arquivo deve estar no formato PDF.')
+      await screen.findByText('O arquivo deve estar no formato PDF.')
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /salvar licença/i })
-    ).toBeDisabled();
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /salvar licença/i })
+      ).toBeDisabled()
+    );
   });
 
   it('submits the form and shows a success message with the computed status', async () => {

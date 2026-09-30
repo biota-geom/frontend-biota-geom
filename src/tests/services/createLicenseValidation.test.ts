@@ -67,8 +67,8 @@ describe('createLicenseSchema', () => {
           {
             itemNumber: '1.1',
             description: 'Manter controle',
-            conditionType: 'Periódico',
-            periodicity: 'Semestral',
+            conditionType: 'PERIODIC',
+            periodicity: 'SEMIANNUAL',
             deadline: '2026-10-30',
             responsibleName: 'Lucas Silva',
           },
