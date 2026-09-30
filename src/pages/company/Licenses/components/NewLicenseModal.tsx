@@ -60,6 +60,7 @@ export function NewLicenseModal({
 }: NewLicenseModalProps) {
   const [issuingAgencies, setIssuingAgencies] = useState<IssuingAgency[]>([]);
   const [isLoadingAgencies, setIsLoadingAgencies] = useState(false);
+  /* Set after step 1 succeeds so a retry never creates the license twice. */
   const [createdLicense, setCreatedLicense] = useState<License | null>(null);
 
   const {
@@ -332,7 +333,7 @@ export function NewLicenseModal({
               Cancelar
             </Button>
             <Button
-              disabled={!isValid || isSubmitting}
+              disabled={(!isValid && !createdLicense) || isSubmitting}
               type="submit"
               variant="dialogPrimary"
             >
