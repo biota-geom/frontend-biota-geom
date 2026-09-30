@@ -1,4 +1,4 @@
-import type { Company } from '../../features/companies/types';
+import type { Company, CompanyListItem } from '../../features/companies/types';
 import { request } from './http';
 import type { CustomerWire } from './types';
 
@@ -17,17 +17,20 @@ export function toCompanyStatus(status: string): Company['status'] {
     : 'inactive';
 }
 
-function toCompany(wire: CustomerWire): Company {
+function toCompanyListItem(wire: CustomerWire): CompanyListItem {
   return {
     id: wire.id,
     name: wire.name,
     status: toCompanyStatus(wire.status),
     segment: wire.segment,
     location: wire.location,
+    conformityPercentage: wire.conformity_percentage,
+    totalLicenses: wire.total_licenses,
+    updatedAt: wire.updated_at,
   };
 }
 
-export async function listCompanies(): Promise<Company[]> {
+export async function listCompanies(): Promise<CompanyListItem[]> {
   const wire = await request<CustomerWire[]>('/api/customers');
-  return wire.map(toCompany);
+  return wire.map(toCompanyListItem);
 }

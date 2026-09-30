@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Company } from '../../features/companies/types';
+import type { CompanyListItem } from '../../features/companies/types';
 import { useCompanies } from '../../features/companies/useCompanies';
 import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
@@ -12,13 +12,16 @@ vi.mock('../../services/api/customersApi', () => ({
 
 const customersApi = await import('../../services/api/customersApi');
 
-const COMPANIES: Company[] = [
+const COMPANIES: CompanyListItem[] = [
   {
     id: 'customer-1',
     name: 'Unidade Industrial RS',
     status: 'active',
     segment: 'Siderurgia',
     location: 'Porto Alegre - RS',
+    conformityPercentage: null,
+    totalLicenses: 6,
+    updatedAt: '2026-09-17T14:30:00.000Z',
   },
   {
     id: 'customer-2',
@@ -26,6 +29,9 @@ const COMPANIES: Company[] = [
     status: 'active',
     segment: 'Metalúrgica',
     location: 'Sorocaba - SP',
+    conformityPercentage: null,
+    totalLicenses: 0,
+    updatedAt: '2026-09-10T08:00:00.000Z',
   },
   {
     id: 'customer-3',
@@ -33,6 +39,9 @@ const COMPANIES: Company[] = [
     status: 'inactive',
     segment: 'Agronegócio',
     location: 'Sorriso - MT',
+    conformityPercentage: null,
+    totalLicenses: 2,
+    updatedAt: '2026-08-01T12:00:00.000Z',
   },
   {
     id: 'customer-4',
@@ -40,6 +49,9 @@ const COMPANIES: Company[] = [
     status: 'inactive',
     segment: 'Mineração',
     location: 'Goiânia - GO',
+    conformityPercentage: null,
+    totalLicenses: 1,
+    updatedAt: '2026-09-01T12:00:00.000Z',
   },
 ];
 
@@ -230,7 +242,7 @@ describe('AdminCompaniesPage filters', () => {
 
   it('keeps every result state hidden while the listing is loading', () => {
     vi.mocked(customersApi.listCompanies).mockReturnValue(
-      new Promise<Company[]>(() => {})
+      new Promise<CompanyListItem[]>(() => {})
     );
 
     renderWithAuth(<AdminCompaniesPage />, {

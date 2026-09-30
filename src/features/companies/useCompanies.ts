@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { ApiError } from '../../services/api/apiError';
 import * as customersApi from '../../services/api/customersApi';
-import type { Company } from './types';
+import type { CompanyListItem } from './types';
 
 const FETCH_ERROR_MESSAGE =
   'Não foi possível carregar as empresas cadastradas.';
@@ -9,7 +9,7 @@ const FETCH_ERROR_MESSAGE =
 type CompaniesStatus = 'idle' | 'loading' | 'success' | 'error';
 
 interface CompaniesState {
-  companies: Company[];
+  companies: CompanyListItem[];
   status: CompaniesStatus;
   error: string | null;
   fetchCompanies: () => Promise<void>;

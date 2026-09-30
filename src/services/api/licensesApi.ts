@@ -76,7 +76,7 @@ function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {
 
 export async function listLicenses(customerId: string): Promise<LicensesPanel> {
   const wire = await request<LicensePanelResponseWire>(
-    `/customers/${customerId}/licenses`
+    `/api/customers/${customerId}/licenses`
   );
 
   return {

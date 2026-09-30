@@ -51,7 +51,7 @@ export function CompanyLayout() {
   /*
    * Loading the scope here rather than in CompanyDashboardPage is what makes
    * the real company name available on every sibling route (licenses,
-   * obligations, legislation, ESG, documents) — and keeps it a single fetch,
+   * conditions, legislation, ESG, documents) — and keeps it a single fetch,
    * since the dashboard now reads the same store instead of repeating it.
    */
   useEffect(() => {
@@ -72,7 +72,10 @@ export function CompanyLayout() {
   const companyNavItems: AppNavigationItem[] = [
     { label: 'Painel', to: buildCompanyRoutes.dashboard(safeCompanyId) },
     { label: 'Licenças', to: buildCompanyRoutes.licenses(safeCompanyId) },
-    { label: 'Obrigações', to: buildCompanyRoutes.obligations(safeCompanyId) },
+    {
+      label: 'Condicionantes',
+      to: buildCompanyRoutes.conditions(safeCompanyId),
+    },
     { label: 'Legislação', to: buildCompanyRoutes.legislation(safeCompanyId) },
     { label: 'ESG', to: buildCompanyRoutes.indicators(safeCompanyId) },
     { label: 'Documentos', to: buildCompanyRoutes.documents(safeCompanyId) },

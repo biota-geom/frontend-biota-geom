@@ -24,10 +24,16 @@ import {
 } from '../../../features/companies/companyFilters';
 import { COMPANY_MESSAGES } from '../../../features/companies/companyMessages';
 import { useCompanies } from '../../../features/companies/useCompanies';
-import { getCompanyCountLabel, getStatusLabel } from './companyCardFormatting';
+import {
+  formatLastUpdate,
+  getCompanyCountLabel,
+  getConformityColor,
+  getConformityTextColor,
+  getStatusLabel,
+} from './companyCardFormatting';
 import { useState } from 'react';
 import { CompanyFilters } from './components/CompanyFilters';
-import { CreateCompanyModal } from './components/CreateCompanyModal';
+import { NewCompanyModal } from './components/NewCompanyModal';
 import type { CreateCompanySubmission } from '../../../features/companies/createCompany.types';
 import { ApiError } from '../../../services/api/apiError';
 import {
@@ -213,29 +219,53 @@ export function AdminCompaniesPage() {
                 </CardAction>
               </CardHeader>
 
-              {/* Licenças/Conformidade/Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
-              <CardContent className="[&_dd]:text-text-muted" variant="company">
+              {/* Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
+              <CardContent variant="company">
                 <div>
                   <dt>Licenças</dt>
-                  <dd>—</dd>
+                  <dd>{company.totalLicenses}</dd>
                 </div>
                 <div>
                   <dt>Conformidade</dt>
-                  <dd>
-                    <span className="size-2 shrink-0 rounded-full bg-current" />
-                    —
+                  <dd
+                    className={
+                      company.conformityPercentage == null
+                        ? '!text-text-muted'
+                        : undefined
+                    }
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`inline-flex size-2 shrink-0 rounded-full ${
+                        company.conformityPercentage == null
+                          ? 'bg-gray-400'
+                          : getConformityColor(company.conformityPercentage)
+                      }`}
+                      data-testid={`conformity-indicator-${company.id}`}
+                    />
+                    {company.conformityPercentage == null ? (
+                      '—'
+                    ) : (
+                      <span
+                        className={getConformityTextColor(
+                          company.conformityPercentage
+                        )}
+                      >
+                        {company.conformityPercentage}%
+                      </span>
+                    )}
                   </dd>
                 </div>
                 <div>
                   <dt>Atenção</dt>
-                  <dd>
+                  <dd className="!text-text-muted">
                     <span className="size-2 shrink-0 rounded-full bg-current" />
                     —
                   </dd>
                 </div>
                 <div>
                   <dt>Vencido</dt>
-                  <dd>
+                  <dd className="!text-text-muted">
                     <span className="size-2 shrink-0 rounded-full bg-current" />
                     —
                   </dd>
@@ -243,7 +273,9 @@ export function AdminCompaniesPage() {
               </CardContent>
 
               <CardFooter variant="company">
-                <span>Última atualização: —</span>
+                <span>
+                  Última atualização: {formatLastUpdate(company.updatedAt)}
+                </span>
                 <Link
                   className="inline-flex items-center gap-[7px] whitespace-nowrap text-sm font-extrabold text-primary-strong no-underline hover:underline hover:underline-offset-[3px]"
                   to={buildCompanyRoutes.dashboard(company.id)}
@@ -256,7 +288,7 @@ export function AdminCompaniesPage() {
           ))}
         </section>
       ) : null}
-      <CreateCompanyModal
+      <NewCompanyModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateCompany}

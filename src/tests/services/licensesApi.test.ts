@@ -93,7 +93,7 @@ describe('licensesApi', () => {
 
     const panel = await listLicenses('customer-1');
 
-    expect(request).toHaveBeenCalledWith('/customers/customer-1/licenses');
+    expect(request).toHaveBeenCalledWith('/api/customers/customer-1/licenses');
     expect(panel).toEqual({
       summary: { total: 2, regular: 1, attention: 0, expired: 1 },
       licenses: [

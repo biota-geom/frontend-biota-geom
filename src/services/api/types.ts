@@ -61,6 +61,9 @@ export interface CustomerWire {
   status: string;
   segment: string;
   location: string;
+  conformity_percentage: number | null;
+  total_licenses: number;
+  updated_at: string;
 }
 
 /*
@@ -169,4 +172,33 @@ export interface LicensePanelItemWire {
 export interface LicensePanelResponseWire {
   summary: LicenseSummaryWire;
   licenses: LicensePanelItemWire[];
+}
+
+export interface LicenseConditionWire {
+  id: string;
+  license_id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  responsible_agency: string | null;
+  due_date: string;
+  status: 'Regular' | 'Atenção' | 'Risco';
+  risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
+}
+
+export interface LicenseConditionsResponseWire {
+  total: number;
+  data: LicenseConditionWire[];
+}
+
+export interface LicenseConditionCreatedWire {
+  id: string;
+  license_id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  responsible_agency: string | null;
+  due_date: string;
+  status: 'Regular' | 'Atenção' | 'Risco';
+  created_at: string;
 }
