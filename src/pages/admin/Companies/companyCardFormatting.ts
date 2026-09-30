@@ -44,6 +44,11 @@ const LAST_UPDATE_FORMAT = new Intl.DateTimeFormat('pt-BR', {
 });
 
 /** Card footer date in the Brazilian `dd/MM/yyyy` form, from an ISO string. */
-export function formatLastUpdate(isoDate: string) {
-  return LAST_UPDATE_FORMAT.format(new Date(isoDate));
+export function formatLastUpdate(isoDate: string | null | undefined) {
+  if (!isoDate) return '—';
+
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return LAST_UPDATE_FORMAT.format(date);
 }

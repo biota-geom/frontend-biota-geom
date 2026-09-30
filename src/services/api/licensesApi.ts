@@ -1,5 +1,6 @@
 import type {
   License,
+  LicenseDetails,
   LicensePanelItem,
   LicensesPanel,
   LicenseType,
@@ -7,6 +8,7 @@ import type {
 import { request } from './http';
 import type {
   LicensePanelItemWire,
+  LicenseDetailsWire,
   LicensePanelResponseWire,
   LicenseWire,
 } from './types';
@@ -36,6 +38,39 @@ function toLicense(wire: LicenseWire): License {
     documentUrl: wire.document_url,
     createdAt: wire.created_at,
   };
+}
+
+function toLicenseDetails(wire: LicenseDetailsWire): LicenseDetails {
+  return {
+    id: wire.id,
+    processNumber: wire.process_number,
+    issueDate: wire.issue_date,
+    expirationDate: wire.expiration_date,
+    status: wire.status,
+    conditions: wire.conditions.map((condition) => ({
+      id: condition.id,
+      itemNumber: condition.item_number,
+      description: condition.description,
+      conditionType: condition.condition_type,
+      periodicity: condition.periodicity,
+      deadline: condition.deadline,
+      status: condition.status,
+      completionDate: condition.completion_date,
+      responsibleName: condition.responsible_name,
+      isViolated: condition.is_violated,
+    })),
+  };
+}
+
+export async function getLicenseDetails(
+  customerId: string,
+  licenseId: string
+): Promise<LicenseDetails> {
+  const wire = await request<LicenseDetailsWire>(
+    `/api/customers/${customerId}/licenses/${licenseId}`
+  );
+
+  return toLicenseDetails(wire);
 }
 
 export async function createLicense(

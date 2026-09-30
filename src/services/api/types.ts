@@ -144,6 +144,28 @@ export interface LicenseWire {
   created_at: string;
 }
 
+export interface LicenseConditionDetailsWire {
+  id: string;
+  item_number: string | null;
+  description: string | null;
+  condition_type: string | null;
+  periodicity: string;
+  deadline: string | null;
+  status: string;
+  completion_date: string | null;
+  responsible_name: string | null;
+  is_violated: boolean;
+}
+
+export interface LicenseDetailsWire {
+  id: string;
+  process_number: string;
+  issue_date: string;
+  expiration_date: string;
+  status: string;
+  conditions: LicenseConditionDetailsWire[];
+}
+
 /*
  * GET /customers/:customerId/licenses. Its `licenses[].type`/`status` are
  * already PT-BR display labels ("Licença Prévia (LP)", "Vencida"), unlike
