@@ -7,6 +7,7 @@ vi.mock('../../services/api/http', () => ({
 const { request } = await import('../../services/api/http');
 const {
   createLicenseCondition,
+  createLicenseConditions,
   getLicenseConditionsCompliance,
   listLicenseConditions,
 } = await import('../../services/api/licenseConditionsApi');
@@ -142,5 +143,41 @@ describe('licenseConditionsApi', () => {
         status: 'Regular',
       },
     });
+  });
+
+  it('createLicenseConditions() posts the batch contract in snake_case', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await createLicenseConditions('customer-1', 'license-1', [
+      {
+        esgMetricId: 'metric-residuos',
+        itemNumber: '1.1',
+        description: 'Apresentar laudos semestrais',
+        conditionType: 'PERIODIC',
+        periodicity: 'SEMIANNUAL',
+        deadline: '2025-12-15T00:00:00.000Z',
+        responsibleName: 'Julia Costa',
+      },
+    ]);
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions',
+      {
+        method: 'POST',
+        body: {
+          conditions: [
+            {
+              esg_metric_id: 'metric-residuos',
+              item_number: '1.1',
+              description: 'Apresentar laudos semestrais',
+              condition_type: 'PERIODIC',
+              periodicity: 'SEMIANNUAL',
+              deadline: '2025-12-15T00:00:00.000Z',
+              responsible_name: 'Julia Costa',
+            },
+          ],
+        },
+      }
+    );
   });
 });
