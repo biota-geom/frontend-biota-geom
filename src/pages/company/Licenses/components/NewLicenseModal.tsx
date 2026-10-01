@@ -33,7 +33,9 @@ import {
   type License,
   type LicenseType,
 } from '../../../../features/licenses/types';
+import type { EsgIndicator } from '../../../../features/companies/types';
 import { ApiError } from '../../../../services/api/apiError';
+import { listCompanyEsgMetrics } from '../../../../services/api/companiesApi';
 import { listIssuingAgencies } from '../../../../services/api/issuingAgenciesApi';
 import { createLicenseConditions } from '../../../../services/api/licenseConditionsApi';
 import { createLicense } from '../../../../services/api/licensesApi';
@@ -44,6 +46,8 @@ const GENERIC_ERROR_MESSAGE =
 const CONDITIONS_ERROR_PREFIX =
   'A licença foi cadastrada, mas as condicionantes não foram salvas.';
 const CONDITIONS_ERROR_FALLBACK = 'Tente novamente.';
+const CATEGORIES_ERROR_MESSAGE =
+  'Não foi possível carregar os parâmetros GRI da empresa.';
 
 type NewLicenseModalProps = {
   companyId: string;
@@ -60,6 +64,9 @@ export function NewLicenseModal({
 }: NewLicenseModalProps) {
   const [issuingAgencies, setIssuingAgencies] = useState<IssuingAgency[]>([]);
   const [isLoadingAgencies, setIsLoadingAgencies] = useState(false);
+  const [categories, setCategories] = useState<EsgIndicator[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   /* Set after step 1 succeeds so a retry never creates the license twice. */
   const [createdLicense, setCreatedLicense] = useState<License | null>(null);
 
@@ -100,6 +107,35 @@ export function NewLicenseModal({
       isCurrent = false;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let isCurrent = true;
+
+    async function loadCompanyCategories() {
+      setIsLoadingCategories(true);
+      setCategoriesError(null);
+      try {
+        const metrics = await listCompanyEsgMetrics(companyId);
+        if (isCurrent) setCategories(metrics);
+      } catch (error) {
+        if (!isCurrent) return;
+        setCategories([]);
+        setCategoriesError(
+          error instanceof ApiError ? error.message : CATEGORIES_ERROR_MESSAGE
+        );
+      } finally {
+        if (isCurrent) setIsLoadingCategories(false);
+      }
+    }
+
+    void loadCompanyCategories();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [companyId, open]);
 
   function closeAndReset() {
     reset(CREATE_LICENSE_DEFAULT_VALUES);
@@ -151,8 +187,10 @@ export function NewLicenseModal({
     if (values.conditions.length > 0) {
       try {
         await createLicenseConditions(
+          companyId,
           license.id,
           values.conditions.map((condition) => ({
+            esgMetricId: condition.esgMetricId,
             itemNumber: condition.itemNumber,
             description: condition.description,
             conditionType: condition.conditionType,
@@ -308,8 +346,11 @@ export function NewLicenseModal({
           </div>
 
           <LicenseConditionsTable
+            categories={categories}
+            categoriesError={categoriesError}
             control={control}
             disabled={isSubmitting}
+            isLoadingCategories={isLoadingCategories}
             register={register}
           />
 

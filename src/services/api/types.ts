@@ -240,6 +240,7 @@ export interface LicenseConditionCreatedWire {
 }
 
 export interface LicenseConditionBatchItemWire {
+  esg_metric_id: string;
   item_number: string;
   description: string;
   condition_type: string;

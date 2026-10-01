@@ -23,14 +23,19 @@ import {
   type CreateLicenseForm,
   type LicenseConditionRow,
 } from '../../../../features/licenses/createLicenseValidation';
+import type { EsgIndicator } from '../../../../features/companies/types';
 
 type LicenseConditionsTableProps = {
+  categories: EsgIndicator[];
+  categoriesError: string | null;
   control: Control<CreateLicenseForm>;
   disabled?: boolean;
+  isLoadingCategories: boolean;
   register: UseFormRegister<CreateLicenseForm>;
 };
 
 const HEADERS = [
+  'Categoria',
   'Nº Item',
   'Descrição',
   'Tipo',
@@ -40,8 +45,11 @@ const HEADERS = [
 ];
 
 export function LicenseConditionsTable({
+  categories,
+  categoriesError,
   control,
   disabled = false,
+  isLoadingCategories,
   register,
 }: LicenseConditionsTableProps) {
   const { fields, append, remove } = useFieldArray({
@@ -74,7 +82,7 @@ export function LicenseConditionsTable({
       {fields.length > 0 ? (
         <>
           <div className="rounded-panel overflow-x-auto border border-border">
-            <table className="w-full min-w-[860px] border-collapse text-sm">
+            <table className="w-full min-w-[1040px] border-collapse text-sm">
               <thead>
                 <tr className="bg-surface-muted text-left text-[13px] font-bold text-text-primary">
                   {HEADERS.map((header) => (
@@ -92,6 +100,47 @@ export function LicenseConditionsTable({
                   const n = index + 1;
                   return (
                     <tr className="border-t border-border" key={field.id}>
+                      <td className="w-[180px] px-1.5 py-1.5">
+                        <Controller
+                          control={control}
+                          name={`conditions.${index}.esgMetricId`}
+                          render={({ field: categoryField }) => (
+                            <Select
+                              disabled={
+                                disabled ||
+                                isLoadingCategories ||
+                                categories.length === 0
+                              }
+                              onValueChange={categoryField.onChange}
+                              value={categoryField.value}
+                            >
+                              <SelectTrigger
+                                aria-invalid={hasError(index, 'esgMetricId')}
+                                aria-label={`Categoria da condicionante ${n}`}
+                                className="w-full"
+                              >
+                                <SelectValue
+                                  placeholder={
+                                    isLoadingCategories
+                                      ? 'Carregando...'
+                                      : 'Categoria GRI'
+                                  }
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {categories.map((category) => (
+                                  <SelectItem
+                                    key={category.id}
+                                    value={category.id}
+                                  >
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </td>
                       <td className="w-[84px] px-1.5 py-1.5">
                         <InputGroup
                           aria-invalid={hasError(index, 'itemNumber')}
@@ -222,6 +271,25 @@ export function LicenseConditionsTable({
             Todos os campos são obrigatórios. Remova a linha para não incluir a
             condicionante.
           </p>
+          {categoriesError ? (
+            <p
+              className="m-0 text-[13px] font-semibold text-red-600"
+              role="alert"
+            >
+              {categoriesError}
+            </p>
+          ) : null}
+          {!isLoadingCategories &&
+          !categoriesError &&
+          categories.length === 0 ? (
+            <p
+              className="m-0 rounded-sm border border-amber-300 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800"
+              role="status"
+            >
+              Esta empresa ainda não possui parâmetros GRI vinculados. Faça a
+              parametrização GRI da empresa antes de cadastrar condicionantes.
+            </p>
+          ) : null}
         </>
       ) : null}
 

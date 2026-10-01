@@ -6,7 +6,7 @@ export const LICENSE_TYPES: LicenseType[] = ['LP', 'LI', 'LO'];
 export const CONDITION_TYPES = ['INFORMATIVE', 'PERIODIC'] as const;
 export const CONDITION_PERIODICITIES = [
   'MONTHLY',
-  'QUARTELY',
+  'QUARTERLY',
   'SEMIANNUAL',
   'ANNUAL',
 ] as const;
@@ -20,6 +20,7 @@ export const INVALID_DATE_RANGE_MESSAGE =
   'A data de validade deve ser posterior à data de emissão.';
 
 const conditionRowSchema = z.object({
+  esgMetricId: z.string().min(1, 'Selecione a categoria.'),
   itemNumber: z
     .string()
     .trim()
@@ -62,6 +63,7 @@ const conditionRowSchema = z.object({
  * is annotated with it, so any drift shows up as an error right here.
  */
 export type LicenseConditionRow = {
+  esgMetricId: string;
   itemNumber: string;
   description: string;
   conditionType: string;
@@ -118,6 +120,7 @@ export const createLicenseSchema: z.ZodType<
   );
 
 export const EMPTY_CONDITION_ROW: LicenseConditionRow = {
+  esgMetricId: '',
   itemNumber: '',
   description: '',
   conditionType: '',

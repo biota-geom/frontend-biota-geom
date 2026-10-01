@@ -16,6 +16,7 @@ import type {
 } from './types';
 
 export interface LicenseConditionBatchItemInput {
+  esgMetricId: string;
   itemNumber: string;
   description: string;
   conditionType: string;
@@ -111,11 +112,13 @@ export async function createLicenseCondition(
 }
 
 export async function createLicenseConditions(
+  customerId: string,
   licenseId: string,
   conditions: LicenseConditionBatchItemInput[]
 ): Promise<void> {
   const body: CreateLicenseConditionsRequestWire = {
     conditions: conditions.map((condition) => ({
+      esg_metric_id: condition.esgMetricId,
       item_number: condition.itemNumber,
       description: condition.description,
       condition_type: condition.conditionType,
@@ -125,8 +128,11 @@ export async function createLicenseConditions(
     })),
   };
 
-  await request<unknown>(`/api/licenses/${licenseId}/conditions`, {
-    method: 'POST',
-    body,
-  });
+  await request<unknown>(
+    `/api/customers/${customerId}/licenses/${licenseId}/conditions`,
+    {
+      method: 'POST',
+      body,
+    }
+  );
 }

@@ -148,31 +148,36 @@ describe('licenseConditionsApi', () => {
   it('createLicenseConditions() posts the batch contract in snake_case', async () => {
     vi.mocked(request).mockResolvedValue(undefined);
 
-    await createLicenseConditions('license-1', [
+    await createLicenseConditions('customer-1', 'license-1', [
       {
+        esgMetricId: 'metric-residuos',
         itemNumber: '1.1',
         description: 'Apresentar laudos semestrais',
-        conditionType: 'Periódico',
-        periodicity: 'Semestral',
+        conditionType: 'PERIODIC',
+        periodicity: 'SEMIANNUAL',
         deadline: '2025-12-15T00:00:00.000Z',
         responsibleName: 'Julia Costa',
       },
     ]);
 
-    expect(request).toHaveBeenCalledWith('/api/licenses/license-1/conditions', {
-      method: 'POST',
-      body: {
-        conditions: [
-          {
-            item_number: '1.1',
-            description: 'Apresentar laudos semestrais',
-            condition_type: 'Periódico',
-            periodicity: 'Semestral',
-            deadline: '2025-12-15T00:00:00.000Z',
-            responsible_name: 'Julia Costa',
-          },
-        ],
-      },
-    });
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions',
+      {
+        method: 'POST',
+        body: {
+          conditions: [
+            {
+              esg_metric_id: 'metric-residuos',
+              item_number: '1.1',
+              description: 'Apresentar laudos semestrais',
+              condition_type: 'PERIODIC',
+              periodicity: 'SEMIANNUAL',
+              deadline: '2025-12-15T00:00:00.000Z',
+              responsible_name: 'Julia Costa',
+            },
+          ],
+        },
+      }
+    );
   });
 });

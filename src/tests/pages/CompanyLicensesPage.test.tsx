@@ -24,6 +24,7 @@ vi.mock('../../services/api/companiesApi', () => ({
   getCompanyById: vi.fn(),
   createCompany: vi.fn(),
   linkCompanyEsgMetrics: vi.fn(),
+  listCompanyEsgMetrics: vi.fn(),
 }));
 vi.mock('../../services/api/customersApi', () => ({
   listCompanies: vi.fn(),
@@ -41,6 +42,7 @@ const licenseConditionsApi =
   await import('../../services/api/licenseConditionsApi');
 
 const COMPANY_ID = 'customer-1';
+const COMPANY_ESG_METRICS = [{ id: 'metric-water', name: 'Água', unit: 'm³' }];
 
 const COMPANY_IN_CONTEXT: CompanyListItem = {
   id: COMPANY_ID,
@@ -140,6 +142,10 @@ async function fillConditionRow(
   user: ReturnType<typeof userEvent.setup>,
   n: number
 ) {
+  await user.click(
+    screen.getByRole('combobox', { name: `Categoria da condicionante ${n}` })
+  );
+  await user.click(await screen.findByRole('option', { name: 'Água' }));
   await user.type(
     screen.getByLabelText(`Nº do item da condicionante ${n}`),
     '3.1'
@@ -174,6 +180,9 @@ describe('CompanyLicensesPage', () => {
     useCompanyContext.getState().clearCompany();
     vi.mocked(companiesApi.getCompanyById).mockResolvedValue(
       COMPANY_IN_CONTEXT
+    );
+    vi.mocked(companiesApi.listCompanyEsgMetrics).mockResolvedValue(
+      COMPANY_ESG_METRICS
     );
     vi.mocked(customersApi.listCompanies).mockResolvedValue([
       COMPANY_IN_CONTEXT,
@@ -382,9 +391,11 @@ describe('CompanyLicensesPage', () => {
 
     await waitFor(() =>
       expect(licenseConditionsApi.createLicenseConditions).toHaveBeenCalledWith(
+        COMPANY_ID,
         'license-9',
         [
           {
+            esgMetricId: 'metric-water',
             itemNumber: '3.1',
             description: 'Monitoramento hidroquímico',
             conditionType: 'PERIODIC',
