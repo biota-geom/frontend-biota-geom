@@ -5,7 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'frontend/**'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
       - '.github/workflows/deploy-frontend.yml'
 
 jobs:
@@ -19,21 +25,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
+        run: npm ci
 
       - name: Build static files
-        run: |
-          cd frontend
-          npm run build
+        run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || secrets.VITE_API_URL }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -44,7 +45,7 @@ jobs:
 
       - name: Sync build folder to S3
         run: |
-          aws s3 sync frontend/dist/ s3://${{ secrets.FRONTEND_S3_BUCKET }}/ --delete
+          aws s3 sync dist/ s3://${{ secrets.FRONTEND_S3_BUCKET }}/ --delete
 
       - name: Invalidate CloudFront cache
         run: |
