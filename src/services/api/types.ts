@@ -172,12 +172,18 @@ export interface LicensePanelResponseWire {
   licenses: LicensePanelItemWire[];
 }
 
+/** GRI parameter (EsgMetric) resolved by the backend — never free text. */
+export interface LicenseConditionCategoryWire {
+  id: string;
+  name: string;
+}
+
 export interface LicenseConditionWire {
   id: string;
   license_id: string;
   name: string;
   description: string | null;
-  category: string;
+  category: LicenseConditionCategoryWire;
   responsible_agency: string | null;
   due_date: string;
   status: 'Regular' | 'Atenção' | 'Risco';
@@ -194,7 +200,7 @@ export interface LicenseConditionCreatedWire {
   license_id: string;
   name: string;
   description: string | null;
-  category: string;
+  category: LicenseConditionCategoryWire;
   responsible_agency: string | null;
   due_date: string;
   status: 'Regular' | 'Atenção' | 'Risco';
