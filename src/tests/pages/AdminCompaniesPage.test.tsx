@@ -754,4 +754,11 @@ describe('formatLastUpdate', () => {
   ])('formats $isoDate as $expected', ({ isoDate, expected }) => {
     expect(formatLastUpdate(isoDate)).toBe(expected);
   });
+
+  it.each([null, undefined, '', 'invalid-date'])(
+    'returns a placeholder for an invalid date (%s)',
+    (isoDate) => {
+      expect(formatLastUpdate(isoDate)).toBe('—');
+    }
+  );
 });
