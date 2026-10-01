@@ -4,7 +4,9 @@ import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import type { LicenseConditionStatusFilter } from '../../../features/licenseConditions/types';
 import { useConditions } from '../../../features/licenseConditions/useConditions';
+import { useConditionsCompliance } from '../../../features/licenseConditions/useConditionsCompliance';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
+import { ComplianceProgressBar } from './components/ComplianceProgressBar';
 import { ConditionCard } from './components/ConditionCard';
 import { ConditionsToolbar } from './components/ConditionsToolbar';
 import { NewConditionModal } from './components/NewConditionModal';
@@ -20,12 +22,18 @@ export function CompanyConditionsPage() {
     companyId,
     statusFilter
   );
+  const {
+    compliance,
+    error: complianceError,
+    refetch: refetchCompliance,
+  } = useConditionsCompliance(companyId);
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
 
   function handleCreated(conditionName: string) {
     setToastMessage(`Condicionante "${conditionName}" cadastrada com sucesso.`);
     refetch();
+    refetchCompliance();
   }
 
   return (
@@ -40,6 +48,17 @@ export function CompanyConditionsPage() {
       subtitle="Acompanhamento de condicionantes e prazos regulatórios."
       title="Monitor de Gestão Ambiental"
     >
+      {compliance ? <ComplianceProgressBar compliance={compliance} /> : null}
+
+      {complianceError ? (
+        <p
+          className="rounded-panel mb-6 border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700"
+          role="alert"
+        >
+          {complianceError}
+        </p>
+      ) : null}
+
       <ConditionsToolbar
         disabled={status === 'loading' || status === 'idle'}
         onStatusChange={setStatusFilter}

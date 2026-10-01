@@ -1,5 +1,7 @@
+import type { TargetOperator } from '../../features/licenseConditions/createLicenseConditionValidation';
 import type {
   LicenseCondition,
+  LicenseConditionsCompliance,
   LicenseConditionsResult,
   LicenseConditionStatus,
   LicenseConditionStatusFilter,
@@ -8,17 +10,21 @@ import { request } from './http';
 import type {
   LicenseConditionCreatedWire,
   LicenseConditionWire,
+  LicenseConditionsComplianceWire,
   LicenseConditionsResponseWire,
 } from './types';
 
 export interface CreateLicenseConditionInput {
   name: string;
-  category: string;
+  esgMetricId: string;
   licenseId: string;
   responsibleAgency: string;
   dueDate: string;
   status: LicenseConditionStatus;
   description?: string;
+  targetMetricId?: string;
+  targetOperator?: TargetOperator;
+  targetValue?: number;
 }
 
 function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
@@ -27,7 +33,7 @@ function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
     licenseId: wire.license_id,
     name: wire.name,
     description: wire.description,
-    category: wire.category,
+    category: { id: wire.category.id, name: wire.category.name },
     responsibleAgency: wire.responsible_agency,
     dueDate: wire.due_date,
     status: wire.status,
@@ -51,6 +57,20 @@ export async function listLicenseConditions(
   };
 }
 
+export async function getLicenseConditionsCompliance(
+  customerId: string
+): Promise<LicenseConditionsCompliance> {
+  const wire = await request<LicenseConditionsComplianceWire>(
+    `/api/customers/${customerId}/license-conditions/compliance`
+  );
+
+  return {
+    totalActive: wire.total_active,
+    inCompliance: wire.in_compliance,
+    compliancePercentage: wire.compliance_percentage,
+  };
+}
+
 export async function createLicenseCondition(
   input: CreateLicenseConditionInput
 ): Promise<LicenseConditionCreatedWire> {
@@ -60,12 +80,21 @@ export async function createLicenseCondition(
       method: 'POST',
       body: {
         name: input.name,
-        category: input.category,
+        esg_metric_id: input.esgMetricId,
         license_id: input.licenseId,
         responsible_agency: input.responsibleAgency,
         due_date: input.dueDate,
         status: input.status,
         ...(input.description ? { description: input.description } : {}),
+        ...(input.targetMetricId &&
+        input.targetOperator &&
+        input.targetValue !== undefined
+          ? {
+              target_metric_id: input.targetMetricId,
+              target_operator: input.targetOperator,
+              target_value: input.targetValue,
+            }
+          : {}),
       },
     }
   );

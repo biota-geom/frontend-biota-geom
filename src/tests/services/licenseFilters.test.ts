@@ -16,6 +16,7 @@ const LICENSES: LicensePanelItem[] = [
     issueDate: '2024-03-12T00:00:00.000Z',
     expirationDate: '2026-03-12T00:00:00.000Z',
     status: 'Regular',
+    documentUrl: 'https://bucket.aws.com/licenses/lp-482-2024.pdf',
   },
   {
     id: 'license-2',
@@ -25,6 +26,7 @@ const LICENSES: LicensePanelItem[] = [
     issueDate: '2020-01-10T00:00:00.000Z',
     expirationDate: '2025-01-10T00:00:00.000Z',
     status: 'Vencida',
+    documentUrl: null,
   },
   {
     id: 'license-3',
@@ -34,6 +36,7 @@ const LICENSES: LicensePanelItem[] = [
     issueDate: '2021-08-22T00:00:00.000Z',
     expirationDate: '2026-08-22T00:00:00.000Z',
     status: 'Atenção',
+    documentUrl: null,
   },
 ];
 
