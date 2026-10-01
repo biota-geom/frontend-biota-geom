@@ -63,6 +63,9 @@ export interface CustomerWire {
   location: string;
   attention_count: number;
   expired_count: number;
+  conformity_percentage: number | null;
+  total_licenses: number;
+  updated_at: string;
 }
 
 /*
@@ -164,9 +167,52 @@ export interface LicensePanelItemWire {
   issue_date: string;
   expiration_date: string;
   status: string;
+  /** PDF document URL — null when none has been stored yet. */
+  document_url: string | null;
 }
 
 export interface LicensePanelResponseWire {
   summary: LicenseSummaryWire;
   licenses: LicensePanelItemWire[];
+}
+
+/** GRI parameter (EsgMetric) resolved by the backend — never free text. */
+export interface LicenseConditionCategoryWire {
+  id: string;
+  name: string;
+}
+
+export interface LicenseConditionWire {
+  id: string;
+  license_id: string;
+  name: string;
+  description: string | null;
+  category: LicenseConditionCategoryWire;
+  responsible_agency: string | null;
+  due_date: string;
+  status: 'Regular' | 'Atenção' | 'Risco';
+  risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
+}
+
+export interface LicenseConditionsResponseWire {
+  total: number;
+  data: LicenseConditionWire[];
+}
+
+export interface LicenseConditionsComplianceWire {
+  total_active: number;
+  in_compliance: number;
+  compliance_percentage: number;
+}
+
+export interface LicenseConditionCreatedWire {
+  id: string;
+  license_id: string;
+  name: string;
+  description: string | null;
+  category: LicenseConditionCategoryWire;
+  responsible_agency: string | null;
+  due_date: string;
+  status: 'Regular' | 'Atenção' | 'Risco';
+  created_at: string;
 }

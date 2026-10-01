@@ -16,7 +16,7 @@ const inputGroupVariants = cva(
       variant: {
         /* Labelled form field (login, register). */
         field:
-          'min-h-[42px] border border-border bg-surface text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)]',
+          'min-h-[42px] border border-border bg-surface text-text-muted shadow-control transition-[border-color,box-shadow] duration-[160ms] focus-within:border-focus focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.14)] aria-invalid:border-destructive aria-invalid:shadow-[0_0_0_3px_rgba(180,35,24,0.12)]',
         /* Filter-bar search box: no border, sits on the muted surface. */
         search: 'min-h-[38px] bg-surface-muted text-text-secondary',
       },

@@ -7,8 +7,12 @@ vi.mock('../../services/api/http', () => ({
 
 const { request } = await import('../../services/api/http');
 const { ApiError } = await import('../../services/api/apiError');
-const { createCompany, getCompanyById, linkCompanyEsgMetrics } =
-  await import('../../services/api/companiesApi');
+const {
+  createCompany,
+  getCompanyById,
+  linkCompanyEsgMetrics,
+  listCompanyEsgMetrics,
+} = await import('../../services/api/companiesApi');
 
 const CREATE_REQUEST: CreateCompanyRequest = {
   name: 'Unidade Industrial RS',
@@ -146,6 +150,26 @@ describe('companiesApi', () => {
         method: 'POST',
         body: { metric_ids: ['metric-1', 'metric-2'] },
       }
+    );
+  });
+
+  it('listCompanyEsgMetrics() fetches only the GRI parameters linked to the company', async () => {
+    vi.mocked(request).mockResolvedValue([
+      {
+        id: 'metric-1',
+        name: 'Consumo de Água',
+        unit: 'm³',
+        pillar: 'AMBIENTAL',
+        customer_id: null,
+        gri_standard_id: null,
+      },
+    ]);
+
+    await expect(listCompanyEsgMetrics('customer-9')).resolves.toEqual([
+      { id: 'metric-1', name: 'Consumo de Água', unit: 'm³' },
+    ]);
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-9/esg-metrics'
     );
   });
 });

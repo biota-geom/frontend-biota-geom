@@ -7,8 +7,9 @@ import { APP_ROUTES, buildCompanyRoutes } from '../../app/router/routes';
 import { COMPANY_MESSAGES } from '../../features/companies/companyMessages';
 import { useCompanies } from '../../features/companies/useCompanies';
 import {
+  formatLastUpdate,
   getCompanyCountLabel,
-  getComplianceTone,
+  getConformityColor,
   getStatusLabel,
 } from '../../pages/admin/Companies/companyCardFormatting';
 import { ApiError } from '../../services/api/apiError';
@@ -64,6 +65,9 @@ const COMPANIES = [
     status: 'active' as const,
     segment: 'Siderurgia',
     location: 'Porto Alegre - RS',
+    conformityPercentage: 96,
+    totalLicenses: 6,
+    updatedAt: '2026-09-17T14:30:00.000Z',
   },
   {
     id: 'customer-2',
@@ -71,6 +75,9 @@ const COMPANIES = [
     status: 'active' as const,
     segment: 'Metalúrgica',
     location: 'Sorocaba - SP',
+    conformityPercentage: 80,
+    totalLicenses: 0,
+    updatedAt: '2026-09-10T08:00:00.000Z',
   },
   {
     id: 'customer-3',
@@ -78,6 +85,9 @@ const COMPANIES = [
     status: 'inactive' as const,
     segment: 'Agronegócio',
     location: 'Sorriso - MT',
+    conformityPercentage: 45,
+    totalLicenses: 2,
+    updatedAt: '2026-08-01T12:00:00.000Z',
   },
 ];
 
@@ -182,12 +192,79 @@ describe('AdminCompaniesPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows each company's license total and last update date on its card", async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+
+    renderAppRoutes();
+
+    const withLicenses = await screen.findByRole('article', {
+      name: /unidade industrial rs/i,
+    });
+    expect(
+      within(withLicenses).getByText('Licenças').nextElementSibling
+    ).toHaveTextContent(/^6$/);
+    expect(
+      within(withLicenses).getByText('Última atualização: 17/09/2026')
+    ).toBeInTheDocument();
+
+    // Zero is a real count, not a missing value: it must not fall back to "—".
+    const withoutLicenses = screen.getByRole('article', {
+      name: /fábrica são paulo/i,
+    });
+    expect(
+      within(withoutLicenses).getByText('Licenças').nextElementSibling
+    ).toHaveTextContent(/^0$/);
+    expect(
+      within(withoutLicenses).getByText('Última atualização: 10/09/2026')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/última atualização: —/i)
+    ).not.toBeInTheDocument();
+  });
+
   it('shows the registered company total in the header', async () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
 
     renderAppRoutes();
 
     expect(await screen.findByText('3 empresas')).toBeInTheDocument();
+  });
+
+  it('renders the conformity percentage and its traffic-light indicator', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+
+    renderAppRoutes();
+
+    expect(await screen.findByText('96%')).toHaveClass('text-green-500');
+    expect(screen.getByText('80%')).toHaveClass('text-orange-400');
+    expect(screen.getByText('45%')).toHaveClass('text-red-500');
+    expect(screen.getByTestId('conformity-indicator-customer-1')).toHaveClass(
+      'inline-flex',
+      'bg-green-500'
+    );
+    expect(screen.getByTestId('conformity-indicator-customer-2')).toHaveClass(
+      'bg-orange-400'
+    );
+    expect(screen.getByTestId('conformity-indicator-customer-3')).toHaveClass(
+      'bg-red-500'
+    );
+  });
+
+  it('renders a neutral indicator and dash when conformity is unavailable', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue([
+      { ...COMPANIES[0], conformityPercentage: null },
+    ]);
+
+    renderAppRoutes();
+
+    const indicator = await screen.findByTestId(
+      'conformity-indicator-customer-1'
+    );
+    const conformity = indicator.closest('dd');
+
+    expect(indicator).toHaveClass('inline-flex', 'bg-gray-400');
+    expect(conformity).toHaveTextContent('—');
+    expect(conformity).not.toHaveTextContent('%');
   });
 
   it('keeps the header total on the whole portfolio when a filter reduces the listing', async () => {
@@ -634,16 +711,16 @@ describe('AdminCompaniesPage', () => {
   });
 });
 
-describe('getComplianceTone', () => {
+describe('getConformityColor', () => {
   it.each([
-    { compliance: 100, expected: '!text-primary-strong' },
-    { compliance: 90, expected: '!text-primary-strong' },
-    { compliance: 89, expected: '!text-amber-500' },
-    { compliance: 70, expected: '!text-amber-500' },
-    { compliance: 69, expected: '!text-red-500' },
-    { compliance: 0, expected: '!text-red-500' },
-  ])('returns $expected for $compliance%', ({ compliance, expected }) => {
-    expect(getComplianceTone(compliance)).toBe(expected);
+    { percentage: 100, expected: 'bg-green-500' },
+    { percentage: 95, expected: 'bg-green-500' },
+    { percentage: 94, expected: 'bg-orange-400' },
+    { percentage: 70, expected: 'bg-orange-400' },
+    { percentage: 69, expected: 'bg-red-500' },
+    { percentage: 0, expected: 'bg-red-500' },
+  ])('returns $expected for $percentage%', ({ percentage, expected }) => {
+    expect(getConformityColor(percentage)).toBe(expected);
   });
 });
 
@@ -665,5 +742,16 @@ describe('getStatusLabel', () => {
 
   it('returns "Inativo" for an inactive company', () => {
     expect(getStatusLabel('inactive')).toBe('Inativo');
+  });
+});
+
+describe('formatLastUpdate', () => {
+  it.each([
+    { isoDate: '2026-09-17T14:30:00.000Z', expected: '17/09/2026' },
+    { isoDate: '2026-01-05T12:00:00.000Z', expected: '05/01/2026' },
+    // 23:30 in Brasília is already the next day in UTC.
+    { isoDate: '2026-09-18T02:30:00.000Z', expected: '17/09/2026' },
+  ])('formats $isoDate as $expected', ({ isoDate, expected }) => {
+    expect(formatLastUpdate(isoDate)).toBe(expected);
   });
 });

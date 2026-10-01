@@ -15,12 +15,12 @@ import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPa
 import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage';
 import { AdminLegislationPage } from '../../pages/admin/Legislation/AdminLegislationPage';
 import { CompanyDashboardPage } from '../../pages/company/Dashboard/CompanyDashboardPage';
+import { CompanyConditionsPage } from '../../pages/company/Conditions/CompanyConditionsPage';
 import { CompanyDocumentsPage } from '../../pages/company/Documents/CompanyDocumentsPage';
 import { CompanyIndicatorsPage } from '../../pages/company/Indicators/CompanyIndicatorsPage';
 import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
 import { CompanyLegislationPage } from '../../pages/company/Legislation/CompanyLegislationPage';
 import { CompanyLicensesPage } from '../../pages/company/Licenses/CompanyLicensesPage';
-import { CompanyObligationsPage } from '../../pages/company/Obligations/CompanyObligationsPage';
 import { LoginPage } from '../../pages/Login/LoginPage';
 import { RegisterPage } from '../../pages/Register/RegisterPage';
 import { ProtectedRoute } from './ProtectedRoute';
@@ -86,7 +86,7 @@ export function AppRoutes() {
           <Route path="dashboard" element={<CompanyDashboardPage />} />
           <Route path="licenses" element={<CompanyLicensesPage />} />
           <Route path="licenses/:licenseId" element={<LicenseDetailsPage />} />
-          <Route path="obligations" element={<CompanyObligationsPage />} />
+          <Route path="conditions" element={<CompanyConditionsPage />} />
           <Route path="legislation" element={<CompanyLegislationPage />} />
           <Route path="indicators" element={<CompanyIndicatorsPage />} />
           <Route path="documents" element={<CompanyDocumentsPage />} />

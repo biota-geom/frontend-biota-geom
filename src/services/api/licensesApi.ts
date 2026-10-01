@@ -70,12 +70,13 @@ function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {
     issueDate: wire.issue_date,
     expirationDate: wire.expiration_date,
     status: wire.status,
+    documentUrl: wire.document_url,
   };
 }
 
 export async function listLicenses(customerId: string): Promise<LicensesPanel> {
   const wire = await request<LicensePanelResponseWire>(
-    `/customers/${customerId}/licenses`
+    `/api/customers/${customerId}/licenses`
   );
 
   return {

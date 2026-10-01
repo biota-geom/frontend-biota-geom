@@ -3,13 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { COMPANY_MESSAGES } from '../../features/companies/companyMessages';
 import type { CreateCompanySubmission } from '../../features/companies/createCompany.types';
-import { CreateCompanyModal } from '../../pages/admin/Companies/components/CreateCompanyModal';
+import { NewCompanyModal } from '../../pages/admin/Companies/components/NewCompanyModal';
 import { ApiError } from '../../services/api/apiError';
 
 /*
  * AdminCompaniesPage.test.tsx covers the modal wired to the page (open,
  * close on success, the real POST sequencing). This file stays on what is
- * CreateCompanyModal's own responsibility: loading the sector and indicator
+ * NewCompanyModal's own responsibility: loading the sector and indicator
  * catalogs, the client-side validation messages, the payload it hands over,
  * the submitting state, and what a backend error does to the form.
  */
@@ -79,7 +79,7 @@ function renderModal() {
   onSubmit.mockResolvedValue(undefined);
 
   const utils = render(
-    <CreateCompanyModal isOpen onClose={onClose} onSubmit={onSubmit} />
+    <NewCompanyModal isOpen onClose={onClose} onSubmit={onSubmit} />
   );
 
   return { ...utils, onClose, onSubmit };
@@ -122,10 +122,10 @@ beforeEach(() => {
   vi.mocked(esgMetricsApi.listEsgMetrics).mockResolvedValue(INDICATORS);
 });
 
-describe('CreateCompanyModal catalogs', () => {
+describe('NewCompanyModal catalogs', () => {
   it('renders nothing while closed and loads no catalog', () => {
     render(
-      <CreateCompanyModal
+      <NewCompanyModal
         isOpen={false}
         onClose={vi.fn()}
         onSubmit={vi.fn().mockResolvedValue(undefined)}
@@ -204,7 +204,7 @@ describe('CreateCompanyModal catalogs', () => {
   });
 });
 
-describe('CreateCompanyModal validation', () => {
+describe('NewCompanyModal validation', () => {
   it('lists every required field and submits nothing when the form is empty', async () => {
     const user = setupUser();
     const { onSubmit } = renderModal();
@@ -290,16 +290,16 @@ describe('CreateCompanyModal validation', () => {
   });
 
   it('prevents the browser from submitting the form natively', async () => {
-    const { container } = renderModal();
+    renderModal();
     await waitForSectors();
-    const form = container.querySelector('form');
+    const form = screen.getByRole('dialog').querySelector('form');
     if (!form) throw new Error('form not found');
 
     expect(fireEvent.submit(form)).toBe(false);
   });
 });
 
-describe('CreateCompanyModal live error clearing', () => {
+describe('NewCompanyModal live error clearing', () => {
   const ALL_MESSAGES = [
     COMPANY_MESSAGES.NAME_REQUIRED,
     COMPANY_MESSAGES.CNPJ_INVALID,
@@ -410,7 +410,7 @@ describe('CreateCompanyModal live error clearing', () => {
   });
 });
 
-describe('CreateCompanyModal submit', () => {
+describe('NewCompanyModal submit', () => {
   it('hands over the CreateCustomerDto payload plus the selected metric ids', async () => {
     const user = setupUser();
     const { onSubmit } = renderModal();
@@ -552,7 +552,7 @@ describe('CreateCompanyModal submit', () => {
   });
 });
 
-describe('CreateCompanyModal indicator search', () => {
+describe('NewCompanyModal indicator search', () => {
   it('starts with the indicator dropdown closed', async () => {
     renderModal();
     await waitForSectors();
@@ -655,7 +655,7 @@ describe('CreateCompanyModal indicator search', () => {
   });
 });
 
-describe('CreateCompanyModal indicator creation', () => {
+describe('NewCompanyModal indicator creation', () => {
   it('does not render an indicator-creation error message before any attempt', async () => {
     const { container } = renderModal();
     await waitForSectors();
@@ -818,7 +818,7 @@ describe('CreateCompanyModal indicator creation', () => {
   });
 });
 
-describe('CreateCompanyModal cancel', () => {
+describe('NewCompanyModal cancel', () => {
   it('resets every field, the selection and any error when cancelled', async () => {
     const user = setupUser();
     const { onClose } = renderModal();
@@ -903,8 +903,10 @@ describe('CreateCompanyModal cancel', () => {
     const user = setupUser();
     const { onClose } = renderModal();
     await waitForSectors();
+    const backdrop = document.querySelector('[data-slot="dialog-overlay"]');
+    if (!backdrop) throw new Error('dialog backdrop not found');
 
-    await user.click(screen.getByRole('dialog'));
+    await user.click(backdrop);
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
