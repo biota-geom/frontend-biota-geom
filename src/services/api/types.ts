@@ -61,6 +61,8 @@ export interface CustomerWire {
   status: string;
   segment: string;
   location: string;
+  attention_count: number;
+  expired_count: number;
   conformity_percentage: number | null;
   total_licenses: number;
   updated_at: string;
@@ -142,6 +144,28 @@ export interface LicenseWire {
   status: string;
   document_url: string;
   created_at: string;
+}
+
+export interface LicenseConditionDetailsWire {
+  id: string;
+  item_number: string | null;
+  description: string | null;
+  condition_type: string | null;
+  periodicity: string;
+  deadline: string | null;
+  status: string;
+  completion_date: string | null;
+  responsible_name: string | null;
+  is_violated: boolean;
+}
+
+export interface LicenseDetailsWire {
+  id: string;
+  process_number: string;
+  issue_date: string;
+  expiration_date: string;
+  status: string;
+  conditions: LicenseConditionDetailsWire[];
 }
 
 /*

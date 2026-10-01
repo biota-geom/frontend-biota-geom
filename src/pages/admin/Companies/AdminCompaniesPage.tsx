@@ -219,7 +219,6 @@ export function AdminCompaniesPage() {
                 </CardAction>
               </CardHeader>
 
-              {/* Atenção/Vencido ainda não são expostos pela API — placeholders até o backend fornecer esses dados. */}
               <CardContent variant="company">
                 <div>
                   <dt>Licenças</dt>
@@ -258,16 +257,16 @@ export function AdminCompaniesPage() {
                 </div>
                 <div>
                   <dt>Atenção</dt>
-                  <dd className="!text-text-muted">
-                    <span className="size-2 shrink-0 rounded-full bg-current" />
-                    —
+                  <dd>
+                    <span className="size-2 shrink-0 rounded-full bg-yellow-400" />
+                    {company.attentionCount ?? 0}
                   </dd>
                 </div>
                 <div>
                   <dt>Vencido</dt>
-                  <dd className="!text-text-muted">
-                    <span className="size-2 shrink-0 rounded-full bg-current" />
-                    —
+                  <dd>
+                    <span className="size-2 shrink-0 rounded-full bg-red-500" />
+                    {company.expiredCount ?? 0}
                   </dd>
                 </div>
               </CardContent>

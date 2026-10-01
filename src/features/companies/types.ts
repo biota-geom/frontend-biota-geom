@@ -4,6 +4,8 @@ export interface Company {
   status: 'active' | 'inactive';
   segment: string;
   location: string;
+  attentionCount?: number;
+  expiredCount?: number;
 }
 
 /*

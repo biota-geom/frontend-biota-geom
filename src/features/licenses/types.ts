@@ -26,6 +26,28 @@ export interface License {
   createdAt: string;
 }
 
+export interface LicenseConditionDetail {
+  id: string;
+  itemNumber: string | null;
+  description: string | null;
+  conditionType: string | null;
+  periodicity: string;
+  deadline: string | null;
+  status: string;
+  completionDate: string | null;
+  responsibleName: string | null;
+  isViolated: boolean;
+}
+
+export interface LicenseDetails {
+  id: string;
+  processNumber: string;
+  issueDate: string;
+  expirationDate: string;
+  status: string;
+  conditions: LicenseConditionDetail[];
+}
+
 export interface LicenseSummary {
   total: number;
   regular: number;
