@@ -1,3 +1,4 @@
+import type { TargetOperator } from '../../features/licenseConditions/createLicenseConditionValidation';
 import type {
   LicenseCondition,
   LicenseConditionsCompliance,
@@ -21,6 +22,9 @@ export interface CreateLicenseConditionInput {
   dueDate: string;
   status: LicenseConditionStatus;
   description?: string;
+  targetMetricId?: string;
+  targetOperator?: TargetOperator;
+  targetValue?: number;
 }
 
 function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
@@ -82,6 +86,15 @@ export async function createLicenseCondition(
         due_date: input.dueDate,
         status: input.status,
         ...(input.description ? { description: input.description } : {}),
+        ...(input.targetMetricId &&
+        input.targetOperator &&
+        input.targetValue !== undefined
+          ? {
+              target_metric_id: input.targetMetricId,
+              target_operator: input.targetOperator,
+              target_value: input.targetValue,
+            }
+          : {}),
       },
     }
   );
