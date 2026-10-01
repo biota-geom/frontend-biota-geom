@@ -24,6 +24,8 @@ function toCompanyListItem(wire: CustomerWire): CompanyListItem {
     status: toCompanyStatus(wire.status),
     segment: wire.segment,
     location: wire.location,
+    attentionCount: wire.attention_count,
+    expiredCount: wire.expired_count,
     conformityPercentage: wire.conformity_percentage,
     totalLicenses: wire.total_licenses,
     updatedAt: wire.updated_at,
