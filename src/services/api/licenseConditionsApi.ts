@@ -1,5 +1,6 @@
 import type {
   LicenseCondition,
+  LicenseConditionsCompliance,
   LicenseConditionsResult,
   LicenseConditionStatus,
   LicenseConditionStatusFilter,
@@ -8,6 +9,7 @@ import { request } from './http';
 import type {
   LicenseConditionCreatedWire,
   LicenseConditionWire,
+  LicenseConditionsComplianceWire,
   LicenseConditionsResponseWire,
 } from './types';
 
@@ -48,6 +50,20 @@ export async function listLicenseConditions(
   return {
     conditions: wire.data.map(toLicenseCondition),
     total: wire.total,
+  };
+}
+
+export async function getLicenseConditionsCompliance(
+  customerId: string
+): Promise<LicenseConditionsCompliance> {
+  const wire = await request<LicenseConditionsComplianceWire>(
+    `/api/customers/${customerId}/license-conditions/compliance`
+  );
+
+  return {
+    totalActive: wire.total_active,
+    inCompliance: wire.in_compliance,
+    compliancePercentage: wire.compliance_percentage,
   };
 }
 

@@ -195,6 +195,12 @@ export interface LicenseConditionsResponseWire {
   data: LicenseConditionWire[];
 }
 
+export interface LicenseConditionsComplianceWire {
+  total_active: number;
+  in_compliance: number;
+  compliance_percentage: number;
+}
+
 export interface LicenseConditionCreatedWire {
   id: string;
   license_id: string;
