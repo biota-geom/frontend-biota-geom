@@ -75,7 +75,7 @@ export function LicenseConditionsTable({
           Condicionantes
         </h3>
         <p className="m-0 text-[13px] text-text-secondary">
-          Adicione obrigações vinculadas à licença
+          Adicione condicionantes vinculadas à licença
         </p>
       </div>
 
