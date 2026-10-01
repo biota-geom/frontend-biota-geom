@@ -458,7 +458,7 @@ describe('CompanyConditionsPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows field errors when name and due date are empty', async () => {
+  it('keeps submit disabled and flags the required due date when it is cleared', async () => {
     const user = userEvent.setup();
     vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
       total: 0,
@@ -472,15 +472,19 @@ describe('CompanyConditionsPage', () => {
     const submitButton = screen.getByRole('button', {
       name: 'Cadastrar Condicionante',
     });
-    await waitFor(() => expect(submitButton).toBeEnabled());
-    await user.click(submitButton);
+    expect(submitButton).toBeDisabled();
+
+    const dueDate = screen.getByLabelText(/Data de Vencimento/);
+    expect(dueDate).toBeRequired();
+    await user.type(dueDate, '2099-05-20');
+    await user.clear(dueDate);
 
     expect(
-      await screen.findByText('Informe o nome da condicionante.')
+      await screen.findByText(
+        'A data de vencimento é obrigatória para registar a condicionante.'
+      )
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('Informe a data de vencimento.')
-    ).toBeInTheDocument();
+    expect(submitButton).toBeDisabled();
     expect(licenseConditionsApi.createLicenseCondition).not.toHaveBeenCalled();
   });
 
@@ -549,7 +553,7 @@ describe('CompanyConditionsPage', () => {
     );
     await user.click(screen.getByRole('option', { name: 'LO nº 118/2020' }));
     await user.type(screen.getByLabelText('Órgão Responsável'), 'FEPAM');
-    await user.type(screen.getByLabelText('Data de Vencimento'), '2099-05-20');
+    await user.type(screen.getByLabelText(/Data de Vencimento/), '2099-05-20');
     await user.type(
       screen.getByLabelText('Descrição da Condicionante'),
       'Manifesto de transporte.'

@@ -82,6 +82,31 @@ describe('licenseConditionsApi', () => {
     );
   });
 
+  it('createLicenseCondition() sends the compliance target when informed', async () => {
+    vi.mocked(request).mockResolvedValue({});
+
+    await createLicenseCondition({
+      name: 'MTR',
+      esgMetricId: 'metric-residuos',
+      licenseId: 'license-1',
+      responsibleAgency: 'FEPAM',
+      dueDate: '2027-05-20T00:00:00.000Z',
+      status: 'Regular',
+      targetMetricId: 'metric-ph',
+      targetOperator: 'LTE',
+      targetValue: 8.5,
+    });
+
+    expect(request).toHaveBeenCalledWith('/api/licenses/license-1/conditions', {
+      method: 'POST',
+      body: expect.objectContaining({
+        target_metric_id: 'metric-ph',
+        target_operator: 'LTE',
+        target_value: 8.5,
+      }),
+    });
+  });
+
   it('createLicenseCondition() posts the selected license, GRI parameter and snake_case contract', async () => {
     const response = {
       id: 'condition-1',

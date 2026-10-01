@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
   createLicenseConditionSchema,
   LICENSE_CONDITION_STATUSES,
+  TARGET_OPERATORS,
   type CreateLicenseConditionForm,
 } from '../../../../features/licenseConditions/createLicenseConditionValidation';
 import type { EsgIndicator } from '../../../../features/companies/types';
@@ -41,6 +42,9 @@ const DEFAULT_VALUES: CreateLicenseConditionForm = {
   dueDate: '',
   status: 'Regular',
   description: '',
+  targetMetricId: '',
+  targetOperator: '',
+  targetValue: '',
 };
 
 const GENERIC_ERROR_MESSAGE =
@@ -77,13 +81,14 @@ export function NewConditionModal({
 
   const {
     control,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isValid },
     handleSubmit,
     register,
     reset,
     setError,
   } = useForm<CreateLicenseConditionForm>({
     defaultValues: DEFAULT_VALUES,
+    mode: 'onChange',
     resolver: zodResolver(schema),
   });
 
@@ -175,6 +180,13 @@ export function NewConditionModal({
         dueDate: toUtcIsoDate(values.dueDate),
         status: values.status,
         description: values.description || undefined,
+        ...(values.targetMetricId && values.targetOperator
+          ? {
+              targetMetricId: values.targetMetricId,
+              targetOperator: values.targetOperator,
+              targetValue: Number(values.targetValue),
+            }
+          : {}),
       });
 
       onCreated(created.name);
@@ -370,7 +382,9 @@ export function NewConditionModal({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="condition-due-date">Data de Vencimento</Label>
+            <Label htmlFor="condition-due-date">
+              Data de Vencimento <span aria-hidden="true">*</span>
+            </Label>
             <InputGroup aria-invalid={Boolean(errors.dueDate)} variant="field">
               <Input
                 {...register('dueDate')}
@@ -378,7 +392,9 @@ export function NewConditionModal({
                   errors.dueDate ? 'condition-due-date-error' : undefined
                 }
                 aria-invalid={Boolean(errors.dueDate)}
+                aria-required="true"
                 id="condition-due-date"
+                required
                 type="date"
               />
             </InputGroup>
@@ -414,6 +430,110 @@ export function NewConditionModal({
               )}
             />
           </div>
+
+          <fieldset className="col-span-2 m-0 grid grid-cols-3 gap-4 border-0 p-0 max-[560px]:col-span-1 max-[560px]:grid-cols-1">
+            <legend className="mb-2 p-0 text-sm font-semibold">
+              Meta de Conformidade ESG
+            </legend>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="condition-target-metric">Métrica ESG alvo</Label>
+              <Controller
+                control={control}
+                name="targetMetricId"
+                render={({ field }) => (
+                  <Select
+                    disabled={isLoadingCategories || categories.length === 0}
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <SelectTrigger
+                      aria-invalid={Boolean(errors.targetMetricId)}
+                      className="w-full"
+                      id="condition-target-metric"
+                    >
+                      <SelectValue placeholder="Selecione a métrica" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((metric) => (
+                        <SelectItem key={metric.id} value={metric.id}>
+                          {metric.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.targetMetricId ? (
+                <p
+                  className="m-0 text-[13px] font-semibold text-red-600"
+                  role="alert"
+                >
+                  {errors.targetMetricId.message}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="condition-target-operator">Operador</Label>
+              <Controller
+                control={control}
+                name="targetOperator"
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger
+                      aria-invalid={Boolean(errors.targetOperator)}
+                      className="w-full"
+                      id="condition-target-operator"
+                    >
+                      <SelectValue placeholder="Selecione o operador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TARGET_OPERATORS.map((operator) => (
+                        <SelectItem key={operator.value} value={operator.value}>
+                          {operator.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.targetOperator ? (
+                <p
+                  className="m-0 text-[13px] font-semibold text-red-600"
+                  role="alert"
+                >
+                  {errors.targetOperator.message}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="condition-target-value">Valor da meta</Label>
+              <InputGroup
+                aria-invalid={Boolean(errors.targetValue)}
+                variant="field"
+              >
+                <Input
+                  {...register('targetValue')}
+                  aria-invalid={Boolean(errors.targetValue)}
+                  id="condition-target-value"
+                  inputMode="decimal"
+                  placeholder="Ex: 6.5"
+                  type="number"
+                  step="any"
+                />
+              </InputGroup>
+              {errors.targetValue ? (
+                <p
+                  className="m-0 text-[13px] font-semibold text-red-600"
+                  role="alert"
+                >
+                  {errors.targetValue.message}
+                </p>
+              ) : null}
+            </div>
+          </fieldset>
 
           <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
             <Label htmlFor="condition-description">
@@ -455,6 +575,7 @@ export function NewConditionModal({
             </Button>
             <Button
               disabled={
+                !isValid ||
                 isSubmitting ||
                 isLoadingLicenses ||
                 licenses.length === 0 ||
