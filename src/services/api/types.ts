@@ -165,6 +165,8 @@ export interface LicensePanelItemWire {
   issue_date: string;
   expiration_date: string;
   status: string;
+  /** PDF document URL — null when none has been stored yet. */
+  document_url: string | null;
 }
 
 export interface LicensePanelResponseWire {

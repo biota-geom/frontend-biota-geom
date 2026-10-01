@@ -12,7 +12,10 @@ import { useLicensesPanel } from '../../../features/licenses/useLicensesPanel';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { LicensesFilters } from './components/LicensesFilters';
 import { LicensesSummaryCards } from './components/LicensesSummaryCards';
-import { LicensesTable } from './components/LicensesTable';
+import {
+  LicensesTable,
+  LicensesTableSkeleton,
+} from './components/LicensesTable';
 import { NewLicenseModal } from './components/NewLicenseModal';
 
 export function CompanyLicensesPage() {
@@ -39,9 +42,13 @@ export function CompanyLicensesPage() {
     if (companyId) void loadLicenses(companyId);
   }
 
+  function openModal() {
+    setIsModalOpen(true);
+  }
+
   return (
     <PageScaffold
-      actions={[{ label: 'Nova Licença', onClick: () => setIsModalOpen(true) }]}
+      actions={[{ label: '+ Nova Licença', icon: 'none', onClick: openModal }]}
       breadcrumbs={breadcrumbs}
       subtitle="Controle e monitoramento das licenças ambientais da empresa."
       title="Painel de licenças ambientais"
@@ -52,16 +59,12 @@ export function CompanyLicensesPage() {
           className="rounded-panel mb-6 border border-[#a6e9c9] bg-[#d8f8ea] px-4 py-3 text-[13px] font-semibold text-primary-strong"
           role="status"
         >
-          Licença "{createdLicense.processNumber}" cadastrada com status{' '}
-          {createdLicense.status}.
+          Licença &ldquo;{createdLicense.processNumber}&rdquo; cadastrada com
+          status {createdLicense.status}.
         </p>
       ) : null}
 
-      {status === 'loading' ? (
-        <p className="text-sm font-semibold text-text-muted" role="status">
-          Carregando licenças...
-        </p>
-      ) : null}
+      {status === 'loading' ? <LicensesTableSkeleton /> : null}
 
       {status === 'error' ? (
         <div className="rounded-panel mb-6 flex flex-wrap items-center justify-between gap-4 border border-red-200 bg-red-50 p-4 text-sm text-red-600">
@@ -86,10 +89,16 @@ export function CompanyLicensesPage() {
             values={filters}
           />
 
+          {/* Empty state: no licenses registered yet */}
           {licenses.length === 0 ? (
-            <p className="text-sm text-text-secondary">
-              Nenhuma licença cadastrada até o momento.
-            </p>
+            <div className="rounded-panel flex flex-col items-center gap-4 border border-dashed border-border bg-surface py-14 text-center">
+              <p className="m-0 text-sm text-text-secondary">
+                Nenhuma licença cadastrada até o momento.
+              </p>
+              <Button onClick={openModal} type="button" variant="action">
+                + Nova Licença
+              </Button>
+            </div>
           ) : null}
 
           {licenses.length > 0 && visibleLicenses.length === 0 ? (
