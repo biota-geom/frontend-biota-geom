@@ -81,7 +81,7 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
           <div className="flex items-center gap-1.5">
             <dt className="text-text-muted">Categoria:</dt>
             <dd className="m-0 font-semibold text-text-secondary">
-              {condition.category}
+              {condition.category.name}
             </dd>
           </div>
           {condition.responsibleAgency ? (

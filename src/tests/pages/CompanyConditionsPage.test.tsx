@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
@@ -12,12 +12,14 @@ vi.mock('../../services/api/companiesApi', () => ({
   getCompanyById: vi.fn(),
   createCompany: vi.fn(),
   linkCompanyEsgMetrics: vi.fn(),
+  listCompanyEsgMetrics: vi.fn(),
 }));
 vi.mock('../../services/api/customersApi', () => ({
   listCompanies: vi.fn(),
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   listLicenseConditions: vi.fn(),
+  getLicenseConditionsCompliance: vi.fn(),
   createLicenseCondition: vi.fn(),
 }));
 vi.mock('../../services/api/licensesApi', () => ({
@@ -43,6 +45,11 @@ const COMPANY_IN_CONTEXT: CompanyListItem = {
   updatedAt: '2026-09-01T12:00:00.000Z',
 };
 
+const LINKED_GRI_PARAMETERS = [
+  { id: 'metric-agua', name: 'Consumo de Água', unit: 'm³' },
+  { id: 'metric-residuos', name: 'Resíduos Sólidos Gerados', unit: 't' },
+];
+
 function renderConditionsPage() {
   return renderWithAuth(<AppRoutes />, {
     status: 'authenticated',
@@ -61,6 +68,16 @@ describe('CompanyConditionsPage', () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([
       COMPANY_IN_CONTEXT,
     ]);
+    vi.mocked(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).mockResolvedValue({
+      totalActive: 0,
+      inCompliance: 0,
+      compliancePercentage: 100,
+    });
+    vi.mocked(companiesApi.listCompanyEsgMetrics).mockResolvedValue(
+      LINKED_GRI_PARAMETERS
+    );
     vi.mocked(licensesApi.listLicenses).mockResolvedValue({
       summary: { total: 1, regular: 1, attention: 0, expired: 0 },
       licenses: [
@@ -72,6 +89,7 @@ describe('CompanyConditionsPage', () => {
           issueDate: '2020-01-10T00:00:00.000Z',
           expirationDate: '2099-01-10T00:00:00.000Z',
           status: 'Regular',
+          documentUrl: null,
         },
       ],
     });
@@ -86,7 +104,7 @@ describe('CompanyConditionsPage', () => {
           licenseId: 'license-1',
           name: 'Automonitoramento Atmosférico',
           description: 'Avaliação periódica de emissões.',
-          category: 'Emissões',
+          category: { id: 'metric-emissoes', name: 'Emissões' },
           responsibleAgency: 'FEPAM',
           dueDate: '2026-02-11T00:00:00.000Z',
           status: 'Regular',
@@ -97,7 +115,7 @@ describe('CompanyConditionsPage', () => {
           licenseId: 'license-1',
           name: 'MTR - Manifesto de Transporte de Resíduos',
           description: 'Emissão de manifesto obrigatório.',
-          category: 'Resíduos',
+          category: { id: 'metric-residuos', name: 'Resíduos Sólidos Gerados' },
           responsibleAgency: 'FEPAM',
           dueDate: '2026-05-20T00:00:00.000Z',
           status: 'Regular',
@@ -139,6 +157,172 @@ describe('CompanyConditionsPage', () => {
     expect(
       screen.getByText('MTR - Manifesto de Transporte de Resíduos')
     ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole('article', {
+          name: 'MTR - Manifesto de Transporte de Resíduos',
+        })
+      ).getByText('Resíduos Sólidos Gerados')
+    ).toBeInTheDocument();
+  });
+
+  it('lists exactly the GRI parameters linked to the company as categories', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+
+    renderConditionsPage();
+    await user.click(
+      screen.getByRole('button', { name: 'Novo Condicionante' })
+    );
+    await waitFor(() =>
+      expect(companiesApi.listCompanyEsgMetrics).toHaveBeenCalledWith(
+        COMPANY_ID
+      )
+    );
+    const categorySelect = screen.getByRole('combobox', { name: 'Categoria' });
+    await waitFor(() => expect(categorySelect).toBeEnabled());
+    await user.click(categorySelect);
+
+    expect(
+      screen.getAllByRole('option').map((option) => option.textContent)
+    ).toEqual(['Consumo de Água', 'Resíduos Sólidos Gerados']);
+  });
+
+  it('guides the user to the GRI setup when the company has no linked parameters', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(companiesApi.listCompanyEsgMetrics).mockResolvedValue([]);
+
+    renderConditionsPage();
+    await user.click(
+      screen.getByRole('button', { name: 'Novo Condicionante' })
+    );
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Esta empresa ainda não possui parâmetros GRI vinculados. Faça a parametrização GRI da empresa antes de cadastrar condicionantes.'
+    );
+    expect(screen.getByRole('combobox', { name: 'Categoria' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Cadastrar Condicionante' })
+    ).toBeDisabled();
+  });
+
+  it('shows the API error when the GRI parameters cannot be loaded', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(companiesApi.listCompanyEsgMetrics).mockRejectedValue(
+      new ApiError(500, 'Falha ao listar parâmetros.')
+    );
+
+    renderConditionsPage();
+    await user.click(
+      screen.getByRole('button', { name: 'Novo Condicionante' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Falha ao listar parâmetros.'
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('falls back to a generic message when the GRI parameters fail unexpectedly', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(companiesApi.listCompanyEsgMetrics).mockRejectedValue(
+      new Error('network down')
+    );
+
+    renderConditionsPage();
+    await user.click(
+      screen.getByRole('button', { name: 'Novo Condicionante' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível carregar os parâmetros GRI da empresa.'
+    );
+  });
+
+  it('renders the overall compliance card above the filters', async () => {
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).mockResolvedValue({
+      totalActive: 8,
+      inCompliance: 4,
+      compliancePercentage: 50,
+    });
+
+    renderConditionsPage();
+
+    const card = await screen.findByRole('region', {
+      name: 'Conformidade Geral',
+    });
+    expect(card).toHaveTextContent('4 de 8 condicionantes em dia');
+    expect(card).toHaveTextContent('50%');
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '50'
+    );
+    expect(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).toHaveBeenCalledWith(COMPANY_ID);
+    // Positioned before the status filter toolbar.
+    expect(
+      card.compareDocumentPosition(screen.getByRole('combobox')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it('shows an alert when the compliance summary fails to load', async () => {
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).mockRejectedValue(
+      new ApiError(500, 'Não foi possível calcular a conformidade.')
+    );
+
+    renderConditionsPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível calcular a conformidade.'
+    );
+    expect(
+      screen.queryByRole('region', { name: 'Conformidade Geral' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('falls back to a generic message when the compliance error is unexpected', async () => {
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 0,
+      conditions: [],
+    });
+    vi.mocked(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).mockRejectedValue(new Error('network down'));
+
+    renderConditionsPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível carregar a conformidade geral.'
+    );
   });
 
   it('shows the API error message when loading fails', async () => {
@@ -166,7 +350,7 @@ describe('CompanyConditionsPage', () => {
                 licenseId: 'license-1',
                 name: 'Automonitoramento Atmosférico',
                 description: 'Avaliação periódica de emissões.',
-                category: 'Emissões',
+                category: { id: 'metric-emissoes', name: 'Emissões' },
                 responsibleAgency: 'FEPAM',
                 dueDate: '2026-02-11T00:00:00.000Z',
                 status: 'Regular',
@@ -184,7 +368,7 @@ describe('CompanyConditionsPage', () => {
               licenseId: 'license-1',
               name: 'Automonitoramento Atmosférico',
               description: 'Avaliação periódica de emissões.',
-              category: 'Emissões',
+              category: { id: 'metric-emissoes', name: 'Emissões' },
               responsibleAgency: 'FEPAM',
               dueDate: '2026-02-11T00:00:00.000Z',
               status: 'Regular',
@@ -195,7 +379,10 @@ describe('CompanyConditionsPage', () => {
               licenseId: 'license-1',
               name: 'MTR - Manifesto de Transporte de Resíduos',
               description: 'Emissão de manifesto obrigatório.',
-              category: 'Resíduos',
+              category: {
+                id: 'metric-residuos',
+                name: 'Resíduos Sólidos Gerados',
+              },
               responsibleAgency: 'FEPAM',
               dueDate: '2026-05-20T00:00:00.000Z',
               status: 'Regular',
@@ -272,7 +459,7 @@ describe('CompanyConditionsPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows field errors when name and due date are empty', async () => {
+  it('keeps submit disabled and flags the required due date when it is cleared', async () => {
     const user = userEvent.setup();
     vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
       total: 0,
@@ -286,26 +473,30 @@ describe('CompanyConditionsPage', () => {
     const submitButton = screen.getByRole('button', {
       name: 'Cadastrar Condicionante',
     });
-    await waitFor(() => expect(submitButton).toBeEnabled());
-    await user.click(submitButton);
+    expect(submitButton).toBeDisabled();
+
+    const dueDate = screen.getByLabelText(/Data de Vencimento/);
+    expect(dueDate).toBeRequired();
+    await user.type(dueDate, '2099-05-20');
+    await user.clear(dueDate);
 
     expect(
-      await screen.findByText('Informe o nome da condicionante.')
+      await screen.findByText(
+        'A data de vencimento é obrigatória para registar a condicionante.'
+      )
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('Informe a data de vencimento.')
-    ).toBeInTheDocument();
+    expect(submitButton).toBeDisabled();
     expect(licenseConditionsApi.createLicenseCondition).not.toHaveBeenCalled();
   });
 
-  it('creates a condition, closes the modal, shows a toast and refetches the cards', async () => {
+  it('creates a condition, closes the modal, shows a toast and refetches the cards and compliance', async () => {
     const user = userEvent.setup();
     const createdCondition = {
       id: 'condition-new',
       licenseId: '550e8400-e29b-41d4-a716-446655440000',
       name: 'MTR - Manifesto de Transporte de Resíduos',
       description: 'Manifesto de transporte.',
-      category: 'Resíduos',
+      category: { id: 'metric-residuos', name: 'Resíduos Sólidos Gerados' },
       responsibleAgency: 'FEPAM',
       dueDate: '2099-05-20T00:00:00.000Z',
       status: 'Regular' as const,
@@ -314,6 +505,17 @@ describe('CompanyConditionsPage', () => {
     vi.mocked(licenseConditionsApi.listLicenseConditions)
       .mockResolvedValueOnce({ total: 0, conditions: [] })
       .mockResolvedValue({ total: 1, conditions: [createdCondition] });
+    vi.mocked(licenseConditionsApi.getLicenseConditionsCompliance)
+      .mockResolvedValueOnce({
+        totalActive: 1,
+        inCompliance: 0,
+        compliancePercentage: 0,
+      })
+      .mockResolvedValue({
+        totalActive: 2,
+        inCompliance: 1,
+        compliancePercentage: 50,
+      });
     vi.mocked(licenseConditionsApi.createLicenseCondition).mockResolvedValue({
       id: createdCondition.id,
       license_id: createdCondition.licenseId,
@@ -340,14 +542,19 @@ describe('CompanyConditionsPage', () => {
       screen.getByLabelText('Nome da Condicionante'),
       createdCondition.name
     );
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Categoria' })).toBeEnabled()
+    );
     await user.click(screen.getByRole('combobox', { name: 'Categoria' }));
-    await user.click(screen.getByRole('option', { name: 'Resíduos' }));
+    await user.click(
+      screen.getByRole('option', { name: 'Resíduos Sólidos Gerados' })
+    );
     await user.click(
       screen.getByRole('combobox', { name: 'Licença Vinculada' })
     );
     await user.click(screen.getByRole('option', { name: 'LO nº 118/2020' }));
     await user.type(screen.getByLabelText('Órgão Responsável'), 'FEPAM');
-    await user.type(screen.getByLabelText('Data de Vencimento'), '2099-05-20');
+    await user.type(screen.getByLabelText(/Data de Vencimento/), '2099-05-20');
     await user.type(
       screen.getByLabelText('Descrição da Condicionante'),
       'Manifesto de transporte.'
@@ -359,7 +566,7 @@ describe('CompanyConditionsPage', () => {
     await waitFor(() =>
       expect(licenseConditionsApi.createLicenseCondition).toHaveBeenCalledWith({
         name: createdCondition.name,
-        category: 'Resíduos',
+        esgMetricId: 'metric-residuos',
         licenseId: createdCondition.licenseId,
         responsibleAgency: 'FEPAM',
         dueDate: '2099-05-20T00:00:00.000Z',
@@ -379,5 +586,11 @@ describe('CompanyConditionsPage', () => {
       )
     );
     expect(await screen.findByText(createdCondition.name)).toBeInTheDocument();
+    expect(
+      await screen.findByText('1 de 2 condicionantes em dia')
+    ).toBeInTheDocument();
+    expect(
+      licenseConditionsApi.getLicenseConditionsCompliance
+    ).toHaveBeenCalledTimes(2);
   });
 });

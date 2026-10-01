@@ -11,7 +11,7 @@ describe('ConditionCard', () => {
           licenseId: 'license-1',
           name: 'Automonitoramento Atmosférico',
           description: 'Avaliação periódica de emissões.',
-          category: 'Emissões',
+          category: { id: 'metric-emissoes', name: 'Emissões' },
           responsibleAgency: 'FEPAM',
           dueDate: '2026-02-11T00:00:00.000Z',
           status: 'Regular',
@@ -25,6 +25,9 @@ describe('ConditionCard', () => {
     ).toHaveClass('border-rose-500');
     expect(screen.getByText('RISCO')).toBeInTheDocument();
     expect(screen.getByText('11/02/2026')).toBeInTheDocument();
+    expect(screen.getByText('Categoria:').nextElementSibling).toHaveTextContent(
+      'Emissões'
+    );
     expect(
       screen.getByRole('button', {
         name: 'Editar Automonitoramento Atmosférico',
@@ -45,7 +48,7 @@ describe('ConditionCard', () => {
           licenseId: 'license-1',
           name: 'Relatório Semestral de Efluentes Líquidos',
           description: 'Laudos de análises físico-químicas.',
-          category: 'Recursos Hídricos',
+          category: { id: 'metric-agua', name: 'Consumo de Água' },
           responsibleAgency: 'FEPAM',
           dueDate: '2026-04-01T00:00:00.000Z',
           status: 'Atenção',
