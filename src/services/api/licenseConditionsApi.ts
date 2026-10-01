@@ -15,7 +15,7 @@ import type {
 
 export interface CreateLicenseConditionInput {
   name: string;
-  category: string;
+  esgMetricId: string;
   licenseId: string;
   responsibleAgency: string;
   dueDate: string;
@@ -29,7 +29,7 @@ function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
     licenseId: wire.license_id,
     name: wire.name,
     description: wire.description,
-    category: wire.category,
+    category: { id: wire.category.id, name: wire.category.name },
     responsibleAgency: wire.responsible_agency,
     dueDate: wire.due_date,
     status: wire.status,
@@ -76,7 +76,7 @@ export async function createLicenseCondition(
       method: 'POST',
       body: {
         name: input.name,
-        category: input.category,
+        esg_metric_id: input.esgMetricId,
         license_id: input.licenseId,
         responsible_agency: input.responsibleAgency,
         due_date: input.dueDate,

@@ -8,7 +8,7 @@ const schema = createLicenseConditionSchema(
 function validValues() {
   return {
     name: 'MTR',
-    category: 'Resíduos',
+    esgMetricId: 'metric-residuos',
     licenseId: 'license-1',
     responsibleAgency: 'FEPAM',
     dueDate: '2027-05-20',
@@ -26,6 +26,15 @@ describe('createLicenseConditionSchema', () => {
       expect(result.error.issues[0]?.message).toBe(
         'Informe o nome da condicionante.'
       );
+    }
+  });
+
+  it('requires a GRI parameter as the category', () => {
+    const result = schema.safeParse({ ...validValues(), esgMetricId: '' });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe('Selecione a categoria.');
     }
   });
 

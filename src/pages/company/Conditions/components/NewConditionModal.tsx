@@ -23,18 +23,19 @@ import {
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
   createLicenseConditionSchema,
-  LICENSE_CONDITION_CATEGORIES,
   LICENSE_CONDITION_STATUSES,
   type CreateLicenseConditionForm,
 } from '../../../../features/licenseConditions/createLicenseConditionValidation';
+import type { EsgIndicator } from '../../../../features/companies/types';
 import type { LicensePanelItem } from '../../../../features/licenses/types';
 import { ApiError } from '../../../../services/api/apiError';
+import { listCompanyEsgMetrics } from '../../../../services/api/companiesApi';
 import { createLicenseCondition } from '../../../../services/api/licenseConditionsApi';
 import { listLicenses } from '../../../../services/api/licensesApi';
 
 const DEFAULT_VALUES: CreateLicenseConditionForm = {
   name: '',
-  category: '',
+  esgMetricId: '',
   licenseId: '',
   responsibleAgency: '',
   dueDate: '',
@@ -46,6 +47,8 @@ const GENERIC_ERROR_MESSAGE =
   'Não foi possível cadastrar a condicionante. Tente novamente mais tarde.';
 const LICENSES_ERROR_MESSAGE =
   'Não foi possível carregar as licenças vinculadas.';
+const CATEGORIES_ERROR_MESSAGE =
+  'Não foi possível carregar os parâmetros GRI da empresa.';
 
 type NewConditionModalProps = {
   companyId: string;
@@ -68,6 +71,9 @@ export function NewConditionModal({
   const [licenses, setLicenses] = useState<LicensePanelItem[]>([]);
   const [isLoadingLicenses, setIsLoadingLicenses] = useState(false);
   const [licensesError, setLicensesError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<EsgIndicator[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
   const {
     control,
@@ -114,10 +120,47 @@ export function NewConditionModal({
     };
   }, [companyId, open]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    let isCurrent = true;
+
+    // Only the GRI parameters linked to this company (US02) are valid
+    // categories — the backend rejects any other with 422.
+    async function loadCompanyCategories() {
+      setIsLoadingCategories(true);
+      setCategoriesError(null);
+
+      try {
+        const metrics = await listCompanyEsgMetrics(companyId);
+        if (!isCurrent) return;
+        setCategories(metrics);
+      } catch (error) {
+        if (!isCurrent) return;
+        setCategories([]);
+        setCategoriesError(
+          error instanceof ApiError ? error.message : CATEGORIES_ERROR_MESSAGE
+        );
+      } finally {
+        if (isCurrent) setIsLoadingCategories(false);
+      }
+    }
+
+    void loadCompanyCategories();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [companyId, open]);
+
+  const hasNoCategories =
+    !isLoadingCategories && !categoriesError && categories.length === 0;
+
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
       reset(DEFAULT_VALUES);
       setLicensesError(null);
+      setCategoriesError(null);
     }
     onOpenChange(nextOpen);
   }
@@ -126,7 +169,7 @@ export function NewConditionModal({
     try {
       const created = await createLicenseCondition({
         name: values.name,
-        category: values.category,
+        esgMetricId: values.esgMetricId,
         licenseId: values.licenseId,
         responsibleAgency: values.responsibleAgency,
         dueDate: toUtcIsoDate(values.dueDate),
@@ -189,32 +232,59 @@ export function NewConditionModal({
             <Label htmlFor="condition-category">Categoria</Label>
             <Controller
               control={control}
-              name="category"
+              name="esgMetricId"
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select
+                  disabled={isLoadingCategories || categories.length === 0}
+                  onValueChange={field.onChange}
+                  value={field.value}
+                >
                   <SelectTrigger
-                    aria-invalid={Boolean(errors.category)}
+                    aria-invalid={Boolean(errors.esgMetricId)}
                     className="w-full"
                     id="condition-category"
                   >
-                    <SelectValue placeholder="Selecione a categoria" />
+                    <SelectValue
+                      placeholder={
+                        isLoadingCategories
+                          ? 'Carregando parâmetros GRI...'
+                          : 'Selecione o parâmetro GRI'
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {LICENSE_CONDITION_CATEGORIES.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
-            {errors.category ? (
+            {errors.esgMetricId ? (
               <p
                 className="m-0 text-[13px] font-semibold text-red-600"
                 role="alert"
               >
-                {errors.category.message}
+                {errors.esgMetricId.message}
+              </p>
+            ) : null}
+            {categoriesError ? (
+              <p
+                className="m-0 text-[13px] font-semibold text-red-600"
+                role="alert"
+              >
+                {categoriesError}
+              </p>
+            ) : null}
+            {hasNoCategories ? (
+              <p
+                className="m-0 rounded-sm border border-amber-300 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800"
+                role="status"
+              >
+                Esta empresa ainda não possui parâmetros GRI vinculados. Faça a
+                parametrização GRI da empresa antes de cadastrar condicionantes.
               </p>
             ) : null}
           </div>
@@ -385,7 +455,11 @@ export function NewConditionModal({
             </Button>
             <Button
               disabled={
-                isSubmitting || isLoadingLicenses || licenses.length === 0
+                isSubmitting ||
+                isLoadingLicenses ||
+                licenses.length === 0 ||
+                isLoadingCategories ||
+                categories.length === 0
               }
               type="submit"
               variant="dialogPrimary"

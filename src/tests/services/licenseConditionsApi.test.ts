@@ -40,7 +40,7 @@ describe('licenseConditionsApi', () => {
           license_id: 'license-1',
           name: 'Automonitoramento Atmosférico',
           description: 'Avaliação periódica de emissões.',
-          category: 'Emissões',
+          category: { id: 'metric-emissoes', name: 'Emissões' },
           responsible_agency: 'FEPAM',
           due_date: '2026-02-11T00:00:00.000Z',
           status: 'Regular',
@@ -62,7 +62,7 @@ describe('licenseConditionsApi', () => {
           licenseId: 'license-1',
           name: 'Automonitoramento Atmosférico',
           description: 'Avaliação periódica de emissões.',
-          category: 'Emissões',
+          category: { id: 'metric-emissoes', name: 'Emissões' },
           responsibleAgency: 'FEPAM',
           dueDate: '2026-02-11T00:00:00.000Z',
           status: 'Regular',
@@ -82,13 +82,13 @@ describe('licenseConditionsApi', () => {
     );
   });
 
-  it('createLicenseCondition() posts the selected license and snake_case contract', async () => {
+  it('createLicenseCondition() posts the selected license, GRI parameter and snake_case contract', async () => {
     const response = {
       id: 'condition-1',
       license_id: 'license-1',
       name: 'MTR',
       description: null,
-      category: 'Resíduos',
+      category: { id: 'metric-residuos', name: 'Resíduos' },
       responsible_agency: 'FEPAM',
       due_date: '2027-05-20T00:00:00.000Z',
       status: 'Regular' as const,
@@ -99,7 +99,7 @@ describe('licenseConditionsApi', () => {
     await expect(
       createLicenseCondition({
         name: 'MTR',
-        category: 'Resíduos',
+        esgMetricId: 'metric-residuos',
         licenseId: 'license-1',
         responsibleAgency: 'FEPAM',
         dueDate: '2027-05-20T00:00:00.000Z',
@@ -110,7 +110,7 @@ describe('licenseConditionsApi', () => {
       method: 'POST',
       body: {
         name: 'MTR',
-        category: 'Resíduos',
+        esg_metric_id: 'metric-residuos',
         license_id: 'license-1',
         responsible_agency: 'FEPAM',
         due_date: '2027-05-20T00:00:00.000Z',
