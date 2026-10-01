@@ -17,7 +17,11 @@ export default defineConfig({
   test: {
     css: true,
     environment: 'jsdom',
+    // A worker per logical CPU exhausts memory when several jsdom suites run
+    // together, making otherwise fast tests hit Vitest's 5 s timeout.
+    maxWorkers: 2,
     setupFiles: './src/tests/setup.ts',
+    testTimeout: 10_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
