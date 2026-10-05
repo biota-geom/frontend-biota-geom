@@ -98,11 +98,11 @@ async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
   await user.click(
     screen.getByRole('combobox', { name: 'Tipo da condicionante 1' })
   );
-  await user.click(await screen.findByRole('option', { name: 'PERIODIC' }));
+  await user.click(await screen.findByRole('option', { name: 'Periódico' }));
   await user.click(
     screen.getByRole('combobox', { name: 'Periodicidade da condicionante 1' })
   );
-  await user.click(await screen.findByRole('option', { name: 'ANNUAL' }));
+  await user.click(await screen.findByRole('option', { name: 'Anual' }));
   await user.type(
     screen.getByLabelText('Prazo da condicionante 1'),
     '2026-10-30'

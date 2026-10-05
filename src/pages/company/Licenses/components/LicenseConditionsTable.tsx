@@ -22,6 +22,10 @@ import {
   EMPTY_CONDITION_ROW,
   type LicenseConditionRow,
 } from '../../../../features/licenses/createLicenseValidation';
+import {
+  formatConditionPeriodicity,
+  formatConditionType,
+} from '../../../../features/licenses/licenseDetailsFormatting';
 import type { EsgIndicator } from '../../../../features/companies/types';
 
 /*
@@ -200,7 +204,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
                               <SelectContent>
                                 {CONDITION_TYPES.map((type) => (
                                   <SelectItem key={type} value={type}>
-                                    {type}
+                                    {formatConditionType(type)}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -230,7 +234,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
                                     key={periodicity}
                                     value={periodicity}
                                   >
-                                    {periodicity}
+                                    {formatConditionPeriodicity(periodicity)}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
