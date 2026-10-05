@@ -157,13 +157,13 @@ async function fillConditionRow(
   await user.click(
     screen.getByRole('combobox', { name: `Tipo da condicionante ${n}` })
   );
-  await user.click(await screen.findByRole('option', { name: 'PERIODIC' }));
+  await user.click(await screen.findByRole('option', { name: 'Periódico' }));
   await user.click(
     screen.getByRole('combobox', {
       name: `Periodicidade da condicionante ${n}`,
     })
   );
-  await user.click(await screen.findByRole('option', { name: 'ANNUAL' }));
+  await user.click(await screen.findByRole('option', { name: 'Anual' }));
   await user.type(
     screen.getByLabelText(`Prazo da condicionante ${n}`),
     '2026-10-30'
@@ -174,6 +174,11 @@ async function fillConditionRow(
   );
 }
 
+/*
+ * Filling a full conditions row drives several Radix selects through
+ * userEvent: ~2s alone, but 9-10s when the whole suite runs in parallel,
+ * right at the global 10s testTimeout. Those flows pass 20_000 instead.
+ */
 describe('CompanyLicensesPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -417,7 +422,7 @@ describe('CompanyLicensesPage', () => {
         screen.queryByRole('heading', { name: /^nova licença$/i })
       ).not.toBeInTheDocument()
     );
-  });
+  }, 20_000);
 
   it('keeps the modal open when the conditions fail and retries only the conditions', async () => {
     const user = userEvent.setup();
@@ -446,7 +451,7 @@ describe('CompanyLicensesPage', () => {
       ).toHaveBeenCalledTimes(2)
     );
     expect(licensesApi.createLicense).toHaveBeenCalledTimes(1);
-  });
+  }, 20_000);
 
   it('disables "Salvar Licença" while the transaction is in flight', async () => {
     const user = userEvent.setup();

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { LicenseConditionBatchItemInput } from '../../services/api/licenseConditionsApi';
 import type { LicenseType } from './types';
 
 export const LICENSE_TYPES: LicenseType[] = ['LP', 'LI', 'LO'];
@@ -139,6 +140,38 @@ export const CREATE_LICENSE_DEFAULT_VALUES: CreateLicenseForm = {
   conditions: [],
 };
 
+/* Adding conditions to an existing license (license details page, US16). */
+export type AddLicenseConditionsForm = {
+  conditions: LicenseConditionRow[];
+};
+
+export const addLicenseConditionsSchema: z.ZodType<
+  AddLicenseConditionsForm,
+  AddLicenseConditionsForm
+> = z.object({
+  conditions: z
+    .array(conditionRowSchema)
+    .min(1, 'Adicione ao menos uma condicionante.'),
+});
+
+export const ADD_LICENSE_CONDITIONS_DEFAULT_VALUES: AddLicenseConditionsForm = {
+  conditions: [{ ...EMPTY_CONDITION_ROW }],
+};
+
 export function toUtcIsoDate(value: string): string {
   return new Date(`${value}T00:00:00.000Z`).toISOString();
+}
+
+export function toLicenseConditionBatchItem(
+  row: LicenseConditionRow
+): LicenseConditionBatchItemInput {
+  return {
+    esgMetricId: row.esgMetricId,
+    itemNumber: row.itemNumber,
+    description: row.description,
+    conditionType: row.conditionType,
+    periodicity: row.periodicity,
+    deadline: toUtcIsoDate(row.deadline),
+    responsibleName: row.responsibleName,
+  };
 }
