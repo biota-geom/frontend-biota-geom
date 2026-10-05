@@ -20,18 +20,23 @@ import {
   CONDITION_PERIODICITIES,
   CONDITION_TYPES,
   EMPTY_CONDITION_ROW,
-  type CreateLicenseForm,
   type LicenseConditionRow,
 } from '../../../../features/licenses/createLicenseValidation';
 import type { EsgIndicator } from '../../../../features/companies/types';
 
-type LicenseConditionsTableProps = {
+/*
+ * Any form with a `conditions` array of rows can host this table: the new
+ * license modal and the add-conditions modal on the license details page.
+ */
+type ConditionsFormValues = { conditions: LicenseConditionRow[] };
+
+type LicenseConditionsTableProps<TForm extends ConditionsFormValues> = {
   categories: EsgIndicator[];
   categoriesError: string | null;
-  control: Control<CreateLicenseForm>;
+  control: Control<TForm>;
   disabled?: boolean;
   isLoadingCategories: boolean;
-  register: UseFormRegister<CreateLicenseForm>;
+  register: UseFormRegister<TForm>;
 };
 
 const HEADERS = [
@@ -44,14 +49,23 @@ const HEADERS = [
   'Responsável',
 ];
 
-export function LicenseConditionsTable({
+export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
   categories,
   categoriesError,
-  control,
+  control: hostControl,
   disabled = false,
   isLoadingCategories,
-  register,
-}: LicenseConditionsTableProps) {
+  register: hostRegister,
+}: LicenseConditionsTableProps<TForm>) {
+  /*
+   * React Hook Form's Control is invariant in its form type, so the host's
+   * Control<TForm> is not assignable to Control<ConditionsFormValues> even
+   * though this table only touches `conditions.*`. Narrowing once here keeps
+   * every path below type-checked against the row shape.
+   */
+  const control = hostControl as unknown as Control<ConditionsFormValues>;
+  const register =
+    hostRegister as unknown as UseFormRegister<ConditionsFormValues>;
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'conditions',

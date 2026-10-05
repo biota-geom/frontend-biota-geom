@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { buildCompanyRoutes } from '../../../app/router/routes';
 import {
@@ -12,6 +13,7 @@ import {
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
 import type { LicenseConditionDetail } from '../../../features/licenses/types';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
+import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
 
@@ -99,6 +101,8 @@ export function LicenseDetailsPage() {
     licenseId: string;
   }>();
   const [filter, setFilter] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { details, error, refetch, status } = useLicenseDetails(
     companyId,
     licenseId
@@ -117,8 +121,29 @@ export function LicenseDetailsPage() {
     (condition) => formatConditionStatus(condition.status) === 'Atendida'
   ).length;
 
+  const dismissToast = useCallback(() => setToastMessage(null), []);
+
+  function handleConditionsCreated(count: number) {
+    setToastMessage(
+      count === 1
+        ? 'Condicionante cadastrada com sucesso.'
+        : `${count} condicionantes cadastradas com sucesso.`
+    );
+    refetch();
+  }
+
   return (
     <PageScaffold
+      actions={
+        status === 'success'
+          ? [
+              {
+                label: 'Adicionar Condicionante',
+                onClick: () => setIsModalOpen(true),
+              },
+            ]
+          : []
+      }
       breadcrumbs={breadcrumbs}
       subtitle={
         details?.processNumber ?? 'Consulta da licença e suas condicionantes.'
@@ -237,6 +262,20 @@ export function LicenseDetailsPage() {
             </div>
           </section>
         </>
+      ) : null}
+
+      {companyId && licenseId ? (
+        <AddLicenseConditionsModal
+          companyId={companyId}
+          licenseId={licenseId}
+          onCreated={handleConditionsCreated}
+          onOpenChange={setIsModalOpen}
+          open={isModalOpen}
+        />
+      ) : null}
+
+      {toastMessage ? (
+        <SuccessToast message={toastMessage} onDismiss={dismissToast} />
       ) : null}
     </PageScaffold>
   );

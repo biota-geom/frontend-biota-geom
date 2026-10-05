@@ -24,7 +24,7 @@ import {
   CREATE_LICENSE_DEFAULT_VALUES,
   createLicenseSchema,
   LICENSE_TYPES,
-  toUtcIsoDate,
+  toLicenseConditionBatchItem,
   type CreateLicenseForm,
 } from '../../../../features/licenses/createLicenseValidation';
 import {
@@ -189,15 +189,7 @@ export function NewLicenseModal({
         await createLicenseConditions(
           companyId,
           license.id,
-          values.conditions.map((condition) => ({
-            esgMetricId: condition.esgMetricId,
-            itemNumber: condition.itemNumber,
-            description: condition.description,
-            conditionType: condition.conditionType,
-            periodicity: condition.periodicity,
-            deadline: toUtcIsoDate(condition.deadline),
-            responsibleName: condition.responsibleName,
-          }))
+          values.conditions.map(toLicenseConditionBatchItem)
         );
       } catch (error) {
         setError('root', {
