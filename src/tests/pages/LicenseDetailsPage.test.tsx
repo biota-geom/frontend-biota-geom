@@ -113,6 +113,11 @@ async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
   );
 }
 
+/*
+ * Filling a full conditions row drives several Radix selects through
+ * userEvent: ~2s alone, but 9-10s when the whole suite runs in parallel,
+ * right at the global 10s testTimeout. Those flows pass 20_000 instead.
+ */
 describe('LicenseDetailsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -226,7 +231,7 @@ describe('LicenseDetailsPage', () => {
       screen.queryByRole('dialog', { name: 'Adicionar Condicionantes' })
     ).not.toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
-  });
+  }, 20_000);
 
   it('keeps the modal open with the API error when saving fails', async () => {
     const user = userEvent.setup();
@@ -248,7 +253,7 @@ describe('LicenseDetailsPage', () => {
       screen.getByRole('dialog', { name: 'Adicionar Condicionantes' })
     ).toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(1);
-  });
+  }, 20_000);
 
   it('hides the add action when the license fails to load', async () => {
     vi.mocked(licensesApi.getLicenseDetails).mockRejectedValue(
