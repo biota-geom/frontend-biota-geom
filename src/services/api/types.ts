@@ -162,10 +162,18 @@ export interface LicenseConditionDetailsWire {
 export interface LicenseDetailsWire {
   id: string;
   process_number: string;
+  type: string;
+  issuing_agency: string | null;
   issue_date: string;
   expiration_date: string;
   status: string;
   conditions: LicenseConditionDetailsWire[];
+}
+
+export interface LicenseRenewedWire {
+  id: string;
+  previous_license_id: string;
+  status: string;
 }
 
 /*

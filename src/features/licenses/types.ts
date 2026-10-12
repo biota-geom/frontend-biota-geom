@@ -42,10 +42,18 @@ export interface LicenseConditionDetail {
 export interface LicenseDetails {
   id: string;
   processNumber: string;
+  type: string;
+  issuingAgency: string | null;
   issueDate: string;
   expirationDate: string;
   status: string;
   conditions: LicenseConditionDetail[];
+}
+
+export interface LicenseRenewed {
+  id: string;
+  previousLicenseId: string;
+  status: string;
 }
 
 export interface LicenseSummary {
