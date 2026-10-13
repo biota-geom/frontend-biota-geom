@@ -307,3 +307,12 @@ export interface EsgIndicatorsWire {
   employees?: number | string | null;
   energy?: number | string | null;
 }
+
+export interface ConditionFulfillmentItemWire {
+  condition_id: string;
+  fulfilled: boolean;
+}
+
+export interface SaveConditionsFulfillmentRequestWire {
+  items: ConditionFulfillmentItemWire[];
+}
