@@ -198,6 +198,22 @@ export interface LicensePanelResponseWire {
   licenses: LicensePanelItemWire[];
 }
 
+export interface DocumentWire {
+  id: string;
+  title: string;
+  type: 'CONTRATO' | 'LAUDO' | 'CERTIDAO' | 'OUTROS';
+  document_date: string;
+  file_url?: string;
+  file_name: string;
+  mime_type?: string;
+  size_bytes: number;
+  uploaded_by: {
+    id: string;
+    name: string;
+  };
+  created_at: string;
+}
+
 /** GRI parameter (EsgMetric) resolved by the backend — never free text. */
 export interface LicenseConditionCategoryWire {
   id: string;
