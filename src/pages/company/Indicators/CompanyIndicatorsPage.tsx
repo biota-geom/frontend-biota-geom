@@ -1,18 +1,53 @@
-import { RoutePlaceholder } from '../../../components/feedback/RoutePlaceholder';
+import { useCallback, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
+import {
+  formatMonthLabel,
+  getPreviousMonth,
+} from '../../../features/esgIndicators/esgIndicatorsValidation';
+import { useEsgIndicators } from '../../../features/esgIndicators/useEsgIndicators';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
+import { EsgIndicatorsForm } from './components/EsgIndicatorsForm';
 
 export function CompanyIndicatorsPage() {
+  const { companyId } = useParams<{ companyId: string }>();
   const breadcrumbs = useCompanyBreadcrumbs('Indicadores ESG');
+  const [month, setMonth] = useState(() => getPreviousMonth());
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { error, indicators, reload, status } = useEsgIndicators(
+    companyId,
+    month
+  );
+
+  const dismissToast = useCallback(() => setToastMessage(null), []);
 
   return (
     <PageScaffold
-      actions={[{ icon: 'none', label: 'Gerar Relatório' }]}
       breadcrumbs={breadcrumbs}
-      subtitle="Métricas de desempenho ambiental, social e de sustentabilidade corporativa."
+      subtitle="Informe mensalmente os indicadores de desempenho ambiental e social da empresa."
       title="Indicadores ESG"
     >
-      <RoutePlaceholder description="Os indicadores ESG vinculados à empresa serão implementados em uma etapa futura." />
+      {companyId ? (
+        <EsgIndicatorsForm
+          companyId={companyId}
+          loadError={error}
+          loadStatus={status}
+          month={month}
+          onMonthChange={setMonth}
+          onReload={reload}
+          onSaved={(savedMonth) =>
+            setToastMessage(
+              `Indicadores de ${formatMonthLabel(savedMonth)} salvos com sucesso.`
+            )
+          }
+          savedIndicators={indicators}
+        />
+      ) : null}
+
+      {toastMessage ? (
+        <SuccessToast message={toastMessage} onDismiss={dismissToast} />
+      ) : null}
     </PageScaffold>
   );
 }

@@ -252,3 +252,15 @@ export interface LicenseConditionBatchItemWire {
 export interface CreateLicenseConditionsRequestWire {
   conditions: LicenseConditionBatchItemWire[];
 }
+
+/*
+ * GET /customers/:customerId/esg-indicators/:month. Not in the issue's
+ * contract (which only lists the PUT) — the shape mirrors the PUT body, with
+ * null/absent for an indicator that was never informed.
+ */
+export interface EsgIndicatorsWire {
+  water?: number | string | null;
+  waste?: number | string | null;
+  employees?: number | string | null;
+  energy?: number | string | null;
+}
