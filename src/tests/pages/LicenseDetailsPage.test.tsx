@@ -20,6 +20,7 @@ vi.mock('../../services/api/companiesApi', () => ({
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
+  saveConditionsFulfillment: vi.fn(),
 }));
 
 const licensesApi = await import('../../services/api/licensesApi');
@@ -267,5 +268,115 @@ describe('LicenseDetailsPage', () => {
     expect(
       screen.queryByRole('button', { name: 'Adicionar Condicionante' })
     ).not.toBeInTheDocument();
+  });
+
+  describe('Registrar Cumprimento modal', () => {
+    async function openFulfillmentModal(
+      user: ReturnType<typeof userEvent.setup>
+    ) {
+      await user.click(
+        await screen.findByRole('button', { name: 'Registrar Cumprimento' })
+      );
+      return screen.findByRole('dialog', {
+        name: 'Registrar cumprimento das condicionantes',
+      });
+    }
+
+    it('opens the fulfillment modal when clicking the button', async () => {
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const dialog = await openFulfillmentModal(user);
+      expect(dialog).toBeInTheDocument();
+      expect(
+        within(dialog).getByText('Registrar Cumprimento das Condicionantes')
+      ).toBeInTheDocument();
+    });
+
+    it('Salvar button is disabled until all conditions are answered', async () => {
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const dialog = await openFulfillmentModal(user);
+      const saveBtn = within(dialog).getByRole('button', { name: 'Salvar' });
+      expect(saveBtn).toBeDisabled();
+
+      // Answer only the first condition
+      const groups = within(dialog).getAllByRole('group');
+      await user.click(
+        within(groups[0]).getByRole('button', { name: 'Cumprida' })
+      );
+      expect(saveBtn).toBeDisabled();
+
+      // Answer the second condition
+      await user.click(
+        within(groups[1]).getByRole('button', { name: 'Não cumprida' })
+      );
+      expect(saveBtn).not.toBeDisabled();
+    });
+
+    it('calls saveConditionsFulfillment with the correct payload and shows toast', async () => {
+      const user = userEvent.setup();
+      vi.mocked(
+        licenseConditionsApi.saveConditionsFulfillment
+      ).mockResolvedValue(undefined);
+      renderDetailsPage();
+
+      const dialog = await openFulfillmentModal(user);
+      const groups = within(dialog).getAllByRole('group');
+
+      await user.click(
+        within(groups[0]).getByRole('button', { name: 'Cumprida' })
+      );
+      await user.click(
+        within(groups[1]).getByRole('button', { name: 'Não cumprida' })
+      );
+
+      await user.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() =>
+        expect(
+          licenseConditionsApi.saveConditionsFulfillment
+        ).toHaveBeenCalledWith('customer-1', 'license-1', [
+          { conditionId: 'condition-group-1', fulfilled: true },
+          { conditionId: 'condition-1-1', fulfilled: false },
+        ])
+      );
+
+      expect(
+        await screen.findByText(
+          'Cumprimento das condicionantes registrado com sucesso.'
+        )
+      ).toBeInTheDocument();
+
+      // Modal should be closed
+      expect(
+        screen.queryByRole('dialog', {
+          name: 'Registrar cumprimento das condicionantes',
+        })
+      ).not.toBeInTheDocument();
+
+      // Page should have refetched
+      expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
+    });
+
+    it('closes the modal without saving when Cancel is clicked', async () => {
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const dialog = await openFulfillmentModal(user);
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Cancelar' })
+      );
+
+      expect(
+        screen.queryByRole('dialog', {
+          name: 'Registrar cumprimento das condicionantes',
+        })
+      ).not.toBeInTheDocument();
+      expect(
+        licenseConditionsApi.saveConditionsFulfillment
+      ).not.toHaveBeenCalled();
+    });
   });
 });
