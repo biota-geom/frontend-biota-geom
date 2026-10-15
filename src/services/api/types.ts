@@ -205,6 +205,13 @@ export interface LicensePanelItemWire {
   document_url: string | null;
 }
 
+export interface LicenseDocumentUrlWire {
+  /** Short-lived pre-signed URL to the license PDF. */
+  document_url: string;
+  /** Seconds until document_url expires; null when it does not expire. */
+  expires_in: number | null;
+}
+
 export interface LicensePanelResponseWire {
   summary: LicenseSummaryWire;
   licenses: LicensePanelItemWire[];

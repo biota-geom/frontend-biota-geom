@@ -1,6 +1,7 @@
 import type {
   License,
   LicenseDetails,
+  LicenseDocumentUrl,
   LicensePanelItem,
   LicensesPanel,
   LicenseRenewed,
@@ -8,6 +9,7 @@ import type {
 } from '../../features/licenses/types';
 import { request } from './http';
 import type {
+  LicenseDocumentUrlWire,
   LicensePanelItemWire,
   LicenseDetailsWire,
   LicensePanelResponseWire,
@@ -138,6 +140,20 @@ export async function renewLicense(
   );
 
   return toLicenseRenewed(wire);
+}
+
+/**
+ * Asks the backend for a temporary URL to view the license PDF. The bucket is
+ * private, so the stored document_url cannot be opened directly.
+ */
+export async function getLicenseDocumentUrl(
+  licenseId: string
+): Promise<LicenseDocumentUrl> {
+  const wire = await request<LicenseDocumentUrlWire>(
+    `/api/licenses/${licenseId}/document/url`
+  );
+
+  return { url: wire.document_url, expiresIn: wire.expires_in };
 }
 
 function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {
