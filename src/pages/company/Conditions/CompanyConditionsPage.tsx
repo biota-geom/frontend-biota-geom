@@ -13,14 +13,12 @@ import { ComplianceProgressBar } from './components/ComplianceProgressBar';
 import { ConditionCard } from './components/ConditionCard';
 import { ConditionsToolbar } from './components/ConditionsToolbar';
 import { EditConditionModal } from './components/EditConditionModal';
-import { NewConditionModal } from './components/NewConditionModal';
 
 export function CompanyConditionsPage() {
   const breadcrumbs = useCompanyBreadcrumbs('Condicionantes');
   const { companyId } = useParams<{ companyId: string }>();
   const [statusFilter, setStatusFilter] =
     useState<LicenseConditionStatusFilter>('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [conditionToEdit, setConditionToEdit] =
     useState<LicenseCondition | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -36,12 +34,6 @@ export function CompanyConditionsPage() {
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
 
-  function handleCreated(conditionName: string) {
-    setToastMessage(`Condicionante "${conditionName}" cadastrada com sucesso.`);
-    refetch();
-    refetchCompliance();
-  }
-
   function handleUpdated(conditionName: string) {
     setToastMessage(`Condicionante "${conditionName}" atualizada com sucesso.`);
     setConditionToEdit(null);
@@ -51,12 +43,6 @@ export function CompanyConditionsPage() {
 
   return (
     <PageScaffold
-      actions={[
-        {
-          label: 'Novo Condicionante',
-          onClick: () => setIsModalOpen(true),
-        },
-      ]}
       breadcrumbs={breadcrumbs}
       subtitle="Acompanhamento de condicionantes e prazos regulatórios."
       title="Monitor de Gestão Ambiental"
@@ -115,15 +101,6 @@ export function CompanyConditionsPage() {
             />
           ))}
         </section>
-      ) : null}
-
-      {companyId ? (
-        <NewConditionModal
-          companyId={companyId}
-          onCreated={handleCreated}
-          onOpenChange={setIsModalOpen}
-          open={isModalOpen}
-        />
       ) : null}
 
       <EditConditionModal
