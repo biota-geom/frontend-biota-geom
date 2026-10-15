@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
@@ -16,16 +15,12 @@ import {
   toLicenseConditionBatchItem,
   type AddLicenseConditionsForm,
 } from '../../../../features/licenses/createLicenseValidation';
-import type { EsgIndicator } from '../../../../features/companies/types';
 import { ApiError } from '../../../../services/api/apiError';
-import { listCompanyEsgMetrics } from '../../../../services/api/companiesApi';
 import { createLicenseConditions } from '../../../../services/api/licenseConditionsApi';
 import { LicenseConditionsTable } from '../../Licenses/components/LicenseConditionsTable';
 
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível cadastrar as condicionantes. Tente novamente mais tarde.';
-const CATEGORIES_ERROR_MESSAGE =
-  'Não foi possível carregar os parâmetros GRI da empresa.';
 
 type AddLicenseConditionsModalProps = {
   companyId: string;
@@ -42,15 +37,10 @@ export function AddLicenseConditionsModal({
   onOpenChange,
   open,
 }: AddLicenseConditionsModalProps) {
-  const [categories, setCategories] = useState<EsgIndicator[]>([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  const [categoriesError, setCategoriesError] = useState<string | null>(null);
-
   const {
     control,
     formState: { errors, isSubmitting, isValid },
     handleSubmit,
-    register,
     reset,
     setError,
   } = useForm<AddLicenseConditionsForm>({
@@ -58,35 +48,6 @@ export function AddLicenseConditionsModal({
     mode: 'onChange',
     resolver: zodResolver(addLicenseConditionsSchema),
   });
-
-  useEffect(() => {
-    if (!open) return;
-
-    let isCurrent = true;
-
-    async function loadCompanyCategories() {
-      setIsLoadingCategories(true);
-      setCategoriesError(null);
-      try {
-        const metrics = await listCompanyEsgMetrics(companyId);
-        if (isCurrent) setCategories(metrics);
-      } catch (error) {
-        if (!isCurrent) return;
-        setCategories([]);
-        setCategoriesError(
-          error instanceof ApiError ? error.message : CATEGORIES_ERROR_MESSAGE
-        );
-      } finally {
-        if (isCurrent) setIsLoadingCategories(false);
-      }
-    }
-
-    void loadCompanyCategories();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [companyId, open]);
 
   function closeAndReset() {
     reset(ADD_LICENSE_CONDITIONS_DEFAULT_VALUES);
@@ -123,7 +84,7 @@ export function AddLicenseConditionsModal({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>Adicionar Condicionantes</DialogTitle>
           <DialogDescription>
@@ -137,14 +98,7 @@ export function AddLicenseConditionsModal({
           noValidate
           onSubmit={(event) => void submit(event)}
         >
-          <LicenseConditionsTable
-            categories={categories}
-            categoriesError={categoriesError}
-            control={control}
-            disabled={isSubmitting}
-            isLoadingCategories={isLoadingCategories}
-            register={register}
-          />
+          <LicenseConditionsTable control={control} disabled={isSubmitting} />
 
           {errors.root ? (
             <p
@@ -166,12 +120,7 @@ export function AddLicenseConditionsModal({
               Cancelar
             </Button>
             <Button
-              disabled={
-                !isValid ||
-                isSubmitting ||
-                isLoadingCategories ||
-                categories.length === 0
-              }
+              disabled={!isValid || isSubmitting}
               type="submit"
               variant="dialogPrimary"
             >
