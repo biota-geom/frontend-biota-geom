@@ -6,7 +6,7 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LicenseDetails } from '../../features/licenses/types';
 import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
@@ -14,6 +14,7 @@ import { ApiError } from '../../services/api/apiError';
 
 vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
+  renewLicense: vi.fn(),
 }));
 vi.mock('../../services/api/companiesApi', () => ({
   listCompanyEsgMetrics: vi.fn(),
@@ -30,6 +31,8 @@ const licenseConditionsApi =
 const DETAILS: LicenseDetails = {
   id: 'license-1',
   processNumber: 'LP nº 482/2024',
+  type: 'Licença Prévia (LP)',
+  issuingAgency: 'FEPAM',
   issueDate: '2024-03-12T00:00:00.000Z',
   expirationDate: '2026-03-12T00:00:00.000Z',
   status: 'Regular',
@@ -71,6 +74,17 @@ function renderDetailsPage() {
         />
       </Routes>
     </MemoryRouter>
+  );
+}
+
+function LicenseDetailsPageWithLocation() {
+  const location = useLocation();
+
+  return (
+    <>
+      <LicenseDetailsPage />
+      <span data-testid="current-path">{location.pathname}</span>
+    </>
   );
 }
 
@@ -122,6 +136,11 @@ describe('LicenseDetailsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(DETAILS);
+    vi.mocked(licensesApi.renewLicense).mockResolvedValue({
+      id: 'license-2',
+      previousLicenseId: 'license-1',
+      status: 'Regular',
+    });
     vi.mocked(companiesApi.listCompanyEsgMetrics).mockResolvedValue([
       { id: 'metric-water', name: 'Água', unit: 'm³' },
     ]);
@@ -264,6 +283,85 @@ describe('LicenseDetailsPage', () => {
     expect(
       await screen.findByText('Licença não encontrada.')
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Adicionar Condicionante' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('renews the license and redirects to the new license details page', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter
+        initialEntries={['/companies/customer-1/licenses/license-1']}
+      >
+        <Routes>
+          <Route
+            element={<LicenseDetailsPageWithLocation />}
+            path="/companies/:companyId/licenses/:licenseId"
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Renovar licença' })
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Renovar Licença',
+    });
+
+    expect(
+      within(dialog).getByDisplayValue('Licença Prévia (LP)')
+    ).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue('FEPAM')).toBeInTheDocument();
+
+    await user.type(
+      within(dialog).getByLabelText('Novo número da licença'),
+      'LO nº 119/2026'
+    );
+    await user.type(
+      within(dialog).getByLabelText('Data de Emissão'),
+      '2026-01-10'
+    );
+    await user.type(
+      within(dialog).getByLabelText('Data de Validade'),
+      '2030-01-10'
+    );
+    await user.upload(
+      within(dialog).getByLabelText('PDF da nova licença'),
+      new File(['%PDF-1.4'], 'renovada.pdf', { type: 'application/pdf' })
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Renovar Licença' })
+    );
+
+    await waitFor(() =>
+      expect(licensesApi.renewLicense).toHaveBeenCalledWith(
+        'license-1',
+        expect.objectContaining({
+          processNumber: 'LO nº 119/2026',
+          issueDate: '2026-01-10',
+          expirationDate: '2030-01-10',
+        })
+      )
+    );
+    expect(screen.getByTestId('current-path')).toHaveTextContent(
+      '/companies/customer-1/licenses/license-2'
+    );
+  });
+
+  it('hides mutation actions for an archived license', async () => {
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      status: 'Renovada/Arquivada',
+    });
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('Renovada/Arquivada')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Renovar licença' })
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Adicionar Condicionante' })
     ).not.toBeInTheDocument();

@@ -3,6 +3,7 @@ import type {
   LicenseDetails,
   LicensePanelItem,
   LicensesPanel,
+  LicenseRenewed,
   LicenseType,
 } from '../../features/licenses/types';
 import { request } from './http';
@@ -10,6 +11,7 @@ import type {
   LicensePanelItemWire,
   LicenseDetailsWire,
   LicensePanelResponseWire,
+  LicenseRenewedWire,
   LicenseWire,
 } from './types';
 
@@ -20,6 +22,13 @@ export interface CreateLicenseInput {
   /** `YYYY-MM-DD`, straight from a `<input type="date">`. */
   issueDate: string;
   /** `YYYY-MM-DD`, straight from a `<input type="date">`. */
+  expirationDate: string;
+  documentFile: File;
+}
+
+export interface RenewLicenseInput {
+  processNumber: string;
+  issueDate: string;
   expirationDate: string;
   documentFile: File;
 }
@@ -44,6 +53,8 @@ function toLicenseDetails(wire: LicenseDetailsWire): LicenseDetails {
   return {
     id: wire.id,
     processNumber: wire.process_number,
+    type: wire.type,
+    issuingAgency: wire.issuing_agency,
     issueDate: wire.issue_date,
     expirationDate: wire.expiration_date,
     status: wire.status,
@@ -59,6 +70,14 @@ function toLicenseDetails(wire: LicenseDetailsWire): LicenseDetails {
       responsibleName: condition.responsible_name,
       isViolated: condition.is_violated,
     })),
+  };
+}
+
+function toLicenseRenewed(wire: LicenseRenewedWire): LicenseRenewed {
+  return {
+    id: wire.id,
+    previousLicenseId: wire.previous_license_id,
+    status: wire.status,
   };
 }
 
@@ -94,6 +113,27 @@ export async function createLicense(
   );
 
   return toLicense(wire);
+}
+
+export async function renewLicense(
+  licenseId: string,
+  input: RenewLicenseInput
+): Promise<LicenseRenewed> {
+  const formData = new FormData();
+  formData.append('process_number', input.processNumber);
+  formData.append('issue_date', input.issueDate);
+  formData.append('expiration_date', input.expirationDate);
+  formData.append('document_file', input.documentFile);
+
+  const wire = await request<LicenseRenewedWire>(
+    `/api/licenses/${licenseId}/renew`,
+    {
+      method: 'POST',
+      body: formData,
+    }
+  );
+
+  return toLicenseRenewed(wire);
 }
 
 function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {

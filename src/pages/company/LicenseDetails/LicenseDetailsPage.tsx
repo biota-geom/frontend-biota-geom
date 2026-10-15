@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { buildCompanyRoutes } from '../../../app/router/routes';
@@ -16,6 +16,7 @@ import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
+import { RenewLicenseModal } from './components/RenewLicenseModal';
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
@@ -102,7 +103,9 @@ export function LicenseDetailsPage() {
   }>();
   const [filter, setFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { details, error, refetch, status } = useLicenseDetails(
     companyId,
     licenseId
@@ -120,6 +123,11 @@ export function LicenseDetailsPage() {
   const fulfilledCount = conditions.filter(
     (condition) => formatConditionStatus(condition.status) === 'Atendida'
   ).length;
+  const isArchived = details?.status === 'Renovada/Arquivada';
+  const canRenew =
+    details?.status === 'Regular' ||
+    details?.status === 'Atenção' ||
+    details?.status === 'Vencida';
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
 
@@ -132,11 +140,25 @@ export function LicenseDetailsPage() {
     refetch();
   }
 
+  function handleRenewed(renewed: { id: string }) {
+    if (!companyId) return;
+    navigate(buildCompanyRoutes.licenseDetails(companyId, renewed.id));
+  }
+
   return (
     <PageScaffold
       actions={
-        status === 'success'
+        status === 'success' && !isArchived
           ? [
+              ...(canRenew
+                ? [
+                    {
+                      icon: 'none' as const,
+                      label: 'Renovar licença',
+                      onClick: () => setIsRenewModalOpen(true),
+                    },
+                  ]
+                : []),
               {
                 label: 'Adicionar Condicionante',
                 onClick: () => setIsModalOpen(true),
@@ -271,6 +293,15 @@ export function LicenseDetailsPage() {
           onCreated={handleConditionsCreated}
           onOpenChange={setIsModalOpen}
           open={isModalOpen}
+        />
+      ) : null}
+
+      {details ? (
+        <RenewLicenseModal
+          license={details}
+          onOpenChange={setIsRenewModalOpen}
+          onRenewed={handleRenewed}
+          open={isRenewModalOpen}
         />
       ) : null}
 

@@ -14,7 +14,7 @@ import { Slot } from 'radix-ui';
  * `ui/icons.tsx` from its 20px attribute size to 16px. Every visual decision
  * therefore lives in exactly one variant.
  */
-const buttonVariants = cva('', {
+const buttonVariants = cva('cursor-pointer', {
   variants: {
     variant: {
       /* Primary form submit — the login/register call to action. */

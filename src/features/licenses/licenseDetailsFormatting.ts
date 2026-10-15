@@ -5,6 +5,7 @@ const STATUS_LABELS: Record<string, string> = {
   REGULAR: 'Regular',
   ATTENTION: 'Atenção',
   EXPIRED: 'Vencida',
+  ARCHIVED: 'Renovada/Arquivada',
 };
 
 const CONDITION_TYPE_LABELS: Record<string, string> = {
