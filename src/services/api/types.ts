@@ -252,3 +252,12 @@ export interface LicenseConditionBatchItemWire {
 export interface CreateLicenseConditionsRequestWire {
   conditions: LicenseConditionBatchItemWire[];
 }
+
+export interface ConditionFulfillmentItemWire {
+  condition_id: string;
+  fulfilled: boolean;
+}
+
+export interface SaveConditionsFulfillmentRequestWire {
+  items: ConditionFulfillmentItemWire[];
+}
