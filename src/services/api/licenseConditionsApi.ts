@@ -1,4 +1,3 @@
-import type { TargetOperator } from '../../features/licenseConditions/createLicenseConditionValidation';
 import type {
   LicenseCondition,
   LicenseConditionsCompliance,
@@ -16,26 +15,34 @@ import type {
 } from './types';
 
 export interface LicenseConditionBatchItemInput {
-  esgMetricId: string;
-  itemNumber: string;
+  environmentalDescriptor: string;
   description: string;
   conditionType: string;
-  periodicity: string;
+  periodicity?: string;
   deadline: string;
   responsibleName: string;
+  hasDelivery: boolean;
 }
 
 export interface CreateLicenseConditionInput {
   name: string;
-  esgMetricId: string;
+  environmentalDescriptor: string;
   licenseId: string;
   responsibleAgency: string;
   dueDate: string;
   status: LicenseConditionStatus;
+  hasDelivery: boolean;
   description?: string;
-  targetMetricId?: string;
-  targetOperator?: TargetOperator;
-  targetValue?: number;
+}
+
+export interface UpdateLicenseConditionInput {
+  name: string;
+  environmentalDescriptor: string;
+  responsibleAgency?: string;
+  dueDate: string;
+  hasDelivery: boolean;
+  isViolated: boolean;
+  description?: string;
 }
 
 function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
@@ -44,10 +51,12 @@ function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
     licenseId: wire.license_id,
     name: wire.name,
     description: wire.description,
-    category: { id: wire.category.id, name: wire.category.name },
+    environmentalDescriptor: wire.environmental_descriptor,
     responsibleAgency: wire.responsible_agency,
     dueDate: wire.due_date,
     status: wire.status,
+    hasDelivery: wire.has_delivery,
+    isViolated: wire.is_violated,
     riskLevel: wire.risk_level,
   };
 }
@@ -91,24 +100,34 @@ export async function createLicenseCondition(
       method: 'POST',
       body: {
         name: input.name,
-        esg_metric_id: input.esgMetricId,
+        environmental_descriptor: input.environmentalDescriptor,
         license_id: input.licenseId,
         responsible_agency: input.responsibleAgency,
         due_date: input.dueDate,
         status: input.status,
+        has_delivery: input.hasDelivery,
         ...(input.description ? { description: input.description } : {}),
-        ...(input.targetMetricId &&
-        input.targetOperator &&
-        input.targetValue !== undefined
-          ? {
-              target_metric_id: input.targetMetricId,
-              target_operator: input.targetOperator,
-              target_value: input.targetValue,
-            }
-          : {}),
       },
     }
   );
+}
+
+export async function updateLicenseCondition(
+  conditionId: string,
+  input: UpdateLicenseConditionInput
+): Promise<void> {
+  await request<unknown>(`/api/license-conditions/${conditionId}`, {
+    method: 'PUT',
+    body: {
+      name: input.name,
+      environmental_descriptor: input.environmentalDescriptor,
+      responsible_agency: input.responsibleAgency,
+      due_date: input.dueDate,
+      has_delivery: input.hasDelivery,
+      is_violated: input.isViolated,
+      description: input.description,
+    },
+  });
 }
 
 export async function createLicenseConditions(
@@ -118,13 +137,13 @@ export async function createLicenseConditions(
 ): Promise<void> {
   const body: CreateLicenseConditionsRequestWire = {
     conditions: conditions.map((condition) => ({
-      esg_metric_id: condition.esgMetricId,
-      item_number: condition.itemNumber,
+      environmental_descriptor: condition.environmentalDescriptor,
       description: condition.description,
       condition_type: condition.conditionType,
-      periodicity: condition.periodicity,
+      ...(condition.periodicity ? { periodicity: condition.periodicity } : {}),
       deadline: condition.deadline,
       responsible_name: condition.responsibleName,
+      has_delivery: condition.hasDelivery,
     })),
   };
 

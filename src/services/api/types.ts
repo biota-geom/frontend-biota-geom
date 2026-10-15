@@ -147,15 +147,19 @@ export interface LicenseWire {
 }
 
 export interface LicenseConditionDetailsWire {
-  id: string;
-  item_number: string | null;
+  id: string | null;
+  item_number: string;
+  is_environmental_descriptor: boolean;
+  environmental_descriptor: string;
+  name: string | null;
   description: string | null;
   condition_type: string | null;
   periodicity: string;
   deadline: string | null;
-  status: string;
+  status: string | null;
   completion_date: string | null;
   responsible_name: string | null;
+  has_delivery: boolean | null;
   is_violated: boolean;
 }
 
@@ -206,21 +210,17 @@ export interface LicensePanelResponseWire {
   licenses: LicensePanelItemWire[];
 }
 
-/** GRI parameter (EsgMetric) resolved by the backend — never free text. */
-export interface LicenseConditionCategoryWire {
-  id: string;
-  name: string;
-}
-
 export interface LicenseConditionWire {
   id: string;
   license_id: string;
   name: string;
   description: string | null;
-  category: LicenseConditionCategoryWire;
+  environmental_descriptor: string;
   responsible_agency: string | null;
   due_date: string;
   status: 'Regular' | 'Atenção' | 'Risco';
+  has_delivery: boolean;
+  is_violated: boolean;
   risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
 }
 
@@ -240,21 +240,23 @@ export interface LicenseConditionCreatedWire {
   license_id: string;
   name: string;
   description: string | null;
-  category: LicenseConditionCategoryWire;
+  environmental_descriptor: string;
   responsible_agency: string | null;
   due_date: string;
   status: 'Regular' | 'Atenção' | 'Risco';
+  has_delivery: boolean;
+  is_violated: boolean;
   created_at: string;
 }
 
 export interface LicenseConditionBatchItemWire {
-  esg_metric_id: string;
-  item_number: string;
+  environmental_descriptor: string;
   description: string;
   condition_type: string;
-  periodicity: string;
+  periodicity?: string;
   deadline: string;
   responsible_name: string;
+  has_delivery: boolean;
 }
 
 export interface CreateLicenseConditionsRequestWire {
