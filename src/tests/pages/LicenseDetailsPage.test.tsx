@@ -16,15 +16,11 @@ vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
   renewLicense: vi.fn(),
 }));
-vi.mock('../../services/api/companiesApi', () => ({
-  listCompanyEsgMetrics: vi.fn(),
-}));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
 }));
 
 const licensesApi = await import('../../services/api/licensesApi');
-const companiesApi = await import('../../services/api/companiesApi');
 const licenseConditionsApi =
   await import('../../services/api/licenseConditionsApi');
 
@@ -38,20 +34,27 @@ const DETAILS: LicenseDetails = {
   status: 'Regular',
   conditions: [
     {
-      id: 'condition-group-1',
+      id: null,
       itemNumber: '1',
-      description: 'Monitoramento de Estacionamento e Serviços',
-      conditionType: 'Informativo',
+      isEnvironmentalDescriptor: true,
+      environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
+      name: null,
+      description: null,
+      conditionType: null,
       periodicity: 'NA',
       deadline: null,
-      status: 'Em andamento',
+      status: null,
       completionDate: null,
-      responsibleName: '',
+      responsibleName: null,
+      hasDelivery: null,
       isViolated: false,
     },
     {
       id: 'condition-1-1',
       itemNumber: '1.1',
+      isEnvironmentalDescriptor: false,
+      environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
+      name: 'Controle da frota',
       description: 'Manter registros de estacionamento da frota.',
       conditionType: 'Informativo',
       periodicity: 'NA',
@@ -59,6 +62,7 @@ const DETAILS: LicenseDetails = {
       status: 'Atendida',
       completionDate: '2024-03-12T00:00:00.000Z',
       responsibleName: 'Lucas Silva',
+      hasDelivery: true,
       isViolated: false,
     },
   ],
@@ -99,31 +103,50 @@ async function openAddConditionsModal(
 
 async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
   await user.click(
-    await screen.findByRole('combobox', {
-      name: 'Categoria da condicionante 1',
+    screen.getByRole('button', { name: 'Adicionar Descritor Ambiental' })
+  );
+  const descriptorDialog = screen.getByRole('dialog', {
+    name: 'Novo Descritor Ambiental',
+  });
+  await user.type(
+    within(descriptorDialog).getByLabelText('Descritor ambiental'),
+    'Água'
+  );
+  await user.click(
+    within(descriptorDialog).getByRole('button', {
+      name: 'Adicionar Descritor',
     })
   );
-  await user.click(await screen.findByRole('option', { name: 'Água' }));
-  await user.type(screen.getByLabelText('Nº do item da condicionante 1'), '2');
+  await user.click(
+    screen.getByRole('button', { name: 'Adicionar condicionante em Água' })
+  );
+  const conditionDialog = screen.getByRole('dialog', {
+    name: 'Nova Condicionante',
+  });
   await user.type(
-    screen.getByLabelText('Descrição da condicionante 1'),
+    within(conditionDialog).getByLabelText('Descrição'),
     'Monitoramento hidroquímico'
   );
   await user.click(
-    screen.getByRole('combobox', { name: 'Tipo da condicionante 1' })
+    within(conditionDialog).getByRole('combobox', { name: 'Tipo' })
   );
   await user.click(await screen.findByRole('option', { name: 'Periódico' }));
   await user.click(
-    screen.getByRole('combobox', { name: 'Periodicidade da condicionante 1' })
+    within(conditionDialog).getByRole('combobox', { name: 'Periodicidade' })
   );
   await user.click(await screen.findByRole('option', { name: 'Anual' }));
   await user.type(
-    screen.getByLabelText('Prazo da condicionante 1'),
+    within(conditionDialog).getByLabelText('Prazo'),
     '2026-10-30'
   );
   await user.type(
-    screen.getByLabelText('Responsável pela condicionante 1'),
+    within(conditionDialog).getByLabelText('Responsável'),
     'Lucas Silva'
+  );
+  await user.click(
+    within(conditionDialog).getByRole('button', {
+      name: 'Adicionar Condicionante',
+    })
   );
 }
 
@@ -141,24 +164,23 @@ describe('LicenseDetailsPage', () => {
       previousLicenseId: 'license-1',
       status: 'Regular',
     });
-    vi.mocked(companiesApi.listCompanyEsgMetrics).mockResolvedValue([
-      { id: 'metric-water', name: 'Água', unit: 'm³' },
-    ]);
   });
 
-  it('loads and displays license conditions with local filtering and group rows', async () => {
+  it('loads and displays license conditions with descriptor rows', async () => {
     renderDetailsPage();
 
-    expect(await screen.findByText('1 de 2 atendidas')).toBeInTheDocument();
+    expect(await screen.findByText('1 de 1 atendidas')).toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledWith(
       'customer-1',
       'license-1'
     );
-    expect(screen.getByText('Grupo de Condicionante')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Descritor ambiental' })
+    ).toBeInTheDocument();
     expect(screen.getByText('Atendida')).toBeInTheDocument();
     expect(
       within(screen.getByRole('row', { name: /1\.1/ })).getAllByRole('cell')
-    ).toHaveLength(10);
+    ).toHaveLength(11);
 
     fireEvent.change(
       screen.getByRole('searchbox', {
@@ -189,8 +211,8 @@ describe('LicenseDetailsPage', () => {
       status: 'REGULAR',
       conditions: [
         {
-          ...DETAILS.conditions[0],
-          itemNumber: null,
+          ...DETAILS.conditions[1],
+          itemNumber: '1.1',
           description: null,
           conditionType: 'PERIODIC',
           periodicity: 'MONTHLY',
@@ -232,13 +254,13 @@ describe('LicenseDetailsPage', () => {
         'license-1',
         [
           {
-            esgMetricId: 'metric-water',
-            itemNumber: '2',
+            environmentalDescriptor: 'Água',
             description: 'Monitoramento hidroquímico',
             conditionType: 'PERIODIC',
             periodicity: 'ANNUAL',
             deadline: '2026-10-30T00:00:00.000Z',
             responsibleName: 'Lucas Silva',
+            hasDelivery: true,
           },
         ]
       )
@@ -255,7 +277,7 @@ describe('LicenseDetailsPage', () => {
   it('keeps the modal open with the API error when saving fails', async () => {
     const user = userEvent.setup();
     vi.mocked(licenseConditionsApi.createLicenseConditions).mockRejectedValue(
-      new ApiError(422, 'Categoria não vinculada à empresa.')
+      new ApiError(422, 'Não foi possível salvar a condicionante.')
     );
     renderDetailsPage();
 
@@ -266,7 +288,9 @@ describe('LicenseDetailsPage', () => {
     );
 
     expect(
-      await within(dialog).findByText('Categoria não vinculada à empresa.')
+      await within(dialog).findByText(
+        'Não foi possível salvar a condicionante.'
+      )
     ).toBeInTheDocument();
     expect(
       screen.getByRole('dialog', { name: 'Adicionar Condicionantes' })
@@ -345,8 +369,10 @@ describe('LicenseDetailsPage', () => {
         })
       )
     );
-    expect(screen.getByTestId('current-path')).toHaveTextContent(
-      '/companies/customer-1/licenses/license-2'
+    await waitFor(() =>
+      expect(screen.getByTestId('current-path')).toHaveTextContent(
+        '/companies/customer-1/licenses/license-2'
+      )
     );
   });
 

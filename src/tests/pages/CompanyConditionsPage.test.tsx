@@ -21,6 +21,7 @@ vi.mock('../../services/api/licenseConditionsApi', () => ({
   listLicenseConditions: vi.fn(),
   getLicenseConditionsCompliance: vi.fn(),
   createLicenseCondition: vi.fn(),
+  updateLicenseCondition: vi.fn(),
 }));
 vi.mock('../../services/api/licensesApi', () => ({
   listLicenses: vi.fn(),
@@ -44,11 +45,6 @@ const COMPANY_IN_CONTEXT: CompanyListItem = {
   totalLicenses: 1,
   updatedAt: '2026-09-01T12:00:00.000Z',
 };
-
-const LINKED_GRI_PARAMETERS = [
-  { id: 'metric-agua', name: 'Consumo de Água', unit: 'm³' },
-  { id: 'metric-residuos', name: 'Resíduos Sólidos Gerados', unit: 't' },
-];
 
 function renderConditionsPage() {
   return renderWithAuth(<AppRoutes />, {
@@ -75,9 +71,6 @@ describe('CompanyConditionsPage', () => {
       inCompliance: 0,
       compliancePercentage: 100,
     });
-    vi.mocked(companiesApi.listCompanyEsgMetrics).mockResolvedValue(
-      LINKED_GRI_PARAMETERS
-    );
     vi.mocked(licensesApi.listLicenses).mockResolvedValue({
       summary: { total: 1, regular: 1, attention: 0, expired: 0 },
       licenses: [
@@ -104,10 +97,12 @@ describe('CompanyConditionsPage', () => {
           licenseId: 'license-1',
           name: 'Automonitoramento Atmosférico',
           description: 'Avaliação periódica de emissões.',
-          category: { id: 'metric-emissoes', name: 'Emissões' },
+          environmentalDescriptor: 'Emissões',
           responsibleAgency: 'FEPAM',
           dueDate: '2026-02-11T00:00:00.000Z',
           status: 'Regular',
+          hasDelivery: true,
+          isViolated: true,
           riskLevel: 'RISK',
         },
         {
@@ -115,10 +110,12 @@ describe('CompanyConditionsPage', () => {
           licenseId: 'license-1',
           name: 'MTR - Manifesto de Transporte de Resíduos',
           description: 'Emissão de manifesto obrigatório.',
-          category: { id: 'metric-residuos', name: 'Resíduos Sólidos Gerados' },
+          environmentalDescriptor: 'Resíduos Sólidos Gerados',
           responsibleAgency: 'FEPAM',
           dueDate: '2026-05-20T00:00:00.000Z',
           status: 'Regular',
+          hasDelivery: true,
+          isViolated: false,
           riskLevel: 'REGULAR',
         },
       ],
@@ -164,94 +161,6 @@ describe('CompanyConditionsPage', () => {
         })
       ).getByText('Resíduos Sólidos Gerados')
     ).toBeInTheDocument();
-  });
-
-  it('lists exactly the GRI parameters linked to the company as categories', async () => {
-    const user = userEvent.setup();
-    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
-      total: 0,
-      conditions: [],
-    });
-
-    renderConditionsPage();
-    await user.click(
-      screen.getByRole('button', { name: 'Novo Condicionante' })
-    );
-    await waitFor(() =>
-      expect(companiesApi.listCompanyEsgMetrics).toHaveBeenCalledWith(
-        COMPANY_ID
-      )
-    );
-    const categorySelect = screen.getByRole('combobox', { name: 'Categoria' });
-    await waitFor(() => expect(categorySelect).toBeEnabled());
-    await user.click(categorySelect);
-
-    expect(
-      screen.getAllByRole('option').map((option) => option.textContent)
-    ).toEqual(['Consumo de Água', 'Resíduos Sólidos Gerados']);
-  });
-
-  it('guides the user to the GRI setup when the company has no linked parameters', async () => {
-    const user = userEvent.setup();
-    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
-      total: 0,
-      conditions: [],
-    });
-    vi.mocked(companiesApi.listCompanyEsgMetrics).mockResolvedValue([]);
-
-    renderConditionsPage();
-    await user.click(
-      screen.getByRole('button', { name: 'Novo Condicionante' })
-    );
-
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Esta empresa ainda não possui parâmetros GRI vinculados. Faça a parametrização GRI da empresa antes de cadastrar condicionantes.'
-    );
-    expect(screen.getByRole('combobox', { name: 'Categoria' })).toBeDisabled();
-    expect(
-      screen.getByRole('button', { name: 'Cadastrar Condicionante' })
-    ).toBeDisabled();
-  });
-
-  it('shows the API error when the GRI parameters cannot be loaded', async () => {
-    const user = userEvent.setup();
-    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
-      total: 0,
-      conditions: [],
-    });
-    vi.mocked(companiesApi.listCompanyEsgMetrics).mockRejectedValue(
-      new ApiError(500, 'Falha ao listar parâmetros.')
-    );
-
-    renderConditionsPage();
-    await user.click(
-      screen.getByRole('button', { name: 'Novo Condicionante' })
-    );
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Falha ao listar parâmetros.'
-    );
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-  });
-
-  it('falls back to a generic message when the GRI parameters fail unexpectedly', async () => {
-    const user = userEvent.setup();
-    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
-      total: 0,
-      conditions: [],
-    });
-    vi.mocked(companiesApi.listCompanyEsgMetrics).mockRejectedValue(
-      new Error('network down')
-    );
-
-    renderConditionsPage();
-    await user.click(
-      screen.getByRole('button', { name: 'Novo Condicionante' })
-    );
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Não foi possível carregar os parâmetros GRI da empresa.'
-    );
   });
 
   it('renders the overall compliance card above the filters', async () => {
@@ -350,10 +259,12 @@ describe('CompanyConditionsPage', () => {
                 licenseId: 'license-1',
                 name: 'Automonitoramento Atmosférico',
                 description: 'Avaliação periódica de emissões.',
-                category: { id: 'metric-emissoes', name: 'Emissões' },
+                environmentalDescriptor: 'Emissões',
                 responsibleAgency: 'FEPAM',
                 dueDate: '2026-02-11T00:00:00.000Z',
                 status: 'Regular',
+                hasDelivery: true,
+                isViolated: true,
                 riskLevel: 'RISK',
               },
             ],
@@ -368,10 +279,12 @@ describe('CompanyConditionsPage', () => {
               licenseId: 'license-1',
               name: 'Automonitoramento Atmosférico',
               description: 'Avaliação periódica de emissões.',
-              category: { id: 'metric-emissoes', name: 'Emissões' },
+              environmentalDescriptor: 'Emissões',
               responsibleAgency: 'FEPAM',
               dueDate: '2026-02-11T00:00:00.000Z',
               status: 'Regular',
+              hasDelivery: true,
+              isViolated: true,
               riskLevel: 'RISK',
             },
             {
@@ -379,13 +292,12 @@ describe('CompanyConditionsPage', () => {
               licenseId: 'license-1',
               name: 'MTR - Manifesto de Transporte de Resíduos',
               description: 'Emissão de manifesto obrigatório.',
-              category: {
-                id: 'metric-residuos',
-                name: 'Resíduos Sólidos Gerados',
-              },
+              environmentalDescriptor: 'Resíduos Sólidos Gerados',
               responsibleAgency: 'FEPAM',
               dueDate: '2026-05-20T00:00:00.000Z',
               status: 'Regular',
+              hasDelivery: true,
+              isViolated: false,
               riskLevel: 'REGULAR',
             },
           ],
@@ -496,10 +408,12 @@ describe('CompanyConditionsPage', () => {
       licenseId: '550e8400-e29b-41d4-a716-446655440000',
       name: 'MTR - Manifesto de Transporte de Resíduos',
       description: 'Manifesto de transporte.',
-      category: { id: 'metric-residuos', name: 'Resíduos Sólidos Gerados' },
+      environmentalDescriptor: 'Resíduos Sólidos Gerados',
       responsibleAgency: 'FEPAM',
       dueDate: '2099-05-20T00:00:00.000Z',
       status: 'Regular' as const,
+      hasDelivery: true,
+      isViolated: false,
       riskLevel: 'REGULAR' as const,
     };
     vi.mocked(licenseConditionsApi.listLicenseConditions)
@@ -521,10 +435,12 @@ describe('CompanyConditionsPage', () => {
       license_id: createdCondition.licenseId,
       name: createdCondition.name,
       description: createdCondition.description,
-      category: createdCondition.category,
+      environmental_descriptor: createdCondition.environmentalDescriptor,
       responsible_agency: createdCondition.responsibleAgency,
       due_date: createdCondition.dueDate,
       status: createdCondition.status,
+      has_delivery: createdCondition.hasDelivery,
+      is_violated: createdCondition.isViolated,
       created_at: '2026-09-29T12:00:00.000Z',
     });
 
@@ -542,12 +458,13 @@ describe('CompanyConditionsPage', () => {
       screen.getByLabelText('Nome da Condicionante'),
       createdCondition.name
     );
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Categoria' })).toBeEnabled()
-    );
-    await user.click(screen.getByRole('combobox', { name: 'Categoria' }));
     await user.click(
-      screen.getByRole('option', { name: 'Resíduos Sólidos Gerados' })
+      screen.getByRole('combobox', { name: 'Descritor Ambiental' })
+    );
+    await user.click(
+      screen.getByRole('option', {
+        name: createdCondition.environmentalDescriptor,
+      })
     );
     await user.click(
       screen.getByRole('combobox', { name: 'Licença Vinculada' })
@@ -566,11 +483,12 @@ describe('CompanyConditionsPage', () => {
     await waitFor(() =>
       expect(licenseConditionsApi.createLicenseCondition).toHaveBeenCalledWith({
         name: createdCondition.name,
-        esgMetricId: 'metric-residuos',
+        environmentalDescriptor: createdCondition.environmentalDescriptor,
         licenseId: createdCondition.licenseId,
         responsibleAgency: 'FEPAM',
         dueDate: '2099-05-20T00:00:00.000Z',
         status: 'Regular',
+        hasDelivery: true,
         description: 'Manifesto de transporte.',
       })
     );
@@ -582,7 +500,7 @@ describe('CompanyConditionsPage', () => {
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(licenseConditionsApi.listLicenseConditions).toHaveBeenCalledTimes(
-        2
+        3
       )
     );
     expect(await screen.findByText(createdCondition.name)).toBeInTheDocument();
@@ -592,5 +510,60 @@ describe('CompanyConditionsPage', () => {
     expect(
       licenseConditionsApi.getLicenseConditionsCompliance
     ).toHaveBeenCalledTimes(2);
+  });
+
+  it('marks a condition as violated in the edit modal and displays the badge after reloading', async () => {
+    const user = userEvent.setup();
+    const condition = {
+      id: 'condition-regular',
+      licenseId: 'license-1',
+      name: 'MTR mensal',
+      description: 'Manifesto de transporte.',
+      environmentalDescriptor: 'Resíduos sólidos',
+      responsibleAgency: 'FEPAM',
+      dueDate: '2026-11-30T00:00:00.000Z',
+      status: 'Regular' as const,
+      hasDelivery: true,
+      isViolated: false,
+      riskLevel: 'REGULAR' as const,
+    };
+    vi.mocked(licenseConditionsApi.listLicenseConditions)
+      .mockResolvedValueOnce({ total: 1, conditions: [condition] })
+      .mockResolvedValue({
+        total: 1,
+        conditions: [{ ...condition, isViolated: true }],
+      });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue();
+
+    renderConditionsPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Editar MTR mensal' })
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Editar Condicionante' });
+    await user.click(within(dialog).getByRole('switch', { name: 'Violada' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        condition.id,
+        {
+          name: condition.name,
+          environmentalDescriptor: condition.environmentalDescriptor,
+          responsibleAgency: condition.responsibleAgency,
+          dueDate: condition.dueDate,
+          hasDelivery: true,
+          isViolated: true,
+          description: condition.description,
+        }
+      )
+    );
+    expect(
+      await within(
+        screen.getByRole('article', { name: condition.name })
+      ).findByText('Violada')
+    ).toBeInTheDocument();
   });
 });

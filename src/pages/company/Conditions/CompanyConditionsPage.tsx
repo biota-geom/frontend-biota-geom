@@ -2,13 +2,17 @@ import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
-import type { LicenseConditionStatusFilter } from '../../../features/licenseConditions/types';
+import type {
+  LicenseCondition,
+  LicenseConditionStatusFilter,
+} from '../../../features/licenseConditions/types';
 import { useConditions } from '../../../features/licenseConditions/useConditions';
 import { useConditionsCompliance } from '../../../features/licenseConditions/useConditionsCompliance';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { ComplianceProgressBar } from './components/ComplianceProgressBar';
 import { ConditionCard } from './components/ConditionCard';
 import { ConditionsToolbar } from './components/ConditionsToolbar';
+import { EditConditionModal } from './components/EditConditionModal';
 import { NewConditionModal } from './components/NewConditionModal';
 
 export function CompanyConditionsPage() {
@@ -17,6 +21,8 @@ export function CompanyConditionsPage() {
   const [statusFilter, setStatusFilter] =
     useState<LicenseConditionStatusFilter>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [conditionToEdit, setConditionToEdit] =
+    useState<LicenseCondition | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { conditions, error, refetch, status, total } = useConditions(
     companyId,
@@ -32,6 +38,13 @@ export function CompanyConditionsPage() {
 
   function handleCreated(conditionName: string) {
     setToastMessage(`Condicionante "${conditionName}" cadastrada com sucesso.`);
+    refetch();
+    refetchCompliance();
+  }
+
+  function handleUpdated(conditionName: string) {
+    setToastMessage(`Condicionante "${conditionName}" atualizada com sucesso.`);
+    setConditionToEdit(null);
     refetch();
     refetchCompliance();
   }
@@ -95,7 +108,11 @@ export function CompanyConditionsPage() {
           className="flex flex-col gap-4"
         >
           {conditions.map((condition) => (
-            <ConditionCard condition={condition} key={condition.id} />
+            <ConditionCard
+              condition={condition}
+              key={condition.id}
+              onEdit={setConditionToEdit}
+            />
           ))}
         </section>
       ) : null}
@@ -108,6 +125,15 @@ export function CompanyConditionsPage() {
           open={isModalOpen}
         />
       ) : null}
+
+      <EditConditionModal
+        condition={conditionToEdit}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setConditionToEdit(null);
+        }}
+        onUpdated={handleUpdated}
+        open={conditionToEdit !== null}
+      />
 
       {toastMessage ? (
         <SuccessToast message={toastMessage} onDismiss={dismissToast} />
