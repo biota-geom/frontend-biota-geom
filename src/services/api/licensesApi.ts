@@ -5,9 +5,11 @@ import type {
   LicensesPanel,
   LicenseRenewed,
   LicenseType,
+  LicenseVersion,
 } from '../../features/licenses/types';
 import { request } from './http';
 import type {
+  LicenseHistoryItemWire,
   LicensePanelItemWire,
   LicenseDetailsWire,
   LicensePanelResponseWire,
@@ -83,6 +85,23 @@ function toLicenseRenewed(wire: LicenseRenewedWire): LicenseRenewed {
     previousLicenseId: wire.previous_license_id,
     status: wire.status,
   };
+}
+
+export async function getLicenseHistory(
+  licenseId: string
+): Promise<LicenseVersion[]> {
+  const wire = await request<LicenseHistoryItemWire[]>(
+    `/api/licenses/${licenseId}/history`
+  );
+
+  return wire.map((item) => ({
+    id: item.id,
+    processNumber: item.process_number,
+    issueDate: item.issue_date,
+    expirationDate: item.expiration_date,
+    status: item.status,
+    isCurrent: item.is_current,
+  }));
 }
 
 export async function getLicenseDetails(

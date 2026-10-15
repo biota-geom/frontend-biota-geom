@@ -14,6 +14,7 @@ import { ApiError } from '../../services/api/apiError';
 
 vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
+  getLicenseHistory: vi.fn(),
   renewLicense: vi.fn(),
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
@@ -159,6 +160,7 @@ describe('LicenseDetailsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(DETAILS);
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([]);
     vi.mocked(licensesApi.renewLicense).mockResolvedValue({
       id: 'license-2',
       previousLicenseId: 'license-1',
@@ -391,5 +393,74 @@ describe('LicenseDetailsPage', () => {
     expect(
       screen.queryByRole('button', { name: 'Adicionar Condicionante' })
     ).not.toBeInTheDocument();
+  });
+
+  it('lists the previous versions with links to their details', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: true,
+      },
+      {
+        id: 'license-0',
+        processNumber: 'LP nº 100/2019',
+        issueDate: '2019-01-10T00:00:00.000Z',
+        expirationDate: '2024-01-10T00:00:00.000Z',
+        status: 'Renovada/Arquivada',
+        isCurrent: false,
+      },
+    ]);
+
+    renderDetailsPage();
+
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
+    });
+    expect(licensesApi.getLicenseHistory).toHaveBeenCalledWith('license-1');
+    expect(
+      within(history).getByRole('link', { name: 'LP nº 100/2019' })
+    ).toHaveAttribute('href', '/companies/customer-1/licenses/license-0');
+    expect(within(history).getByText('Renovada/Arquivada')).toBeInTheDocument();
+    expect(
+      within(history).queryByText('LP nº 482/2024')
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show the version history for a license that was never renewed', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: true,
+      },
+    ]);
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('1 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the details usable when the history fails to load', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockRejectedValue(
+      new ApiError(500, 'Erro interno.')
+    );
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('1 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

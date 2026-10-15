@@ -5,7 +5,7 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { createLicense, listLicenses, renewLicense } =
+const { createLicense, getLicenseHistory, listLicenses, renewLicense } =
   await import('../../services/api/licensesApi');
 
 describe('licensesApi', () => {
@@ -157,5 +157,50 @@ describe('licensesApi', () => {
         },
       ],
     });
+  });
+
+  it('getLicenseHistory() requests the version chain and maps it to the domain shape', async () => {
+    vi.mocked(request).mockResolvedValue([
+      {
+        id: 'license-2',
+        customer_id: 'customer-1',
+        process_number: 'LO nº 119/2026',
+        issue_date: '2026-01-10T00:00:00.000Z',
+        expiration_date: '2030-01-10T00:00:00.000Z',
+        status: 'Regular',
+        is_current: true,
+      },
+      {
+        id: 'license-1',
+        customer_id: 'customer-1',
+        process_number: 'LO nº 118/2020',
+        issue_date: '2020-01-10T00:00:00.000Z',
+        expiration_date: '2025-01-10T00:00:00.000Z',
+        status: 'Renovada/Arquivada',
+        is_current: false,
+      },
+    ]);
+
+    const versions = await getLicenseHistory('license-2');
+
+    expect(request).toHaveBeenCalledWith('/api/licenses/license-2/history');
+    expect(versions).toEqual([
+      {
+        id: 'license-2',
+        processNumber: 'LO nº 119/2026',
+        issueDate: '2026-01-10T00:00:00.000Z',
+        expirationDate: '2030-01-10T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: true,
+      },
+      {
+        id: 'license-1',
+        processNumber: 'LO nº 118/2020',
+        issueDate: '2020-01-10T00:00:00.000Z',
+        expirationDate: '2025-01-10T00:00:00.000Z',
+        status: 'Renovada/Arquivada',
+        isCurrent: false,
+      },
+    ]);
   });
 });
