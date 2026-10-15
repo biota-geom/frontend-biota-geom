@@ -20,57 +20,58 @@ export const FILE_REQUIRED_MESSAGE = 'Anexe o documento em PDF.';
 export const INVALID_DATE_RANGE_MESSAGE =
   'A data de validade deve ser posterior à data de emissão.';
 
-const conditionRowSchema = z.object({
-  esgMetricId: z.string().min(1, 'Selecione a categoria.'),
-  itemNumber: z
-    .string()
-    .trim()
-    .min(1, 'Informe o nº do item.')
-    .max(20, 'O nº do item deve ter no máximo 20 caracteres.'),
-  description: z
-    .string()
-    .trim()
-    .min(1, 'Informe a descrição.')
-    .max(500, 'A descrição deve ter no máximo 500 caracteres.'),
-  conditionType: z
-    .string()
-    .min(1, 'Selecione o tipo.')
-    .refine(
-      (value) =>
-        CONDITION_TYPES.includes(value as (typeof CONDITION_TYPES)[number]),
-      'Selecione um tipo válido.'
-    ),
-  periodicity: z
-    .string()
-    .min(1, 'Selecione a periodicidade.')
-    .refine(
-      (value) =>
-        CONDITION_PERIODICITIES.includes(
-          value as (typeof CONDITION_PERIODICITIES)[number]
-        ),
-      'Selecione uma periodicidade válida.'
-    ),
-  deadline: z.string().min(1, 'Informe o prazo.'),
-  responsibleName: z
-    .string()
-    .trim()
-    .min(1, 'Informe o responsável.')
-    .max(150, 'O responsável deve ter no máximo 150 caracteres.'),
-});
+export const licenseConditionRowSchema = z
+  .object({
+    environmentalDescriptor: z
+      .string()
+      .trim()
+      .min(1, 'Informe o descritor ambiental.')
+      .max(120, 'O descritor ambiental deve ter no máximo 120 caracteres.'),
+    description: z
+      .string()
+      .trim()
+      .min(1, 'Informe a descrição.')
+      .max(500, 'A descrição deve ter no máximo 500 caracteres.'),
+    conditionType: z
+      .string()
+      .min(1, 'Selecione o tipo.')
+      .refine(
+        (value) =>
+          CONDITION_TYPES.includes(value as (typeof CONDITION_TYPES)[number]),
+        'Selecione um tipo válido.'
+      ),
+    periodicity: z.string(),
+    deadline: z.string().min(1, 'Informe o prazo.'),
+    responsibleName: z
+      .string()
+      .trim()
+      .min(1, 'Informe o responsável.')
+      .max(150, 'O responsável deve ter no máximo 150 caracteres.'),
+    hasDelivery: z.boolean(),
+  })
+  .superRefine((condition, context) => {
+    if (
+      condition.conditionType === 'PERIODIC' &&
+      !CONDITION_PERIODICITIES.includes(
+        condition.periodicity as (typeof CONDITION_PERIODICITIES)[number]
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Selecione uma periodicidade válida.',
+        path: ['periodicity'],
+      });
+    }
+  });
 
-/*
- * The form types are written out by hand (not `z.infer`) so React Hook Form,
- * the resolver and the child components all share one exact type. The schema
- * is annotated with it, so any drift shows up as an error right here.
- */
 export type LicenseConditionRow = {
-  esgMetricId: string;
-  itemNumber: string;
+  environmentalDescriptor: string;
   description: string;
   conditionType: string;
   periodicity: string;
   deadline: string;
   responsibleName: string;
+  hasDelivery: boolean;
 };
 
 export type CreateLicenseForm = {
@@ -110,7 +111,7 @@ export const createLicenseSchema: z.ZodType<
         (file) => file === null || file.size <= MAX_FILE_SIZE_BYTES,
         FILE_TOO_LARGE_MESSAGE
       ),
-    conditions: z.array(conditionRowSchema),
+    conditions: z.array(licenseConditionRowSchema),
   })
   .refine(
     (data) =>
@@ -121,13 +122,13 @@ export const createLicenseSchema: z.ZodType<
   );
 
 export const EMPTY_CONDITION_ROW: LicenseConditionRow = {
-  esgMetricId: '',
-  itemNumber: '',
+  environmentalDescriptor: '',
   description: '',
   conditionType: '',
   periodicity: '',
   deadline: '',
   responsibleName: '',
+  hasDelivery: true,
 };
 
 export const CREATE_LICENSE_DEFAULT_VALUES: CreateLicenseForm = {
@@ -140,7 +141,6 @@ export const CREATE_LICENSE_DEFAULT_VALUES: CreateLicenseForm = {
   conditions: [],
 };
 
-/* Adding conditions to an existing license (license details page, US16). */
 export type AddLicenseConditionsForm = {
   conditions: LicenseConditionRow[];
 };
@@ -150,12 +150,12 @@ export const addLicenseConditionsSchema: z.ZodType<
   AddLicenseConditionsForm
 > = z.object({
   conditions: z
-    .array(conditionRowSchema)
+    .array(licenseConditionRowSchema)
     .min(1, 'Adicione ao menos uma condicionante.'),
 });
 
 export const ADD_LICENSE_CONDITIONS_DEFAULT_VALUES: AddLicenseConditionsForm = {
-  conditions: [{ ...EMPTY_CONDITION_ROW }],
+  conditions: [],
 };
 
 export function toUtcIsoDate(value: string): string {
@@ -166,12 +166,12 @@ export function toLicenseConditionBatchItem(
   row: LicenseConditionRow
 ): LicenseConditionBatchItemInput {
   return {
-    esgMetricId: row.esgMetricId,
-    itemNumber: row.itemNumber,
+    environmentalDescriptor: row.environmentalDescriptor,
     description: row.description,
     conditionType: row.conditionType,
-    periodicity: row.periodicity,
+    periodicity: row.periodicity || undefined,
     deadline: toUtcIsoDate(row.deadline),
     responsibleName: row.responsibleName,
+    hasDelivery: row.hasDelivery,
   };
 }
