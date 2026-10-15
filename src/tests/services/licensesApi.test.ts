@@ -5,12 +5,30 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { createLicense, listLicenses, renewLicense } =
+const { createLicense, getLicenseDocumentUrl, listLicenses, renewLicense } =
   await import('../../services/api/licensesApi');
 
 describe('licensesApi', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('getLicenseDocumentUrl() requests the signed URL and maps the response', async () => {
+    vi.mocked(request).mockResolvedValue({
+      document_url:
+        'https://bucket.s3.amazonaws.com/licenses/c-1/doc.pdf?X-Amz-Signature=abc',
+      expires_in: 900,
+    });
+
+    const documentUrl = await getLicenseDocumentUrl('license-1');
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/licenses/license-1/document/url'
+    );
+    expect(documentUrl).toEqual({
+      url: 'https://bucket.s3.amazonaws.com/licenses/c-1/doc.pdf?X-Amz-Signature=abc',
+      expiresIn: 900,
+    });
   });
 
   it('createLicense() posts a FormData body and maps the response to the domain shape', async () => {
