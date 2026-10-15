@@ -28,6 +28,8 @@ export function useOpenLicenseDocument() {
   // Ref, not state: a second click in the same render must already see it.
   const inFlight = useRef(false);
 
+  // Stryker disable ArrayDeclaration: any constant deps array keeps these
+  // callbacks stable, so `[]` -> `["Stryker was here"]` is equivalent.
   const openDocument = useCallback(async (licenseId: string) => {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -46,6 +48,7 @@ export function useOpenLicenseDocument() {
   }, []);
 
   const dismissError = useCallback(() => setErrorMessage(null), []);
+  // Stryker restore ArrayDeclaration
 
   return { openDocument, openingLicenseId, errorMessage, dismissError };
 }
