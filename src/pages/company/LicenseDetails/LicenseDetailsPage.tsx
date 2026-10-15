@@ -11,11 +11,13 @@ import {
   formatLicenseStatus,
 } from '../../../features/licenses/licenseDetailsFormatting';
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
+import { useLicenseHistory } from '../../../features/licenses/useLicenseHistory';
 import type { LicenseConditionDetail } from '../../../features/licenses/types';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
+import { LicenseVersionHistory } from './components/LicenseVersionHistory';
 import { RenewLicenseModal } from './components/RenewLicenseModal';
 
 function formatDate(value: string | null): string {
@@ -121,6 +123,7 @@ export function LicenseDetailsPage() {
     companyId,
     licenseId
   );
+  const { versions } = useLicenseHistory(licenseId);
   const breadcrumbs = useCompanyBreadcrumbs('Detalhes da licença', {
     parent: { label: 'Licenças', to: buildCompanyRoutes.licenses },
   });
@@ -303,6 +306,10 @@ export function LicenseDetailsPage() {
               </table>
             </div>
           </section>
+
+          {companyId ? (
+            <LicenseVersionHistory companyId={companyId} versions={versions} />
+          ) : null}
         </>
       ) : null}
 

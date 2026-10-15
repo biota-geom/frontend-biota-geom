@@ -60,6 +60,16 @@ export interface LicenseRenewed {
   status: string;
 }
 
+export interface LicenseVersion {
+  id: string;
+  processNumber: string;
+  issueDate: string;
+  expirationDate: string;
+  status: string;
+  /** True for the license that was requested; the others are previous versions. */
+  isCurrent: boolean;
+}
+
 export interface LicenseSummary {
   total: number;
   regular: number;

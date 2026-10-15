@@ -180,6 +180,17 @@ export interface LicenseRenewedWire {
   status: string;
 }
 
+/* GET /licenses/:licenseId/history, newest version first. */
+export interface LicenseHistoryItemWire {
+  id: string;
+  customer_id: string;
+  process_number: string;
+  issue_date: string;
+  expiration_date: string;
+  status: string;
+  is_current: boolean;
+}
+
 /*
  * GET /customers/:customerId/licenses. Its `licenses[].type`/`status` are
  * already PT-BR display labels ("Licença Prévia (LP)", "Vencida"), unlike
