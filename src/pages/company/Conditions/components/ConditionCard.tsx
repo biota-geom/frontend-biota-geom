@@ -43,7 +43,13 @@ function formatDueDate(value: string): string {
   );
 }
 
-export function ConditionCard({ condition }: { condition: LicenseCondition }) {
+export function ConditionCard({
+  condition,
+  onEdit,
+}: {
+  condition: LicenseCondition;
+  onEdit: (condition: LicenseCondition) => void;
+}) {
   const style = RISK_STYLES[condition.riskLevel];
   const StatusIcon = style.symbol;
 
@@ -69,6 +75,11 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
           >
             {style.label}
           </span>
+          {condition.isViolated ? (
+            <span className="rounded-control bg-rose-100 px-2 py-0.5 text-[11px] leading-[1.2] font-extrabold text-rose-700">
+              Violada
+            </span>
+          ) : null}
         </div>
 
         {condition.description ? (
@@ -79,9 +90,9 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
 
         <dl className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <div className="flex items-center gap-1.5">
-            <dt className="text-text-muted">Categoria:</dt>
+            <dt className="text-text-muted">Descritor ambiental:</dt>
             <dd className="m-0 font-semibold text-text-secondary">
-              {condition.category.name}
+              {condition.environmentalDescriptor}
             </dd>
           </div>
           {condition.responsibleAgency ? (
@@ -108,6 +119,7 @@ export function ConditionCard({ condition }: { condition: LicenseCondition }) {
         <button
           aria-label={`Editar ${condition.name}`}
           className="rounded-control flex h-7 w-7 items-center justify-center bg-surface-muted text-text-secondary"
+          onClick={() => onEdit(condition)}
           type="button"
         >
           <Pencil size={16} strokeWidth={2} />

@@ -24,35 +24,33 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
   createLicenseConditionSchema,
   LICENSE_CONDITION_STATUSES,
-  TARGET_OPERATORS,
   type CreateLicenseConditionForm,
 } from '../../../../features/licenseConditions/createLicenseConditionValidation';
-import type { EsgIndicator } from '../../../../features/companies/types';
 import type { LicensePanelItem } from '../../../../features/licenses/types';
 import { ApiError } from '../../../../services/api/apiError';
-import { listCompanyEsgMetrics } from '../../../../services/api/companiesApi';
-import { createLicenseCondition } from '../../../../services/api/licenseConditionsApi';
+import {
+  createLicenseCondition,
+  listLicenseConditions,
+} from '../../../../services/api/licenseConditionsApi';
 import { listLicenses } from '../../../../services/api/licensesApi';
 
 const DEFAULT_VALUES: CreateLicenseConditionForm = {
   name: '',
-  esgMetricId: '',
+  environmentalDescriptor: '',
   licenseId: '',
   responsibleAgency: '',
   dueDate: '',
   status: 'Regular',
+  hasDelivery: true,
   description: '',
-  targetMetricId: '',
-  targetOperator: '',
-  targetValue: '',
 };
 
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível cadastrar a condicionante. Tente novamente mais tarde.';
 const LICENSES_ERROR_MESSAGE =
   'Não foi possível carregar as licenças vinculadas.';
-const CATEGORIES_ERROR_MESSAGE =
-  'Não foi possível carregar os parâmetros GRI da empresa.';
+
+const CREATE_DESCRIPTOR_VALUE = '__create_environmental_descriptor__';
 
 type NewConditionModalProps = {
   companyId: string;
@@ -73,12 +71,12 @@ export function NewConditionModal({
 }: NewConditionModalProps) {
   const schema = useMemo(() => createLicenseConditionSchema(), []);
   const [licenses, setLicenses] = useState<LicensePanelItem[]>([]);
+  const [environmentalDescriptors, setEnvironmentalDescriptors] = useState<
+    string[]
+  >([]);
+  const [isCreatingDescriptor, setIsCreatingDescriptor] = useState(false);
   const [isLoadingLicenses, setIsLoadingLicenses] = useState(false);
   const [licensesError, setLicensesError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<EsgIndicator[]>([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  const [categoriesError, setCategoriesError] = useState<string | null>(null);
-
   const {
     control,
     formState: { errors, isSubmitting, isValid },
@@ -96,17 +94,17 @@ export function NewConditionModal({
     if (!open) return;
 
     let isCurrent = true;
-
     async function loadLinkedLicenses() {
       setIsLoadingLicenses(true);
       setLicensesError(null);
 
       try {
         const panel = await listLicenses(companyId);
-        if (!isCurrent) return;
-        setLicenses(
-          panel.licenses.filter((license) => license.status !== 'Vencida')
-        );
+        if (isCurrent) {
+          setLicenses(
+            panel.licenses.filter((license) => license.status !== 'Vencida')
+          );
+        }
       } catch (error) {
         if (!isCurrent) return;
         setLicenses([]);
@@ -118,54 +116,37 @@ export function NewConditionModal({
       }
     }
 
-    void loadLinkedLicenses();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [companyId, open]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    let isCurrent = true;
-
-    // Only the GRI parameters linked to this company (US02) are valid
-    // categories — the backend rejects any other with 422.
-    async function loadCompanyCategories() {
-      setIsLoadingCategories(true);
-      setCategoriesError(null);
-
+    async function loadEnvironmentalDescriptors() {
       try {
-        const metrics = await listCompanyEsgMetrics(companyId);
-        if (!isCurrent) return;
-        setCategories(metrics);
-      } catch (error) {
-        if (!isCurrent) return;
-        setCategories([]);
-        setCategoriesError(
-          error instanceof ApiError ? error.message : CATEGORIES_ERROR_MESSAGE
-        );
-      } finally {
-        if (isCurrent) setIsLoadingCategories(false);
+        const result = await listLicenseConditions(companyId, 'all');
+        if (isCurrent) {
+          setEnvironmentalDescriptors(
+            Array.from(
+              new Set(
+                result.conditions
+                  .map((condition) => condition.environmentalDescriptor.trim())
+                  .filter(Boolean)
+              )
+            )
+          );
+        }
+      } catch {
+        if (isCurrent) setEnvironmentalDescriptors([]);
       }
     }
 
-    void loadCompanyCategories();
+    void Promise.all([loadLinkedLicenses(), loadEnvironmentalDescriptors()]);
 
     return () => {
       isCurrent = false;
     };
   }, [companyId, open]);
-
-  const hasNoCategories =
-    !isLoadingCategories && !categoriesError && categories.length === 0;
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
       reset(DEFAULT_VALUES);
+      setIsCreatingDescriptor(false);
       setLicensesError(null);
-      setCategoriesError(null);
     }
     onOpenChange(nextOpen);
   }
@@ -174,19 +155,13 @@ export function NewConditionModal({
     try {
       const created = await createLicenseCondition({
         name: values.name,
-        esgMetricId: values.esgMetricId,
+        environmentalDescriptor: values.environmentalDescriptor,
         licenseId: values.licenseId,
         responsibleAgency: values.responsibleAgency,
         dueDate: toUtcIsoDate(values.dueDate),
         status: values.status,
+        hasDelivery: values.hasDelivery,
         description: values.description || undefined,
-        ...(values.targetMetricId && values.targetOperator
-          ? {
-              targetMetricId: values.targetMetricId,
-              targetOperator: values.targetOperator,
-              targetValue: Number(values.targetValue),
-            }
-          : {}),
       });
 
       onCreated(created.name);
@@ -216,88 +191,79 @@ export function NewConditionModal({
           noValidate
           onSubmit={(event) => void submit(event)}
         >
-          <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
-            <Label htmlFor="condition-name">Nome da Condicionante</Label>
-            <InputGroup aria-invalid={Boolean(errors.name)} variant="field">
-              <Input
-                {...register('name')}
-                aria-describedby={
-                  errors.name ? 'condition-name-error' : undefined
-                }
-                aria-invalid={Boolean(errors.name)}
-                id="condition-name"
-                placeholder="Ex: MTR - Manifesto de Transporte de Resíduos"
-              />
-            </InputGroup>
-            {errors.name ? (
-              <p
-                className="m-0 text-[13px] font-semibold text-red-600"
-                id="condition-name-error"
-                role="alert"
-              >
-                {errors.name.message}
-              </p>
-            ) : null}
-          </div>
+          <TextField
+            error={errors.name?.message}
+            id="condition-name"
+            label="Nome da Condicionante"
+          >
+            <Input
+              {...register('name')}
+              aria-invalid={Boolean(errors.name)}
+              id="condition-name"
+              placeholder="Ex: MTR - Manifesto de Transporte de Resíduos"
+            />
+          </TextField>
 
-          <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
-            <Label htmlFor="condition-category">Categoria</Label>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="condition-environmental-descriptor">
+              Descritor Ambiental
+            </Label>
             <Controller
               control={control}
-              name="esgMetricId"
+              name="environmentalDescriptor"
               render={({ field }) => (
-                <Select
-                  disabled={isLoadingCategories || categories.length === 0}
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
-                  <SelectTrigger
-                    aria-invalid={Boolean(errors.esgMetricId)}
-                    className="w-full"
-                    id="condition-category"
+                <>
+                  <Select
+                    onValueChange={(value) => {
+                      const shouldCreate = value === CREATE_DESCRIPTOR_VALUE;
+                      setIsCreatingDescriptor(shouldCreate);
+                      field.onChange(shouldCreate ? '' : value);
+                    }}
+                    value={
+                      isCreatingDescriptor
+                        ? CREATE_DESCRIPTOR_VALUE
+                        : field.value
+                    }
                   >
-                    <SelectValue
-                      placeholder={
-                        isLoadingCategories
-                          ? 'Carregando parâmetros GRI...'
-                          : 'Selecione o parâmetro GRI'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                    <SelectTrigger
+                      aria-invalid={Boolean(errors.environmentalDescriptor)}
+                      className="w-full"
+                      id="condition-environmental-descriptor"
+                    >
+                      <SelectValue placeholder="Selecione o descritor ambiental" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {environmentalDescriptors.map((descriptor) => (
+                        <SelectItem key={descriptor} value={descriptor}>
+                          {descriptor}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={CREATE_DESCRIPTOR_VALUE}>
+                        + Criar novo descritor ambiental
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    </SelectContent>
+                  </Select>
+
+                  {isCreatingDescriptor ? (
+                    <InputGroup
+                      aria-invalid={Boolean(errors.environmentalDescriptor)}
+                      variant="field"
+                    >
+                      <Input
+                        aria-label="Novo descritor ambiental"
+                        autoFocus
+                        maxLength={120}
+                        onChange={field.onChange}
+                        placeholder="Ex: Resíduos sólidos"
+                        value={field.value}
+                      />
+                    </InputGroup>
+                  ) : null}
+                </>
               )}
             />
-            {errors.esgMetricId ? (
-              <p
-                className="m-0 text-[13px] font-semibold text-red-600"
-                role="alert"
-              >
-                {errors.esgMetricId.message}
-              </p>
-            ) : null}
-            {categoriesError ? (
-              <p
-                className="m-0 text-[13px] font-semibold text-red-600"
-                role="alert"
-              >
-                {categoriesError}
-              </p>
-            ) : null}
-            {hasNoCategories ? (
-              <p
-                className="m-0 rounded-sm border border-amber-300 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800"
-                role="status"
-              >
-                Esta empresa ainda não possui parâmetros GRI vinculados. Faça a
-                parametrização GRI da empresa antes de cadastrar condicionantes.
-              </p>
+            {errors.environmentalDescriptor ? (
+              <FieldError message={errors.environmentalDescriptor.message} />
             ) : null}
           </div>
 
@@ -336,78 +302,37 @@ export function NewConditionModal({
               )}
             />
             {errors.licenseId ? (
-              <p
-                className="m-0 text-[13px] font-semibold text-red-600"
-                role="alert"
-              >
-                {errors.licenseId.message}
-              </p>
+              <FieldError message={errors.licenseId.message} />
             ) : null}
-            {licensesError ? (
-              <p
-                className="m-0 text-[13px] font-semibold text-red-600"
-                role="alert"
-              >
-                {licensesError}
-              </p>
-            ) : null}
-            {!isLoadingLicenses && !licensesError && licenses.length === 0 ? (
-              <p className="m-0 text-[13px] text-text-secondary">
-                Nenhuma licença vigente disponível.
-              </p>
-            ) : null}
+            {licensesError ? <FieldError message={licensesError} /> : null}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="condition-agency">Órgão Responsável</Label>
-            <InputGroup
+          <TextField
+            error={errors.responsibleAgency?.message}
+            id="condition-agency"
+            label="Órgão Responsável"
+          >
+            <Input
+              {...register('responsibleAgency')}
               aria-invalid={Boolean(errors.responsibleAgency)}
-              variant="field"
-            >
-              <Input
-                {...register('responsibleAgency')}
-                aria-invalid={Boolean(errors.responsibleAgency)}
-                id="condition-agency"
-                placeholder="Ex: FEPAM"
-              />
-            </InputGroup>
-            {errors.responsibleAgency ? (
-              <p
-                className="m-0 text-[13px] font-semibold text-red-600"
-                role="alert"
-              >
-                {errors.responsibleAgency.message}
-              </p>
-            ) : null}
-          </div>
+              id="condition-agency"
+              placeholder="Ex: FEPAM"
+            />
+          </TextField>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="condition-due-date">
-              Data de Vencimento <span aria-hidden="true">*</span>
-            </Label>
-            <InputGroup aria-invalid={Boolean(errors.dueDate)} variant="field">
-              <Input
-                {...register('dueDate')}
-                aria-describedby={
-                  errors.dueDate ? 'condition-due-date-error' : undefined
-                }
-                aria-invalid={Boolean(errors.dueDate)}
-                aria-required="true"
-                id="condition-due-date"
-                required
-                type="date"
-              />
-            </InputGroup>
-            {errors.dueDate ? (
-              <p
-                className="m-0 text-[13px] font-semibold text-red-600"
-                id="condition-due-date-error"
-                role="alert"
-              >
-                {errors.dueDate.message}
-              </p>
-            ) : null}
-          </div>
+          <TextField
+            error={errors.dueDate?.message}
+            id="condition-due-date"
+            label="Data de Vencimento"
+          >
+            <Input
+              {...register('dueDate')}
+              aria-invalid={Boolean(errors.dueDate)}
+              id="condition-due-date"
+              required
+              type="date"
+            />
+          </TextField>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="condition-status">Status Inicial</Label>
@@ -431,109 +356,14 @@ export function NewConditionModal({
             />
           </div>
 
-          <fieldset className="col-span-2 m-0 grid grid-cols-3 gap-4 border-0 p-0 max-[560px]:col-span-1 max-[560px]:grid-cols-1">
-            <legend className="mb-2 p-0 text-sm font-semibold">
-              Meta de Conformidade ESG
-            </legend>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="condition-target-metric">Métrica ESG alvo</Label>
-              <Controller
-                control={control}
-                name="targetMetricId"
-                render={({ field }) => (
-                  <Select
-                    disabled={isLoadingCategories || categories.length === 0}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <SelectTrigger
-                      aria-invalid={Boolean(errors.targetMetricId)}
-                      className="w-full"
-                      id="condition-target-metric"
-                    >
-                      <SelectValue placeholder="Selecione a métrica" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((metric) => (
-                        <SelectItem key={metric.id} value={metric.id}>
-                          {metric.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.targetMetricId ? (
-                <p
-                  className="m-0 text-[13px] font-semibold text-red-600"
-                  role="alert"
-                >
-                  {errors.targetMetricId.message}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="condition-target-operator">Operador</Label>
-              <Controller
-                control={control}
-                name="targetOperator"
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger
-                      aria-invalid={Boolean(errors.targetOperator)}
-                      className="w-full"
-                      id="condition-target-operator"
-                    >
-                      <SelectValue placeholder="Selecione o operador" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TARGET_OPERATORS.map((operator) => (
-                        <SelectItem key={operator.value} value={operator.value}>
-                          {operator.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.targetOperator ? (
-                <p
-                  className="m-0 text-[13px] font-semibold text-red-600"
-                  role="alert"
-                >
-                  {errors.targetOperator.message}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="condition-target-value">Valor da meta</Label>
-              <InputGroup
-                aria-invalid={Boolean(errors.targetValue)}
-                variant="field"
-              >
-                <Input
-                  {...register('targetValue')}
-                  aria-invalid={Boolean(errors.targetValue)}
-                  id="condition-target-value"
-                  inputMode="decimal"
-                  placeholder="Ex: 6.5"
-                  type="number"
-                  step="any"
-                />
-              </InputGroup>
-              {errors.targetValue ? (
-                <p
-                  className="m-0 text-[13px] font-semibold text-red-600"
-                  role="alert"
-                >
-                  {errors.targetValue.message}
-                </p>
-              ) : null}
-            </div>
-          </fieldset>
+          <label className="col-span-2 flex items-center gap-2 text-sm font-semibold text-text-primary max-[560px]:col-span-1">
+            <input
+              {...register('hasDelivery')}
+              className="h-4 w-4 accent-emerald-600"
+              type="checkbox"
+            />
+            Possui entrega?
+          </label>
 
           <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
             <Label htmlFor="condition-description">
@@ -546,18 +376,12 @@ export function NewConditionModal({
               placeholder="Descreva brevemente o objetivo e os requisitos desta condicionante..."
             />
             {errors.description ? (
-              <p
-                className="m-0 text-[13px] font-semibold text-red-600"
-                role="alert"
-              >
-                {errors.description.message}
-              </p>
+              <FieldError message={errors.description.message} />
             ) : null}
           </div>
 
           {errors.root ? (
             <p
-              aria-live="polite"
               className="col-span-2 m-0 rounded-sm border border-[#fda29b] bg-[#fef3f2] px-3 py-2.5 text-[13px] font-semibold text-[#b42318] max-[560px]:col-span-1"
               role="alert"
             >
@@ -567,6 +391,7 @@ export function NewConditionModal({
 
           <DialogFooter className="col-span-2 max-[560px]:col-span-1">
             <Button
+              disabled={isSubmitting}
               onClick={() => handleOpenChange(false)}
               type="button"
               variant="subtle"
@@ -574,14 +399,7 @@ export function NewConditionModal({
               Cancelar
             </Button>
             <Button
-              disabled={
-                !isValid ||
-                isSubmitting ||
-                isLoadingLicenses ||
-                licenses.length === 0 ||
-                isLoadingCategories ||
-                categories.length === 0
-              }
+              disabled={!isValid || isSubmitting || licenses.length === 0}
               type="submit"
               variant="dialogPrimary"
             >
@@ -592,4 +410,34 @@ export function NewConditionModal({
       </DialogContent>
     </Dialog>
   );
+}
+
+function TextField({
+  children,
+  error,
+  id,
+  label,
+}: {
+  children: React.ReactNode;
+  error?: string;
+  id: string;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <InputGroup aria-invalid={Boolean(error)} variant="field">
+        {children}
+      </InputGroup>
+      {error ? <FieldError message={error} /> : null}
+    </div>
+  );
+}
+
+function FieldError({ message }: { message?: string }) {
+  return message ? (
+    <p className="m-0 text-[13px] font-semibold text-red-600" role="alert">
+      {message}
+    </p>
+  ) : null;
 }

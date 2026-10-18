@@ -24,7 +24,6 @@ vi.mock('../../services/api/companiesApi', () => ({
   getCompanyById: vi.fn(),
   createCompany: vi.fn(),
   linkCompanyEsgMetrics: vi.fn(),
-  listCompanyEsgMetrics: vi.fn(),
 }));
 vi.mock('../../services/api/customersApi', () => ({
   listCompanies: vi.fn(),
@@ -42,8 +41,6 @@ const licenseConditionsApi =
   await import('../../services/api/licenseConditionsApi');
 
 const COMPANY_ID = 'customer-1';
-const COMPANY_ESG_METRICS = [{ id: 'metric-water', name: 'Água', unit: 'm³' }];
-
 const COMPANY_IN_CONTEXT: CompanyListItem = {
   id: COMPANY_ID,
   name: 'Unidade Industrial Ouro Preto',
@@ -140,37 +137,45 @@ const CREATED_LICENSE = {
 
 async function fillConditionRow(
   user: ReturnType<typeof userEvent.setup>,
-  n: number
+  descriptor = 'Água',
+  description = 'Monitoramento hidroquímico'
 ) {
   await user.click(
-    screen.getByRole('combobox', { name: `Categoria da condicionante ${n}` })
-  );
-  await user.click(await screen.findByRole('option', { name: 'Água' }));
-  await user.type(
-    screen.getByLabelText(`Nº do item da condicionante ${n}`),
-    '3.1'
-  );
-  await user.type(
-    screen.getByLabelText(`Descrição da condicionante ${n}`),
-    'Monitoramento hidroquímico'
-  );
-  await user.click(
-    screen.getByRole('combobox', { name: `Tipo da condicionante ${n}` })
-  );
-  await user.click(await screen.findByRole('option', { name: 'Periódico' }));
-  await user.click(
-    screen.getByRole('combobox', {
-      name: `Periodicidade da condicionante ${n}`,
+    screen.getByRole('button', {
+      name: `Adicionar condicionante em ${descriptor}`,
     })
   );
-  await user.click(await screen.findByRole('option', { name: 'Anual' }));
-  await user.type(
-    screen.getByLabelText(`Prazo da condicionante ${n}`),
-    '2026-10-30'
+  const dialog = screen.getByRole('dialog', { name: 'Nova Condicionante' });
+  await user.type(within(dialog).getByLabelText('Descrição'), description);
+  await user.click(within(dialog).getByRole('combobox', { name: 'Tipo' }));
+  await user.click(await screen.findByRole('option', { name: 'Periódico' }));
+  await user.click(
+    within(dialog).getByRole('combobox', { name: 'Periodicidade' })
   );
+  await user.click(await screen.findByRole('option', { name: 'Anual' }));
+  await user.type(within(dialog).getByLabelText('Prazo'), '2026-10-30');
+  await user.type(within(dialog).getByLabelText('Responsável'), 'Lucas Silva');
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Adicionar Condicionante' })
+  );
+}
+
+async function addEnvironmentalDescriptor(
+  user: ReturnType<typeof userEvent.setup>,
+  descriptor = 'Água'
+) {
+  await user.click(
+    screen.getByRole('button', { name: 'Adicionar Descritor Ambiental' })
+  );
+  const dialog = screen.getByRole('dialog', {
+    name: 'Novo Descritor Ambiental',
+  });
   await user.type(
-    screen.getByLabelText(`Responsável pela condicionante ${n}`),
-    'Lucas Silva'
+    within(dialog).getByLabelText('Descritor ambiental'),
+    descriptor
+  );
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Adicionar Descritor' })
   );
 }
 
@@ -185,9 +190,6 @@ describe('CompanyLicensesPage', () => {
     useCompanyContext.getState().clearCompany();
     vi.mocked(companiesApi.getCompanyById).mockResolvedValue(
       COMPANY_IN_CONTEXT
-    );
-    vi.mocked(companiesApi.listCompanyEsgMetrics).mockResolvedValue(
-      COMPANY_ESG_METRICS
     );
     vi.mocked(customersApi.listCompanies).mockResolvedValue([
       COMPANY_IN_CONTEXT,
@@ -359,25 +361,37 @@ describe('CompanyLicensesPage', () => {
     expect(row).toHaveTextContent('Regular');
   });
 
-  it('adds an empty condition row and removes it again', async () => {
+  it('numbers environmental descriptors and their conditions automatically', async () => {
     const user = userEvent.setup();
     renderLicensesPage();
     await user.click(screen.getByRole('button', { name: /nova licença/i }));
 
-    await user.click(
-      screen.getByRole('button', { name: /adicionar condicionante/i })
-    );
-    expect(screen.getByLabelText('Descrição da condicionante 1')).toHaveValue(
-      ''
-    );
+    await addEnvironmentalDescriptor(user, 'Água');
+    await fillConditionRow(user, 'Água', 'Primeiro laudo');
+    await fillConditionRow(user, 'Água', 'Segundo laudo');
+    await addEnvironmentalDescriptor(user, 'Resíduos');
+    await fillConditionRow(user, 'Resíduos', 'Manifesto mensal');
+
+    expect(screen.getByRole('row', { name: /1 Água/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('row', { name: /1\.1 Primeiro laudo/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('row', { name: /1\.2 Segundo laudo/ })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /2 Resíduos/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('row', { name: /2\.1 Manifesto mensal/ })
+    ).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole('button', { name: /remover condicionante 1/i })
+      screen.getByRole('button', { name: 'Remover condicionante 1.1' })
     );
+    expect(screen.queryByText('Primeiro laudo')).not.toBeInTheDocument();
     expect(
-      screen.queryByLabelText('Descrição da condicionante 1')
-    ).not.toBeInTheDocument();
-  });
+      screen.getByRole('row', { name: /1\.1 Segundo laudo/ })
+    ).toBeInTheDocument();
+  }, 20_000);
 
   it('creates the license first, then posts the conditions with the new license id', async () => {
     const user = userEvent.setup();
@@ -388,10 +402,8 @@ describe('CompanyLicensesPage', () => {
 
     renderLicensesPage();
     await openModalAndFillRequiredFields(user);
-    await user.click(
-      screen.getByRole('button', { name: /adicionar condicionante/i })
-    );
-    await fillConditionRow(user, 1);
+    await addEnvironmentalDescriptor(user);
+    await fillConditionRow(user);
     await user.click(screen.getByRole('button', { name: /salvar licença/i }));
 
     await waitFor(() =>
@@ -400,13 +412,13 @@ describe('CompanyLicensesPage', () => {
         'license-9',
         [
           {
-            esgMetricId: 'metric-water',
-            itemNumber: '3.1',
+            environmentalDescriptor: 'Água',
             description: 'Monitoramento hidroquímico',
             conditionType: 'PERIODIC',
             periodicity: 'ANNUAL',
             deadline: '2026-10-30T00:00:00.000Z',
             responsibleName: 'Lucas Silva',
+            hasDelivery: true,
           },
         ]
       )
@@ -433,10 +445,8 @@ describe('CompanyLicensesPage', () => {
 
     renderLicensesPage();
     await openModalAndFillRequiredFields(user);
-    await user.click(
-      screen.getByRole('button', { name: /adicionar condicionante/i })
-    );
-    await fillConditionRow(user, 1);
+    await addEnvironmentalDescriptor(user);
+    await fillConditionRow(user);
 
     await user.click(screen.getByRole('button', { name: /salvar licença/i }));
     expect(await screen.findByText(/prazo inválido\./i)).toBeInTheDocument();
