@@ -13,6 +13,7 @@ vi.mock('../../services/api/issuingAgenciesApi', () => ({
 }));
 vi.mock('../../services/api/licensesApi', () => ({
   createLicense: vi.fn(),
+  getLicenseDocumentUrl: vi.fn(),
   listLicenses: vi.fn(),
 }));
 /*
@@ -519,28 +520,106 @@ describe('CompanyLicensesPage', () => {
     ).not.toHaveLength(0);
   });
 
-  it('renders an "Abrir PDF" link that points to the document_url in a new tab', async () => {
-    renderLicensesPage();
+  describe('"Abrir PDF"', () => {
+    const SIGNED_URL =
+      'https://bucket.s3.amazonaws.com/licenses/lp-482-2024.pdf?X-Amz-Expires=900&X-Amz-Signature=abc';
 
-    // Two licenses in LICENSES_PANEL have a documentUrl; pick the first one.
-    const pdfLinks = await screen.findAllByRole('link', { name: /abrir pdf/i });
-    const firstLink = pdfLinks[0]!;
-    expect(firstLink).toHaveAttribute(
-      'href',
-      'https://bucket.aws.com/licenses/lp-482-2024.pdf'
+    async function findPdfButton(processNumber: string) {
+      const row = (await screen.findByText(processNumber)).closest('tr')!;
+      return within(row).getByRole('button', { name: /abrir pdf/i });
+    }
+
+    beforeEach(() => {
+      vi.spyOn(window, 'open').mockReturnValue(null);
+    });
+
+    it('fetches a signed URL and opens it in a new tab instead of linking to document_url', async () => {
+      const user = userEvent.setup();
+      vi.mocked(licensesApi.getLicenseDocumentUrl).mockResolvedValue({
+        url: SIGNED_URL,
+        expiresIn: 900,
+      });
+      renderLicensesPage();
+
+      const button = await findPdfButton('LP nº 482/2024');
+      expect(screen.queryByRole('link', { name: /abrir pdf/i })).toBeNull();
+      await user.click(button);
+
+      expect(licensesApi.getLicenseDocumentUrl).toHaveBeenCalledWith(
+        'license-1'
+      );
+      await waitFor(() =>
+        expect(window.open).toHaveBeenCalledWith(
+          SIGNED_URL,
+          '_blank',
+          'noopener,noreferrer'
+        )
+      );
+    });
+
+    it('shows a spinner and blocks repeated clicks while the URL is requested', async () => {
+      const user = userEvent.setup();
+      let resolveUrl: (value: {
+        url: string;
+        expiresIn: number;
+      }) => void = () => {};
+      vi.mocked(licensesApi.getLicenseDocumentUrl).mockReturnValue(
+        new Promise((resolve) => {
+          resolveUrl = resolve;
+        })
+      );
+      renderLicensesPage();
+
+      const button = await findPdfButton('LP nº 482/2024');
+      await user.click(button);
+
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute('aria-busy', 'true');
+      expect(button.querySelector('.animate-spin')).not.toBeNull();
+      expect(await findPdfButton('LO nº 118/2020')).toBeDisabled();
+      await user.click(button);
+      expect(licensesApi.getLicenseDocumentUrl).toHaveBeenCalledTimes(1);
+
+      resolveUrl({ url: SIGNED_URL, expiresIn: 900 });
+      await waitFor(() => expect(button).toBeEnabled());
+      expect(button.querySelector('.animate-spin')).toBeNull();
+    });
+
+    it.each([
+      [404, 'Documento da licença não encontrado.'],
+      [403, 'Você não tem permissão para acessar este documento.'],
+      [500, 'Não foi possível abrir o PDF da licença. Tente novamente.'],
+    ])(
+      'shows a friendly error toast when the backend answers %i',
+      async (status, message) => {
+        const user = userEvent.setup();
+        vi.mocked(licensesApi.getLicenseDocumentUrl).mockRejectedValue(
+          new ApiError(status, 'backend message')
+        );
+        renderLicensesPage();
+
+        await user.click(await findPdfButton('LP nº 482/2024'));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(message);
+        expect(window.open).not.toHaveBeenCalled();
+
+        await user.click(
+          screen.getByRole('button', { name: /fechar notificação/i })
+        );
+        expect(screen.queryByRole('alert')).toBeNull();
+      }
     );
-    expect(firstLink).toHaveAttribute('target', '_blank');
-    expect(firstLink).toHaveAttribute('rel', 'noopener noreferrer');
-  });
 
-  it('does not render an "Abrir PDF" link when document_url is null', async () => {
-    renderLicensesPage();
+    it('renders "Sem PDF" instead of a button when document_url is null', async () => {
+      renderLicensesPage();
 
-    await screen.findByText('LP nº 482/2024');
-    // license-2 (OUT nº 085/2021) has documentUrl: null — it renders
-    // "Sem PDF" text instead of a link.
-    const row = screen.getByText('OUT nº 085/2021').closest('tr')!;
-    expect(within(row).getByText(/sem pdf/i)).toBeInTheDocument();
-    expect(within(row).queryByRole('link', { name: /abrir pdf/i })).toBeNull();
+      await screen.findByText('LP nº 482/2024');
+      // license-2 (OUT nº 085/2021) has documentUrl: null.
+      const row = screen.getByText('OUT nº 085/2021').closest('tr')!;
+      expect(within(row).getByText(/sem pdf/i)).toBeInTheDocument();
+      expect(
+        within(row).queryByRole('button', { name: /abrir pdf/i })
+      ).toBeNull();
+    });
   });
 });

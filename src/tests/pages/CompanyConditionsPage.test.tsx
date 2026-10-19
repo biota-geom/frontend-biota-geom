@@ -371,145 +371,22 @@ describe('CompanyConditionsPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps submit disabled and flags the required due date when it is cleared', async () => {
-    const user = userEvent.setup();
+  it('does not offer a standalone condition creation entry point', async () => {
     vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
       total: 0,
       conditions: [],
     });
 
     renderConditionsPage();
-    await user.click(
-      screen.getByRole('button', { name: 'Novo Condicionante' })
-    );
-    const submitButton = screen.getByRole('button', {
-      name: 'Cadastrar Condicionante',
-    });
-    expect(submitButton).toBeDisabled();
-
-    const dueDate = screen.getByLabelText(/Data de Vencimento/);
-    expect(dueDate).toBeRequired();
-    await user.type(dueDate, '2099-05-20');
-    await user.clear(dueDate);
 
     expect(
       await screen.findByText(
-        'A data de vencimento é obrigatória para registar a condicionante.'
+        'Nenhuma condicionante cadastrada para esta empresa.'
       )
     ).toBeInTheDocument();
-    expect(submitButton).toBeDisabled();
-    expect(licenseConditionsApi.createLicenseCondition).not.toHaveBeenCalled();
-  });
-
-  it('creates a condition, closes the modal, shows a toast and refetches the cards and compliance', async () => {
-    const user = userEvent.setup();
-    const createdCondition = {
-      id: 'condition-new',
-      licenseId: '550e8400-e29b-41d4-a716-446655440000',
-      name: 'MTR - Manifesto de Transporte de Resíduos',
-      description: 'Manifesto de transporte.',
-      environmentalDescriptor: 'Resíduos Sólidos Gerados',
-      responsibleAgency: 'FEPAM',
-      dueDate: '2099-05-20T00:00:00.000Z',
-      status: 'Regular' as const,
-      hasDelivery: true,
-      isViolated: false,
-      riskLevel: 'REGULAR' as const,
-    };
-    vi.mocked(licenseConditionsApi.listLicenseConditions)
-      .mockResolvedValueOnce({ total: 0, conditions: [] })
-      .mockResolvedValue({ total: 1, conditions: [createdCondition] });
-    vi.mocked(licenseConditionsApi.getLicenseConditionsCompliance)
-      .mockResolvedValueOnce({
-        totalActive: 1,
-        inCompliance: 0,
-        compliancePercentage: 0,
-      })
-      .mockResolvedValue({
-        totalActive: 2,
-        inCompliance: 1,
-        compliancePercentage: 50,
-      });
-    vi.mocked(licenseConditionsApi.createLicenseCondition).mockResolvedValue({
-      id: createdCondition.id,
-      license_id: createdCondition.licenseId,
-      name: createdCondition.name,
-      description: createdCondition.description,
-      environmental_descriptor: createdCondition.environmentalDescriptor,
-      responsible_agency: createdCondition.responsibleAgency,
-      due_date: createdCondition.dueDate,
-      status: createdCondition.status,
-      has_delivery: createdCondition.hasDelivery,
-      is_violated: createdCondition.isViolated,
-      created_at: '2026-09-29T12:00:00.000Z',
-    });
-
-    renderConditionsPage();
-    await screen.findByText(
-      'Nenhuma condicionante cadastrada para esta empresa.'
-    );
-
-    await user.click(
-      screen.getByRole('button', { name: 'Novo Condicionante' })
-    );
-    await screen.findByRole('dialog');
-
-    await user.type(
-      screen.getByLabelText('Nome da Condicionante'),
-      createdCondition.name
-    );
-    await user.click(
-      screen.getByRole('combobox', { name: 'Descritor Ambiental' })
-    );
-    await user.click(
-      screen.getByRole('option', {
-        name: createdCondition.environmentalDescriptor,
-      })
-    );
-    await user.click(
-      screen.getByRole('combobox', { name: 'Licença Vinculada' })
-    );
-    await user.click(screen.getByRole('option', { name: 'LO nº 118/2020' }));
-    await user.type(screen.getByLabelText('Órgão Responsável'), 'FEPAM');
-    await user.type(screen.getByLabelText(/Data de Vencimento/), '2099-05-20');
-    await user.type(
-      screen.getByLabelText('Descrição da Condicionante'),
-      'Manifesto de transporte.'
-    );
-    await user.click(
-      screen.getByRole('button', { name: 'Cadastrar Condicionante' })
-    );
-
-    await waitFor(() =>
-      expect(licenseConditionsApi.createLicenseCondition).toHaveBeenCalledWith({
-        name: createdCondition.name,
-        environmentalDescriptor: createdCondition.environmentalDescriptor,
-        licenseId: createdCondition.licenseId,
-        responsibleAgency: 'FEPAM',
-        dueDate: '2099-05-20T00:00:00.000Z',
-        status: 'Regular',
-        hasDelivery: true,
-        description: 'Manifesto de transporte.',
-      })
-    );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
-      await screen.findByText(
-        `Condicionante "${createdCondition.name}" cadastrada com sucesso.`
-      )
-    ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(licenseConditionsApi.listLicenseConditions).toHaveBeenCalledTimes(
-        3
-      )
-    );
-    expect(await screen.findByText(createdCondition.name)).toBeInTheDocument();
-    expect(
-      await screen.findByText('1 de 2 condicionantes em dia')
-    ).toBeInTheDocument();
-    expect(
-      licenseConditionsApi.getLicenseConditionsCompliance
-    ).toHaveBeenCalledTimes(2);
+      screen.queryByRole('button', { name: /Novo Condicionante/ })
+    ).not.toBeInTheDocument();
   });
 
   it('marks a condition as violated in the edit modal and displays the badge after reloading', async () => {
