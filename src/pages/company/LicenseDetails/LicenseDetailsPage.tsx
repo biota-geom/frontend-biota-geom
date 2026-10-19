@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { buildCompanyRoutes } from '../../../app/router/routes';
@@ -16,6 +16,7 @@ import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
+import { RenewLicenseModal } from './components/RenewLicenseModal';
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
@@ -43,25 +44,30 @@ function LoadingDetails() {
 }
 
 function ConditionRow({ condition }: { condition: LicenseConditionDetail }) {
-  const itemNumber = condition.itemNumber ?? '—';
-  const isGroup = itemNumber !== '—' && !itemNumber.includes('.');
-
   return (
     <tr
       className={
-        isGroup
+        condition.isEnvironmentalDescriptor
           ? 'bg-surface-muted font-bold text-text-primary'
           : 'bg-surface text-text-secondary'
       }
     >
-      <td className="px-3 py-3 align-top">{itemNumber}</td>
+      <td className="px-3 py-3 align-top">{condition.itemNumber}</td>
+      <td className="px-3 py-3 align-top">
+        {condition.isEnvironmentalDescriptor
+          ? condition.environmentalDescriptor
+          : '—'}
+      </td>
       <td className="min-w-64 px-3 py-3 align-top">
-        <span className={isGroup ? 'text-text-primary' : ''}>
-          {condition.description || '—'}
+        <span
+          className={
+            condition.isEnvironmentalDescriptor ? 'text-text-primary' : 'pl-4'
+          }
+        >
+          {condition.isEnvironmentalDescriptor
+            ? '—'
+            : condition.description || '—'}
         </span>
-        {isGroup ? (
-          <span className="sr-only">, grupo de condicionantes</span>
-        ) : null}
       </td>
       <td className="px-3 py-3 align-top">
         {formatConditionType(condition.conditionType)}
@@ -76,20 +82,26 @@ function ConditionRow({ condition }: { condition: LicenseConditionDetail }) {
       <td className="px-3 py-3 align-top">
         {condition.isViolated ? (
           <span className="rounded-control bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-800">
-            Ativo
+            Violada
           </span>
         ) : (
           '—'
         )}
       </td>
       <td className="px-3 py-3 align-top">
-        <ConditionStatusBadge status={condition.status} />
+        {condition.status ? (
+          <ConditionStatusBadge status={condition.status} />
+        ) : (
+          '—'
+        )}
       </td>
       <td className="px-3 py-3 align-top">
         {formatDate(condition.completionDate)}
       </td>
       <td className="px-3 py-3 align-top">
-        {isGroup ? 'Grupo de Condicionante' : condition.responsibleName || '—'}
+        {condition.isEnvironmentalDescriptor
+          ? 'Descritor ambiental'
+          : condition.responsibleName || '—'}
       </td>
     </tr>
   );
@@ -102,7 +114,9 @@ export function LicenseDetailsPage() {
   }>();
   const [filter, setFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { details, error, refetch, status } = useLicenseDetails(
     companyId,
     licenseId
@@ -111,15 +125,25 @@ export function LicenseDetailsPage() {
     parent: { label: 'Licenças', to: buildCompanyRoutes.licenses },
   });
 
-  const conditions = details?.conditions ?? [];
-  const filteredConditions = conditions.filter((condition) =>
-    `${condition.itemNumber} ${condition.description}`
+  const conditionRows = details?.conditions ?? [];
+  const conditions = conditionRows.filter(
+    (condition) => !condition.isEnvironmentalDescriptor
+  );
+  const filteredConditions = conditionRows.filter((condition) =>
+    `${condition.itemNumber} ${condition.environmentalDescriptor} ${condition.description}`
       .toLocaleLowerCase('pt-BR')
       .includes(filter.trim().toLocaleLowerCase('pt-BR'))
   );
   const fulfilledCount = conditions.filter(
-    (condition) => formatConditionStatus(condition.status) === 'Atendida'
+    (condition) =>
+      condition.status !== null &&
+      formatConditionStatus(condition.status) === 'Atendida'
   ).length;
+  const isArchived = details?.status === 'Renovada/Arquivada';
+  const canRenew =
+    details?.status === 'Regular' ||
+    details?.status === 'Atenção' ||
+    details?.status === 'Vencida';
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
 
@@ -132,11 +156,25 @@ export function LicenseDetailsPage() {
     refetch();
   }
 
+  function handleRenewed(renewed: { id: string }) {
+    if (!companyId) return;
+    navigate(buildCompanyRoutes.licenseDetails(companyId, renewed.id));
+  }
+
   return (
     <PageScaffold
       actions={
-        status === 'success'
+        status === 'success' && !isArchived
           ? [
+              ...(canRenew
+                ? [
+                    {
+                      icon: 'none' as const,
+                      label: 'Renovar licença',
+                      onClick: () => setIsRenewModalOpen(true),
+                    },
+                  ]
+                : []),
               {
                 label: 'Adicionar Condicionante',
                 onClick: () => setIsModalOpen(true),
@@ -220,11 +258,12 @@ export function LicenseDetailsPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-270 border-collapse text-left text-xs">
+              <table className="w-full min-w-285 border-collapse text-left text-xs">
                 <thead className="bg-surface-muted text-[11px] font-semibold text-text-secondary">
                   <tr>
                     {[
                       'Item',
+                      'Descritor ambiental',
                       'Descrição',
                       'Tipo Cond.',
                       'Periodicidade',
@@ -243,13 +282,16 @@ export function LicenseDetailsPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredConditions.map((condition) => (
-                    <ConditionRow condition={condition} key={condition.id} />
+                    <ConditionRow
+                      condition={condition}
+                      key={condition.id ?? `descriptor-${condition.itemNumber}`}
+                    />
                   ))}
                   {filteredConditions.length === 0 ? (
                     <tr>
                       <td
                         className="px-4 py-8 text-center text-sm text-text-secondary"
-                        colSpan={10}
+                        colSpan={11}
                       >
                         {conditions.length === 0
                           ? 'Nenhuma condicionante cadastrada para esta licença.'
@@ -271,6 +313,15 @@ export function LicenseDetailsPage() {
           onCreated={handleConditionsCreated}
           onOpenChange={setIsModalOpen}
           open={isModalOpen}
+        />
+      ) : null}
+
+      {details ? (
+        <RenewLicenseModal
+          license={details}
+          onOpenChange={setIsRenewModalOpen}
+          onRenewed={handleRenewed}
+          open={isRenewModalOpen}
         />
       ) : null}
 

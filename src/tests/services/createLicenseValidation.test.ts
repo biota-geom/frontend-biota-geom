@@ -65,13 +65,13 @@ describe('createLicenseSchema', () => {
         ...VALID,
         conditions: [
           {
-            esgMetricId: 'metric-water',
-            itemNumber: '1.1',
+            environmentalDescriptor: 'Água',
             description: 'Manter controle',
             conditionType: 'PERIODIC',
             periodicity: 'QUARTERLY',
             deadline: '2026-10-30',
             responsibleName: 'Lucas Silva',
+            hasDelivery: true,
           },
         ],
       }).success

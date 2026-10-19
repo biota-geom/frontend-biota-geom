@@ -1,14 +1,18 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../services/api/http', () => ({
   request: vi.fn(),
 }));
 
 const { request } = await import('../../services/api/http');
-const { createLicense, listLicenses } =
+const { createLicense, listLicenses, renewLicense } =
   await import('../../services/api/licensesApi');
 
 describe('licensesApi', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('createLicense() posts a FormData body and maps the response to the domain shape', async () => {
     vi.mocked(request).mockResolvedValue({
       id: 'license-1',
@@ -61,6 +65,40 @@ describe('licensesApi', () => {
       status: 'Vencida',
       documentUrl: 'https://bucket.aws.com/licenses/lo-118-2020.pdf',
       createdAt: '2020-01-10T00:00:00.000Z',
+    });
+  });
+
+  it('renewLicense() posts the new license data as multipart and maps the response', async () => {
+    vi.mocked(request).mockResolvedValue({
+      id: 'new-license',
+      previous_license_id: 'old-license',
+      status: 'Regular',
+    });
+    const file = new File(['%PDF-1.4'], 'renovada.pdf', {
+      type: 'application/pdf',
+    });
+
+    const renewed = await renewLicense('old-license', {
+      processNumber: 'LO nº 119/2026',
+      issueDate: '2026-01-10',
+      expirationDate: '2030-01-10',
+      documentFile: file,
+    });
+
+    expect(request).toHaveBeenCalledTimes(1);
+    const [path, options] = vi.mocked(request).mock.calls[0]!;
+    expect(path).toBe('/api/licenses/old-license/renew');
+    expect(options?.method).toBe('POST');
+
+    const formData = options?.body as FormData;
+    expect(formData.get('process_number')).toBe('LO nº 119/2026');
+    expect(formData.get('issue_date')).toBe('2026-01-10');
+    expect(formData.get('expiration_date')).toBe('2030-01-10');
+    expect(formData.get('document_file')).toBe(file);
+    expect(renewed).toEqual({
+      id: 'new-license',
+      previousLicenseId: 'old-license',
+      status: 'Regular',
     });
   });
 

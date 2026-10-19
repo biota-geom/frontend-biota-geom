@@ -27,25 +27,37 @@ export interface License {
 }
 
 export interface LicenseConditionDetail {
-  id: string;
-  itemNumber: string | null;
+  id: string | null;
+  itemNumber: string;
+  isEnvironmentalDescriptor: boolean;
+  environmentalDescriptor: string;
+  name: string | null;
   description: string | null;
   conditionType: string | null;
   periodicity: string;
   deadline: string | null;
-  status: string;
+  status: string | null;
   completionDate: string | null;
   responsibleName: string | null;
+  hasDelivery: boolean | null;
   isViolated: boolean;
 }
 
 export interface LicenseDetails {
   id: string;
   processNumber: string;
+  type: string;
+  issuingAgency: string | null;
   issueDate: string;
   expirationDate: string;
   status: string;
   conditions: LicenseConditionDetail[];
+}
+
+export interface LicenseRenewed {
+  id: string;
+  previousLicenseId: string;
+  status: string;
 }
 
 export interface LicenseSummary {
