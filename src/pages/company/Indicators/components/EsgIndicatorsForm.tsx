@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/shadcn/input-group';
 import { Label } from '@/components/ui/shadcn/label';
 import {
+  applyPayload,
   EMPTY_ESG_FORM_VALUES,
   ESG_INDICATOR_FIELDS,
   esgIndicatorsSchema,
@@ -47,6 +48,20 @@ export function EsgIndicatorsForm({
   onSaved,
   savedIndicators,
 }: EsgIndicatorsFormProps) {
+  /*
+   * What is stored for this month right now: the loaded values, kept up to date
+   * after each save. It decides which blank fields are a "clear" (null) and
+   * which are simply "never informed".
+   */
+  const [baseline, setBaseline] = useState(savedIndicators);
+  const [loadedFrom, setLoadedFrom] = useState(savedIndicators);
+
+  // A freshly loaded month replaces whatever was tracked for the previous one.
+  if (loadedFrom !== savedIndicators) {
+    setLoadedFrom(savedIndicators);
+    setBaseline(savedIndicators);
+  }
+
   const {
     formState: { errors, isSubmitting },
     handleSubmit,
@@ -74,7 +89,7 @@ export function EsgIndicatorsForm({
   const canEdit = isMonthValid && loadStatus === 'success';
 
   const submit = handleSubmit(async (values) => {
-    const payload = toPayload(values);
+    const payload = toPayload(values, baseline);
 
     if (Object.keys(payload).length === 0) {
       setError('root', { message: NOTHING_TO_SAVE_MESSAGE });
@@ -83,6 +98,7 @@ export function EsgIndicatorsForm({
 
     try {
       await saveEsgIndicators(companyId, month, payload);
+      setBaseline(applyPayload(baseline, payload));
       onSaved(month);
     } catch (error) {
       setError('root', {
