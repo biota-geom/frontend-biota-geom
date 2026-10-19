@@ -27,6 +27,10 @@ export const INVALID_NUMBER_MESSAGE = 'Informe um número válido.';
 export const NEGATIVE_NUMBER_MESSAGE = 'O valor não pode ser negativo.';
 export const INTEGER_ONLY_MESSAGE = 'Informe um número inteiro.';
 
+/*
+ * Every field is a string in the form (an empty input is ''), because a
+ * partially filled month is valid: blank means "not informed", not zero.
+ */
 function numericField(options: { integer?: boolean } = {}) {
   return z
     .string()
@@ -79,16 +83,47 @@ export function toFormValues(
   return values;
 }
 
+/*
+ * Blank means "not informed". For an indicator that already has a saved value,
+ * though, a blank field is the user clearing it, so it goes out as null (the
+ * API deletes the record). Blank with nothing saved is simply left out.
+ */
 export function toPayload(
-  values: EsgIndicatorsFormValues
+  values: EsgIndicatorsFormValues,
+  saved: EsgMonthlyIndicators | null = null
 ): EsgIndicatorsPayload {
   const payload: EsgIndicatorsPayload = {};
 
   for (const key of ESG_INDICATOR_KEYS) {
-    if (values[key] !== '') payload[key] = Number(values[key]);
+    if (values[key] !== '') {
+      payload[key] = Number(values[key]);
+    } else if (saved?.[key] != null) {
+      payload[key] = null;
+    }
   }
 
   return payload;
+}
+
+/** What the month looks like once `payload` has been saved on top of `saved`. */
+export function applyPayload(
+  saved: EsgMonthlyIndicators | null,
+  payload: EsgIndicatorsPayload
+): EsgMonthlyIndicators {
+  const result: EsgMonthlyIndicators = {
+    water: null,
+    waste: null,
+    employees: null,
+    energy: null,
+    ...saved,
+  };
+
+  for (const key of ESG_INDICATOR_KEYS) {
+    const value = payload[key];
+    if (value !== undefined) result[key] = value;
+  }
+
+  return result;
 }
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -97,12 +132,14 @@ export function isValidMonth(value: string): boolean {
   return MONTH_PATTERN.test(value);
 }
 
+/** "YYYY-MM" of the month before `now` — January rolls back to December. */
 export function getPreviousMonth(now = new Date()): string {
   const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const month = String(previous.getMonth() + 1).padStart(2, '0');
   return `${previous.getFullYear()}-${month}`;
 }
 
+/** "2026-09" -> "setembro de 2026". */
 export function formatMonthLabel(month: string): string {
   const [year, monthNumber] = month.split('-').map(Number);
   return new Date(year, monthNumber - 1, 1).toLocaleDateString('pt-BR', {
