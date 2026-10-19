@@ -8,6 +8,7 @@ import {
   INVALID_NUMBER_MESSAGE,
   isValidMonth,
   NEGATIVE_NUMBER_MESSAGE,
+  applyPayload,
   toFormValues,
   toPayload,
 } from '../../features/esgIndicators/esgIndicatorsValidation';
@@ -73,6 +74,52 @@ describe('form <-> API mapping', () => {
   it('keeps zero in the payload instead of treating it as blank', () => {
     expect(toPayload({ ...EMPTY_ESG_FORM_VALUES, waste: '0' })).toEqual({
       waste: 0,
+    });
+  });
+
+  it('sends null for a blank field that had a saved value, so it is cleared', () => {
+    const saved = { water: 10, waste: null, employees: 3, energy: null };
+
+    expect(
+      toPayload({ water: '', waste: '', employees: '4', energy: '' }, saved)
+    ).toEqual({ water: null, employees: 4 });
+  });
+
+  it('does not send blank fields that were never saved', () => {
+    expect(toPayload(EMPTY_ESG_FORM_VALUES, null)).toEqual({});
+    expect(
+      toPayload(EMPTY_ESG_FORM_VALUES, {
+        water: null,
+        waste: null,
+        employees: null,
+        energy: null,
+      })
+    ).toEqual({});
+  });
+
+  it('keeps zero saved as a value, not as a clear', () => {
+    const saved = { water: 0, waste: null, employees: null, energy: null };
+
+    expect(toPayload({ ...EMPTY_ESG_FORM_VALUES, water: '0' }, saved)).toEqual({
+      water: 0,
+    });
+    expect(toPayload(EMPTY_ESG_FORM_VALUES, saved)).toEqual({ water: null });
+  });
+
+  it('applies a saved payload on top of the previous month values', () => {
+    const saved = { water: 10, waste: 2, employees: null, energy: 5 };
+
+    expect(applyPayload(saved, { water: null, employees: 7 })).toEqual({
+      water: null,
+      waste: 2,
+      employees: 7,
+      energy: 5,
+    });
+    expect(applyPayload(null, { waste: 1 })).toEqual({
+      water: null,
+      waste: 1,
+      employees: null,
+      energy: null,
     });
   });
 

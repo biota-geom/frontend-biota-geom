@@ -194,6 +194,60 @@ describe('CompanyIndicatorsPage', () => {
     expect(waterInput()).toHaveValue(1250.5);
   });
 
+  it('clears a saved indicator by sending null when its field is emptied', async () => {
+    const user = userEvent.setup();
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
+    renderIndicatorsPage();
+    await waitFor(() => expect(waterInput()).toHaveValue(1250.5));
+
+    await user.clear(waterInput());
+    await user.click(
+      screen.getByRole('button', { name: 'Salvar indicadores' })
+    );
+
+    await waitFor(() =>
+      expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenCalledWith(
+        COMPANY_ID,
+        getPreviousMonth(),
+        { water: null, waste: 12.3, employees: 148, energy: 53200 }
+      )
+    );
+  });
+
+  it('remembers what it saved, so a value saved now can be cleared right after', async () => {
+    const user = userEvent.setup();
+    renderIndicatorsPage();
+    await waitFor(() => expect(waterInput()).toBeEnabled());
+
+    await user.type(waterInput(), '5');
+    await user.click(
+      screen.getByRole('button', { name: 'Salvar indicadores' })
+    );
+    await waitFor(() =>
+      expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenCalledTimes(1)
+    );
+    expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenLastCalledWith(
+      COMPANY_ID,
+      getPreviousMonth(),
+      { water: 5 }
+    );
+
+    await user.type(screen.getByLabelText('Resíduos Gerados'), '2');
+    await user.clear(waterInput());
+    await user.click(
+      screen.getByRole('button', { name: 'Salvar indicadores' })
+    );
+
+    await waitFor(() =>
+      expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenCalledTimes(2)
+    );
+    expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenLastCalledWith(
+      COMPANY_ID,
+      getPreviousMonth(),
+      { water: null, waste: 2 }
+    );
+  });
+
   it('blocks a negative value without calling the API', async () => {
     const user = userEvent.setup();
     renderIndicatorsPage();

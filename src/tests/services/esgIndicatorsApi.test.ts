@@ -89,4 +89,15 @@ describe('esgIndicatorsApi', () => {
       { method: 'PUT', body: { water: 1250.5, employees: 148 } }
     );
   });
+
+  it('saveEsgIndicators() sends null to clear a saved indicator', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await saveEsgIndicators('customer-1', '2026-09', { water: null, waste: 3 });
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/esg-indicators/2026-09',
+      { method: 'PUT', body: { water: null, waste: 3 } }
+    );
+  });
 });
