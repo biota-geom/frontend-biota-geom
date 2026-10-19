@@ -1,5 +1,6 @@
 import type {
   License,
+  LicenseDashboard,
   LicenseDetails,
   LicensePanelItem,
   LicensesPanel,
@@ -11,6 +12,7 @@ import type {
   LicensePanelItemWire,
   LicenseDetailsWire,
   LicensePanelResponseWire,
+  LicenseDashboardWire,
   LicenseRenewedWire,
   LicenseWire,
 } from './types';
@@ -151,6 +153,33 @@ function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {
     status: wire.status,
     documentUrl: wire.document_url,
   };
+}
+
+function toLicenseDashboard(wire: LicenseDashboardWire): LicenseDashboard {
+  return {
+    header: {
+      activeLicenses: wire.header.active_licenses,
+      pendingItems: wire.header.pending_items,
+    },
+    counts: wire.counts,
+    critical: wire.critical.map((item) => ({
+      id: item.id,
+      type: item.type,
+      processNumber: item.process_number,
+      expirationDate: item.expiration_date,
+      status: item.status,
+    })),
+  };
+}
+
+export async function getLicenseDashboard(
+  customerId: string
+): Promise<LicenseDashboard> {
+  const wire = await request<LicenseDashboardWire>(
+    `/api/customers/${customerId}/dashboard/licenses`
+  );
+
+  return toLicenseDashboard(wire);
 }
 
 export async function listLicenses(customerId: string): Promise<LicensesPanel> {
