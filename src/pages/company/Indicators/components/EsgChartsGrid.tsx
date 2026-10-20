@@ -33,6 +33,7 @@ export function EsgChartsGrid({ indicators }: EsgChartsGridProps) {
             labels={series.labels}
             legend={series.legend}
             title={series.chartTitle}
+            unit={series.unit}
           />
         );
       })}
