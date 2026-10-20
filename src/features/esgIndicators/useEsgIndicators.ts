@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ApiError } from '../../services/api/apiError';
-import { getEsgIndicators } from '../../services/api/esgIndicatorsApi.ts';
+import { getEsgIndicators } from '../../services/api/esgIndicatorsApi';
 import { isValidMonth } from './esgIndicatorsValidation';
 import type { EsgMonthlyIndicators } from './types';
 
