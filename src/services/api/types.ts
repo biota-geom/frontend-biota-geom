@@ -220,17 +220,27 @@ export interface LicensePanelResponseWire {
 export interface DocumentWire {
   id: string;
   title: string;
-  type: 'CONTRATO' | 'LAUDO' | 'CERTIDAO' | 'OUTROS';
   document_date: string;
-  file_url?: string;
   file_name: string;
-  mime_type?: string;
   size_bytes: number;
   uploaded_by: {
     id: string;
     name: string;
   };
   created_at: string;
+  folder_id: string | null;
+}
+
+export interface DocumentFolderWire {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  created_at: string;
+}
+
+export interface FileAccessUrlWire {
+  document_url: string;
+  expires_in: number | null;
 }
 
 export interface LicenseConditionWire {

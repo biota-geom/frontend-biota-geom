@@ -1,7 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '../../services/api/apiError';
-import { listDocuments } from '../../services/api/documentsApi';
-import type { CompanyDocument } from './types';
+import {
+  listDocumentFolders,
+  listDocuments,
+} from '../../services/api/documentsApi';
+import type { CompanyDocument, DocumentFolder } from './types';
 
 type DocumentsStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -10,6 +13,7 @@ const DOCUMENTS_LOAD_ERROR =
 
 export function useDocuments() {
   const [documents, setDocuments] = useState<CompanyDocument[]>([]);
+  const [folders, setFolders] = useState<DocumentFolder[]>([]);
   const [status, setStatus] = useState<DocumentsStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const requestSequence = useRef(0);
@@ -20,7 +24,10 @@ export function useDocuments() {
     setError(null);
 
     try {
-      const result = await listDocuments(customerId);
+      const [result, folderResult] = await Promise.all([
+        listDocuments(customerId),
+        listDocumentFolders(customerId),
+      ]);
       if (requestId !== requestSequence.current) return;
 
       setDocuments(
@@ -30,6 +37,7 @@ export function useDocuments() {
             new Date(left.createdAt).getTime()
         )
       );
+      setFolders(folderResult);
       setStatus('success');
     } catch (caughtError) {
       if (requestId !== requestSequence.current) return;
@@ -42,5 +50,5 @@ export function useDocuments() {
     }
   }, []);
 
-  return { documents, error, loadDocuments, status };
+  return { documents, error, folders, loadDocuments, status };
 }
