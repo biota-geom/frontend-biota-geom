@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { ChevronDown, FileText, Folder, Search } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  Plus,
+  Search,
+} from 'lucide-react';
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { Button } from '../../../components/ui/shadcn/button';
+import type { DocumentFolder } from '../../../features/documents/types';
 import { useDocuments } from '../../../features/documents/useDocuments';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import {
@@ -11,31 +19,94 @@ import {
   DocumentsTableSkeleton,
 } from './components/DocumentsTable';
 import { NewDocumentsModal } from './components/NewDocumentsModal';
-import {
-  DOCUMENT_TYPE_LABELS,
-  DOCUMENT_TYPES,
-  type DocumentType,
-} from '../../../features/documents/types';
+import { NewFolderDialog } from './components/NewFolderDialog';
 
-type DocumentTypeFilter = DocumentType | 'ALL';
 type SortOrder = 'recent' | 'oldest';
+
+type FolderTreeProps = {
+  currentFolderId: string | null;
+  documentCounts: Map<string | null, number>;
+  folders: DocumentFolder[];
+  onSelect: (folderId: string) => void;
+  parentId: string | null;
+  depth?: number;
+};
+
+function FolderTree({
+  currentFolderId,
+  documentCounts,
+  folders,
+  onSelect,
+  parentId,
+  depth = 0,
+}: FolderTreeProps) {
+  return folders
+    .filter((folder) => folder.parentId === parentId)
+    .map((folder) => {
+      const selected = currentFolderId === folder.id;
+      return (
+        <div key={folder.id}>
+          <button
+            aria-current={selected ? 'page' : undefined}
+            className={`flex w-full items-center gap-2 rounded-control border-l-2 py-2 pr-3 text-left text-sm transition-colors ${
+              selected
+                ? 'border-primary bg-emerald-50 font-bold text-primary-strong'
+                : 'border-transparent text-text-secondary hover:bg-surface-muted'
+            }`}
+            onClick={() => onSelect(folder.id)}
+            style={{ paddingLeft: `${12 + depth * 16}px` }}
+            type="button"
+          >
+            {selected ? (
+              <FolderOpen aria-hidden="true" size={16} />
+            ) : (
+              <Folder aria-hidden="true" size={16} />
+            )}
+            <span className="min-w-0 flex-1 truncate">{folder.name}</span>
+            <span className="text-xs font-medium text-text-muted">
+              {documentCounts.get(folder.id) ?? 0}
+            </span>
+          </button>
+          <FolderTree
+            currentFolderId={currentFolderId}
+            depth={depth + 1}
+            documentCounts={documentCounts}
+            folders={folders}
+            onSelect={onSelect}
+            parentId={folder.id}
+          />
+        </div>
+      );
+    });
+}
 
 export function CompanyDocumentsPage() {
   const breadcrumbs = useCompanyBreadcrumbs('Documentos');
   const { companyId } = useParams<{ companyId: string }>();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uploadFolderId, setUploadFolderId] = useState<string | null>(null);
+  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<DocumentTypeFilter>('ALL');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
-  const [openMenu, setOpenMenu] = useState<'type' | 'sort' | null>(null);
-  const { documents, error, loadDocuments, status } = useDocuments();
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const { documents, error, folders, loadDocuments, status } = useDocuments();
 
   useEffect(() => {
     if (companyId) void loadDocuments(companyId);
   }, [companyId, loadDocuments]);
 
+  const selectedFolderId =
+    currentFolderId && folders.some((folder) => folder.id === currentFolderId)
+      ? currentFolderId
+      : null;
+
   const dismissToast = useCallback(() => setToastMessage(null), []);
+
+  function reload() {
+    if (companyId) void loadDocuments(companyId);
+  }
 
   function handleUploaded(count: number) {
     setToastMessage(
@@ -43,21 +114,49 @@ export function CompanyDocumentsPage() {
         ? 'Documento enviado com sucesso.'
         : `${count} documentos enviados com sucesso.`
     );
-    if (companyId) void loadDocuments(companyId);
+    reload();
   }
+
+  function handleFolderCreated() {
+    setToastMessage('Pasta criada com sucesso.');
+    reload();
+  }
+
+  const currentFolder = folders.find(
+    (folder) => folder.id === selectedFolderId
+  );
+
+  const folderPath = useMemo(() => {
+    const path: DocumentFolder[] = [];
+    let folder = folders.find((item) => item.id === selectedFolderId);
+    const visited = new Set<string>();
+    while (folder && !visited.has(folder.id)) {
+      visited.add(folder.id);
+      path.unshift(folder);
+      folder = folders.find((item) => item.id === folder?.parentId);
+    }
+    return path;
+  }, [folders, selectedFolderId]);
+
+  const documentCounts = useMemo(() => {
+    const counts = new Map<string | null, number>();
+    for (const document of documents) {
+      counts.set(document.folderId, (counts.get(document.folderId) ?? 0) + 1);
+    }
+    return counts;
+  }, [documents]);
 
   const visibleDocuments = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR');
     return documents
       .filter((document) => {
-        const matchesType =
-          typeFilter === 'ALL' || document.type === typeFilter;
+        const matchesFolder = document.folderId === selectedFolderId;
         const matchesSearch =
           !normalizedSearch ||
           `${document.title} ${document.fileName}`
             .toLocaleLowerCase('pt-BR')
             .includes(normalizedSearch);
-        return matchesType && matchesSearch;
+        return matchesFolder && matchesSearch;
       })
       .sort((left, right) => {
         const leftDate = new Date(left.createdAt).getTime();
@@ -66,10 +165,7 @@ export function CompanyDocumentsPage() {
           ? rightDate - leftDate
           : leftDate - rightDate;
       });
-  }, [documents, search, sortOrder, typeFilter]);
-
-  const typeLabel =
-    typeFilter === 'ALL' ? 'Tipo: Todos' : DOCUMENT_TYPE_LABELS[typeFilter];
+  }, [documents, search, selectedFolderId, sortOrder]);
 
   return (
     <PageScaffold
@@ -87,58 +183,15 @@ export function CompanyDocumentsPage() {
           <input
             className="w-full border-0 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar arquivo ou documento..."
+            placeholder="Buscar nesta pasta..."
             value={search}
           />
         </label>
-
-        <div className="relative">
-          <button
-            aria-expanded={openMenu === 'type'}
-            aria-haspopup="menu"
-            className="inline-flex min-h-10 items-center gap-2 rounded-control border border-border bg-surface px-3 text-sm text-text-secondary hover:bg-surface-muted"
-            onClick={() => setOpenMenu(openMenu === 'type' ? null : 'type')}
-            type="button"
-          >
-            {typeLabel}
-            <ChevronDown aria-hidden="true" size={15} />
-          </button>
-          {openMenu === 'type' ? (
-            <div
-              className="absolute right-0 z-10 mt-1 min-w-44 rounded-control border border-border bg-surface p-1 shadow-card"
-              role="menu"
-            >
-              <button
-                className="block w-full rounded px-3 py-2 text-left text-sm text-text-secondary hover:bg-surface-muted"
-                onClick={() => {
-                  setTypeFilter('ALL');
-                  setOpenMenu(null);
-                }}
-                role="menuitem"
-                type="button"
-              >
-                Tipo: Todos
-              </button>
-              {DOCUMENT_TYPES.map((type) => (
-                <button
-                  className="block w-full rounded px-3 py-2 text-left text-sm text-text-secondary hover:bg-surface-muted"
-                  key={type}
-                  onClick={() => {
-                    setTypeFilter(type);
-                    setOpenMenu(null);
-                  }}
-                  role="menuitem"
-                  type="button"
-                >
-                  {DOCUMENT_TYPE_LABELS[type]}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
         <Button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setUploadFolderId(selectedFolderId);
+            setIsUploadOpen(true);
+          }}
           type="button"
           variant="action"
         >
@@ -156,136 +209,148 @@ export function CompanyDocumentsPage() {
           role="alert"
         >
           <p className="m-0">{error}</p>
-          <Button
-            onClick={() => companyId && void loadDocuments(companyId)}
-            type="button"
-            variant="action"
-          >
+          <Button onClick={reload} type="button" variant="action">
             Tentar novamente
           </Button>
         </div>
       ) : null}
 
-      {status === 'success' && documents.length === 0 ? (
-        <section className="rounded-panel flex flex-col items-center gap-4 border border-dashed border-border bg-surface px-6 py-14 text-center">
-          <div className="grid size-12 place-items-center rounded-full bg-emerald-50 text-xl text-primary-strong">
-            +
-          </div>
-          <div>
-            <h2 className="m-0 text-base font-bold text-text-primary">
-              Nenhum documento enviado
-            </h2>
-            <p className="mt-1.5 mb-0 text-sm text-text-secondary">
-              Envie contratos, laudos, certidões e outros documentos da empresa.
-            </p>
-          </div>
-          <Button
-            onClick={() => setIsModalOpen(true)}
-            type="button"
-            variant="action"
-          >
-            + Enviar documentos
-          </Button>
-        </section>
-      ) : null}
-
-      {status === 'success' && documents.length > 0 ? (
-        <div className="grid grid-cols-[220px_minmax(0,1fr)] items-start gap-4 max-[900px]:grid-cols-1">
+      {status === 'success' ? (
+        <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-4 max-[900px]:grid-cols-1">
           <aside className="rounded-panel border border-border bg-surface p-3 shadow-control">
-            <h2 className="px-3 pb-3 text-[11px] font-bold uppercase tracking-wide text-text-muted">
-              Diretórios
-            </h2>
+            <div className="flex items-center justify-between gap-2 px-3 pb-3">
+              <h2 className="m-0 text-[11px] font-bold uppercase tracking-wide text-text-muted">
+                Pastas
+              </h2>
+              <button
+                aria-label="Criar pasta"
+                className="grid size-7 place-items-center rounded-control text-primary-strong hover:bg-emerald-50"
+                onClick={() => setIsFolderDialogOpen(true)}
+                type="button"
+              >
+                <Plus aria-hidden="true" size={16} />
+              </button>
+            </div>
             <button
-              className="flex w-full items-center gap-2 rounded-control border-l-2 border-primary bg-emerald-50 px-3 py-2 text-left text-sm font-bold text-primary-strong"
-              onClick={() => setTypeFilter('ALL')}
+              aria-current={selectedFolderId === null ? 'page' : undefined}
+              className={`flex w-full items-center gap-2 rounded-control border-l-2 px-3 py-2 text-left text-sm transition-colors ${
+                selectedFolderId === null
+                  ? 'border-primary bg-emerald-50 font-bold text-primary-strong'
+                  : 'border-transparent text-text-secondary hover:bg-surface-muted'
+              }`}
+              onClick={() => setCurrentFolderId(null)}
               type="button"
             >
-              <Folder aria-hidden="true" size={16} />
-              Todos os documentos
-              <span className="ml-auto text-xs font-medium">
-                {documents.length}
+              {selectedFolderId === null ? (
+                <FolderOpen aria-hidden="true" size={16} />
+              ) : (
+                <Folder aria-hidden="true" size={16} />
+              )}
+              Raiz
+              <span className="ml-auto text-xs font-medium text-text-muted">
+                {documentCounts.get(null) ?? 0}
               </span>
             </button>
-            {DOCUMENT_TYPES.map((type) => {
-              const count = documents.filter(
-                (document) => document.type === type
-              ).length;
-              return (
-                <button
-                  className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-sm text-text-secondary hover:bg-surface-muted"
-                  key={type}
-                  onClick={() => setTypeFilter(type)}
-                  type="button"
-                >
-                  <FileText aria-hidden="true" size={15} />
-                  {DOCUMENT_TYPE_LABELS[type]}
-                  <span className="ml-auto text-xs text-text-muted">
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+            <FolderTree
+              currentFolderId={selectedFolderId}
+              documentCounts={documentCounts}
+              folders={folders}
+              onSelect={setCurrentFolderId}
+              parentId={null}
+            />
           </aside>
+
           <div className="min-w-0">
-            <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
+                <nav
+                  aria-label="Caminho da pasta"
+                  className="mb-1 flex flex-wrap items-center gap-1 text-xs text-text-muted"
+                >
+                  <button
+                    className="hover:text-primary-strong hover:underline"
+                    onClick={() => setCurrentFolderId(null)}
+                    type="button"
+                  >
+                    Raiz
+                  </button>
+                  {folderPath.map((folder) => (
+                    <span className="flex items-center gap-1" key={folder.id}>
+                      <ChevronRight aria-hidden="true" size={12} />
+                      <button
+                        className="hover:text-primary-strong hover:underline"
+                        onClick={() => setCurrentFolderId(folder.id)}
+                        type="button"
+                      >
+                        {folder.name}
+                      </button>
+                    </span>
+                  ))}
+                </nav>
                 <h2 className="m-0 text-base font-bold text-text-primary">
-                  Documentos da empresa
+                  {currentFolder?.name ?? 'Arquivos da raiz'}
                 </h2>
                 <p className="mt-1 mb-0 text-xs text-text-muted">
-                  {visibleDocuments.length} de {documents.length} arquivos
+                  {visibleDocuments.length}{' '}
+                  {visibleDocuments.length === 1 ? 'arquivo' : 'arquivos'}
                 </p>
               </div>
               <div className="relative">
                 <button
-                  aria-expanded={openMenu === 'sort'}
+                  aria-expanded={isSortOpen}
                   aria-haspopup="menu"
                   className="inline-flex min-h-9 items-center gap-2 rounded-control border border-border bg-surface px-3 text-xs text-text-secondary hover:bg-surface-muted"
-                  onClick={() =>
-                    setOpenMenu(openMenu === 'sort' ? null : 'sort')
-                  }
+                  onClick={() => setIsSortOpen((open) => !open)}
                   type="button"
                 >
                   Ordenar:{' '}
                   {sortOrder === 'recent' ? 'Mais recente' : 'Mais antigo'}
                   <ChevronDown aria-hidden="true" size={14} />
                 </button>
-                {openMenu === 'sort' ? (
+                {isSortOpen ? (
                   <div
                     className="absolute right-0 z-10 mt-1 min-w-36 rounded-control border border-border bg-surface p-1 shadow-card"
                     role="menu"
                   >
-                    <button
-                      className="block w-full rounded px-3 py-2 text-left text-xs text-text-secondary hover:bg-surface-muted"
-                      onClick={() => {
-                        setSortOrder('recent');
-                        setOpenMenu(null);
-                      }}
-                      role="menuitem"
-                      type="button"
-                    >
-                      Mais recente
-                    </button>
-                    <button
-                      className="block w-full rounded px-3 py-2 text-left text-xs text-text-secondary hover:bg-surface-muted"
-                      onClick={() => {
-                        setSortOrder('oldest');
-                        setOpenMenu(null);
-                      }}
-                      role="menuitem"
-                      type="button"
-                    >
-                      Mais antigo
-                    </button>
+                    {(['recent', 'oldest'] as const).map((order) => (
+                      <button
+                        className="block w-full rounded px-3 py-2 text-left text-xs text-text-secondary hover:bg-surface-muted"
+                        key={order}
+                        onClick={() => {
+                          setSortOrder(order);
+                          setIsSortOpen(false);
+                        }}
+                        role="menuitem"
+                        type="button"
+                      >
+                        {order === 'recent' ? 'Mais recente' : 'Mais antigo'}
+                      </button>
+                    ))}
                   </div>
                 ) : null}
               </div>
             </div>
-            {visibleDocuments.length > 0 ? (
-              <DocumentsTable documents={visibleDocuments} />
+
+            {visibleDocuments.length > 0 && companyId ? (
+              <DocumentsTable
+                companyId={companyId}
+                documents={visibleDocuments}
+              />
             ) : (
-              <div className="rounded-panel border border-dashed border-border bg-surface px-6 py-12 text-center text-sm text-text-secondary">
-                Nenhum documento corresponde à busca ou ao filtro selecionado.
+              <div className="rounded-panel flex flex-col items-center gap-3 border border-dashed border-border bg-surface px-6 py-12 text-center">
+                <FolderOpen
+                  aria-hidden="true"
+                  className="text-text-muted"
+                  size={30}
+                />
+                <div>
+                  <p className="m-0 text-sm font-bold text-text-primary">
+                    Esta pasta está vazia
+                  </p>
+                  <p className="mt-1 mb-0 text-xs text-text-muted">
+                    Envie documentos ou crie uma subpasta para começar.
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -293,12 +358,25 @@ export function CompanyDocumentsPage() {
       ) : null}
 
       {companyId ? (
-        <NewDocumentsModal
-          companyId={companyId}
-          onOpenChange={setIsModalOpen}
-          onUploaded={handleUploaded}
-          open={isModalOpen}
-        />
+        <>
+          <NewDocumentsModal
+            companyId={companyId}
+            folderId={uploadFolderId}
+            folders={folders}
+            onFolderChange={setUploadFolderId}
+            onOpenChange={setIsUploadOpen}
+            onUploaded={handleUploaded}
+            open={isUploadOpen}
+          />
+          <NewFolderDialog
+            companyId={companyId}
+            onCreated={handleFolderCreated}
+            onOpenChange={setIsFolderDialogOpen}
+            open={isFolderDialogOpen}
+            parentId={selectedFolderId}
+            parentName={currentFolder?.name ?? 'Raiz'}
+          />
+        </>
       ) : null}
 
       {toastMessage ? (
