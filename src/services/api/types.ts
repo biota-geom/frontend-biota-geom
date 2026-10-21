@@ -217,6 +217,32 @@ export interface LicensePanelResponseWire {
   licenses: LicensePanelItemWire[];
 }
 
+export interface DocumentWire {
+  id: string;
+  title: string;
+  document_date: string;
+  file_name: string;
+  size_bytes: number;
+  uploaded_by: {
+    id: string;
+    name: string;
+  };
+  created_at: string;
+  folder_id: string | null;
+}
+
+export interface DocumentFolderWire {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  created_at: string;
+}
+
+export interface FileAccessUrlWire {
+  document_url: string;
+  expires_in: number | null;
+}
+
 export interface LicenseConditionWire {
   id: string;
   license_id: string;
