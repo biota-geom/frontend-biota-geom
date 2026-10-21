@@ -1,6 +1,3 @@
-import type { DocumentType } from './types';
-import { DOCUMENT_TYPES } from './types';
-
 export const MAX_DOCUMENT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
 export const DOCUMENT_FILE_ACCEPT =
@@ -21,7 +18,6 @@ const ALLOWED_MIME_TYPES = [
 
 export type DocumentDraftValues = {
   title: string;
-  type: DocumentType | '';
   documentDate: string;
 };
 
@@ -51,9 +47,6 @@ export function validateDocumentDraft(
 
   if (!values.title.trim()) {
     errors.title = 'Informe o título do documento.';
-  }
-  if (!values.type || !DOCUMENT_TYPES.includes(values.type)) {
-    errors.type = 'Selecione o tipo do documento.';
   }
   if (!values.documentDate) {
     errors.documentDate = 'Informe a data do documento.';

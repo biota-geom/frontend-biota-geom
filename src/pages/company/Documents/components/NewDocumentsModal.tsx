@@ -25,11 +25,7 @@ import {
   validateDocumentDraft,
   validateDocumentFile,
 } from '../../../../features/documents/documentValidation';
-import {
-  DOCUMENT_TYPE_LABELS,
-  DOCUMENT_TYPES,
-  type DocumentType,
-} from '../../../../features/documents/types';
+import type { DocumentFolder } from '../../../../features/documents/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { createDocument } from '../../../../services/api/documentsApi';
 
@@ -39,7 +35,6 @@ type DocumentDraft = {
   id: number;
   file: File;
   title: string;
-  type: DocumentType | '';
   documentDate: string;
   errors: DocumentDraftErrors;
   status: UploadStatus;
@@ -48,6 +43,9 @@ type DocumentDraft = {
 
 type NewDocumentsModalProps = {
   companyId: string;
+  folderId: string | null;
+  folders: DocumentFolder[];
+  onFolderChange: (folderId: string | null) => void;
   onOpenChange: (open: boolean) => void;
   onUploaded: (count: number) => void;
   open: boolean;
@@ -62,8 +60,23 @@ function formatFileSize(sizeBytes: number): string {
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function folderPath(folder: DocumentFolder, folders: DocumentFolder[]): string {
+  const names = [folder.name];
+  const visited = new Set([folder.id]);
+  let parent = folders.find((item) => item.id === folder.parentId);
+  while (parent && !visited.has(parent.id)) {
+    visited.add(parent.id);
+    names.unshift(parent.name);
+    parent = folders.find((item) => item.id === parent?.parentId);
+  }
+  return names.join(' / ');
+}
+
 export function NewDocumentsModal({
   companyId,
+  folderId,
+  folders,
+  onFolderChange,
   onOpenChange,
   onUploaded,
   open,
@@ -107,7 +120,6 @@ export function NewDocumentsModal({
         id: nextDraftId.current++,
         file,
         title: '',
-        type: '',
         documentDate: '',
         errors: {},
         status: 'pending',
@@ -123,7 +135,7 @@ export function NewDocumentsModal({
 
   function updateDraft(
     id: number,
-    field: 'title' | 'type' | 'documentDate',
+    field: 'title' | 'documentDate',
     value: string
   ) {
     setDrafts((current) =>
@@ -181,8 +193,8 @@ export function NewDocumentsModal({
         await createDocument(companyId, {
           file: draft.file,
           title: draft.title,
-          type: draft.type as DocumentType,
           documentDate: draft.documentDate,
+          folderId,
         });
         successCount += 1;
         setDrafts((current) =>
@@ -232,6 +244,34 @@ export function NewDocumentsModal({
         </DialogHeader>
 
         <form noValidate onSubmit={(event) => void handleSubmit(event)}>
+          <div className="mb-4 flex flex-col gap-2">
+            <Label htmlFor="document-destination">Pasta de destino</Label>
+            <Select
+              disabled={isSubmitting}
+              onValueChange={(value) =>
+                onFolderChange(value === 'root' ? null : value)
+              }
+              value={folderId ?? 'root'}
+            >
+              <SelectTrigger
+                className="h-[42px] w-full"
+                id="document-destination"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="root">Raiz</SelectItem>
+                {folders.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.id}>
+                    {folderPath(folder, folders)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="m-0 text-xs text-text-muted">
+              Todos os arquivos deste envio serão salvos nesta pasta.
+            </p>
+          </div>
           <label className="rounded-panel flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border-strong bg-surface-muted px-5 py-6 text-center transition-colors hover:border-primary hover:bg-emerald-50/40">
             <FileUp
               aria-hidden="true"
@@ -309,7 +349,7 @@ export function NewDocumentsModal({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-[minmax(0,1fr)_180px_180px] gap-4 max-[720px]:grid-cols-1">
+                    <div className="grid grid-cols-[minmax(0,1fr)_180px] gap-4 max-[720px]:grid-cols-1">
                       <div className="flex flex-col gap-2">
                         <Label htmlFor={`document-title-${draft.id}`}>
                           Título
@@ -333,42 +373,6 @@ export function NewDocumentsModal({
                             role="alert"
                           >
                             {draft.errors.title}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor={`document-type-${draft.id}`}>
-                          Tipo
-                        </Label>
-                        <Select
-                          disabled={isSubmitting || isUploaded}
-                          onValueChange={(value) =>
-                            updateDraft(draft.id, 'type', value)
-                          }
-                          value={draft.type}
-                        >
-                          <SelectTrigger
-                            aria-invalid={Boolean(draft.errors.type)}
-                            className="h-[42px] w-full"
-                            id={`document-type-${draft.id}`}
-                          >
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {DOCUMENT_TYPES.map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {DOCUMENT_TYPE_LABELS[type]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {draft.errors.type ? (
-                          <p
-                            className="m-0 text-xs font-semibold text-red-600"
-                            role="alert"
-                          >
-                            {draft.errors.type}
                           </p>
                         ) : null}
                       </div>
