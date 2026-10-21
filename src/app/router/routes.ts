@@ -16,7 +16,11 @@ export const APP_ROUTES = {
     conditions: '/companies/:companyId/conditions',
     legislation: '/companies/:companyId/legislation',
     indicators: '/companies/:companyId/indicators',
+    esg: '/companies/:companyId/esg',
     documents: '/companies/:companyId/documents',
+  },
+  customer: {
+    esg: '/customers/:customerId/esg',
   },
 } as const;
 
@@ -28,5 +32,6 @@ export const buildCompanyRoutes = {
   conditions: (companyId: string) => `/companies/${companyId}/conditions`,
   legislation: (companyId: string) => `/companies/${companyId}/legislation`,
   indicators: (companyId: string) => `/companies/${companyId}/indicators`,
+  esg: (companyId: string) => `/companies/${companyId}/esg`,
   documents: (companyId: string) => `/companies/${companyId}/documents`,
 } as const;

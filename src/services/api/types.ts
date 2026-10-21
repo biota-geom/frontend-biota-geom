@@ -205,6 +205,13 @@ export interface LicensePanelItemWire {
   document_url: string | null;
 }
 
+export interface LicenseDocumentUrlWire {
+  /** Short-lived pre-signed URL to the license PDF. */
+  document_url: string;
+  /** Seconds until document_url expires; null when it does not expire. */
+  expires_in: number | null;
+}
+
 export interface LicensePanelResponseWire {
   summary: LicenseSummaryWire;
   licenses: LicensePanelItemWire[];
@@ -277,4 +284,16 @@ export interface LicenseConditionBatchItemWire {
 
 export interface CreateLicenseConditionsRequestWire {
   conditions: LicenseConditionBatchItemWire[];
+}
+
+/*
+ * GET /customers/:customerId/esg-indicators/:month. Not in the issue's
+ * contract (which only lists the PUT) — the shape mirrors the PUT body, with
+ * null/absent for an indicator that was never informed.
+ */
+export interface EsgIndicatorsWire {
+  water?: number | string | null;
+  waste?: number | string | null;
+  employees?: number | string | null;
+  energy?: number | string | null;
 }
