@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompanyDocument } from '../../features/documents/types';
 import { CompanyDocumentsPage } from '../../pages/company/Documents/CompanyDocumentsPage';
 import * as documentsApi from '../../services/api/documentsApi';
@@ -10,6 +10,9 @@ import { renderWithAuth } from '../mocks/renderWithAuth';
 
 vi.mock('../../services/api/documentsApi', () => ({
   createDocument: vi.fn(),
+  getDocumentAccessUrl: vi.fn(),
+  createDocumentFolder: vi.fn(),
+  listDocumentFolders: vi.fn(),
   listDocuments: vi.fn(),
 }));
 
@@ -19,26 +22,22 @@ const DOCUMENTS: CompanyDocument[] = [
   {
     id: 'document-old',
     title: 'Contrato social',
-    type: 'CONTRATO',
     documentDate: '2025-01-10',
-    fileUrl: null,
     fileName: 'contrato.docx',
-    mimeType: null,
     sizeBytes: 200,
     uploadedBy: { id: 'user-1', name: 'Ana Souza' },
     createdAt: '2026-01-10T12:00:00.000Z',
+    folderId: null,
   },
   {
     id: 'document-new',
     title: 'Laudo de Ruído 2026',
-    type: 'LAUDO',
     documentDate: '2026-08-15',
-    fileUrl: null,
     fileName: 'laudo.pdf',
-    mimeType: null,
     sizeBytes: 300,
     uploadedBy: { id: 'user-2', name: 'Consultoria X' },
     createdAt: '2026-10-04T14:00:00.000Z',
+    folderId: null,
   },
 ];
 
@@ -61,6 +60,11 @@ function pdfFile(name: string) {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(documentsApi.listDocuments).mockResolvedValue(DOCUMENTS);
+  vi.mocked(documentsApi.listDocumentFolders).mockResolvedValue([]);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('CompanyDocumentsPage', () => {
@@ -77,10 +81,9 @@ describe('CompanyDocumentsPage', () => {
     const table = screen.getByRole('table');
     for (const heading of [
       'Título',
-      'Tipo',
       'Data do documento',
-      'Enviado por',
       'Enviado em',
+      'Ações',
     ]) {
       expect(
         within(table).getByRole('columnheader', { name: heading })
@@ -89,7 +92,38 @@ describe('CompanyDocumentsPage', () => {
     expect(within(table).getAllByRole('row')[1]).toHaveTextContent(
       'Laudo de Ruído 2026'
     );
-    expect(screen.queryByText(/download/i)).not.toBeInTheDocument();
+    expect(
+      within(table).getAllByRole('button', { name: /abrir arquivo/i })
+    ).toHaveLength(2);
+  });
+
+  it('requests a protected URL before opening a document', async () => {
+    const user = userEvent.setup();
+    const replace = vi.fn();
+    const tab = {
+      close: vi.fn(),
+      location: { replace },
+      opener: window,
+    } as unknown as Window;
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab);
+    vi.mocked(documentsApi.getDocumentAccessUrl).mockResolvedValue(
+      'https://signed.example/document.pdf'
+    );
+    renderPage();
+
+    const buttons = await screen.findAllByRole('button', {
+      name: /abrir arquivo/i,
+    });
+    await user.click(buttons[0]!);
+
+    await waitFor(() =>
+      expect(documentsApi.getDocumentAccessUrl).toHaveBeenCalledWith(
+        COMPANY_ID,
+        'document-new'
+      )
+    );
+    expect(replace).toHaveBeenCalledWith('https://signed.example/document.pdf');
+    open.mockRestore();
   });
 
   it('shows the empty state and opens the upload modal', async () => {
@@ -98,7 +132,7 @@ describe('CompanyDocumentsPage', () => {
     renderPage();
 
     expect(
-      await screen.findByText('Nenhum documento enviado')
+      await screen.findByText('Esta pasta está vazia')
     ).toBeInTheDocument();
     await user.click(
       screen.getAllByRole('button', { name: /enviar documentos/i })[0]!
@@ -120,7 +154,7 @@ describe('CompanyDocumentsPage', () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     expect(
-      await screen.findByText('Nenhum documento enviado')
+      await screen.findByText('Esta pasta está vazia')
     ).toBeInTheDocument();
     expect(documentsApi.listDocuments).toHaveBeenCalledTimes(2);
   });
@@ -148,6 +182,52 @@ describe('CompanyDocumentsPage', () => {
       await screen.findByText(/programa\.exe: formato não permitido/i)
     ).toBeInTheDocument();
     expect(documentsApi.createDocument).not.toHaveBeenCalled();
+  });
+
+  it('uses user-created folders and creates subfolders in the current folder', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.listDocumentFolders).mockResolvedValue([
+      {
+        id: 'folder-environmental',
+        name: 'Ambiental',
+        parentId: null,
+        createdAt: '2026-10-21T18:00:00.000Z',
+      },
+    ]);
+    vi.mocked(documentsApi.listDocuments).mockResolvedValue([
+      DOCUMENTS[0]!,
+      { ...DOCUMENTS[1]!, folderId: 'folder-environmental' },
+    ]);
+    vi.mocked(documentsApi.createDocumentFolder).mockResolvedValue({
+      id: 'folder-licenses',
+      name: 'Licenças',
+      parentId: 'folder-environmental',
+      createdAt: '2026-10-21T18:10:00.000Z',
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /ambiental/i }));
+    expect(await screen.findByText('Laudo de Ruído 2026')).toBeInTheDocument();
+    expect(screen.queryByText('Contrato social')).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: /enviar documentos/i })
+    );
+    expect(
+      screen.getByRole('combobox', { name: 'Pasta de destino' })
+    ).toHaveTextContent('Ambiental');
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    await user.click(screen.getByRole('button', { name: /criar pasta/i }));
+    await user.type(screen.getByLabelText('Nome da pasta'), 'Licenças');
+    await user.click(screen.getByRole('button', { name: 'Criar pasta' }));
+
+    await waitFor(() =>
+      expect(documentsApi.createDocumentFolder).toHaveBeenCalledWith(
+        COMPANY_ID,
+        { name: 'Licenças', parentId: 'folder-environmental' }
+      )
+    );
   });
 
   it('uploads three files sequentially and refreshes the listing', async () => {
@@ -179,9 +259,6 @@ describe('CompanyDocumentsPage', () => {
         dateInputs[index]!,
         `2026-10-${String(index + 1).padStart(2, '0')}`
       );
-      const typeSelects = screen.getAllByRole('combobox');
-      await user.click(typeSelects[index]!);
-      await user.click(await screen.findByRole('option', { name: 'Laudo' }));
     }
 
     await user.click(
