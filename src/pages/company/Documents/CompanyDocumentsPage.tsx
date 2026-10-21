@@ -146,11 +146,14 @@ export function CompanyDocumentsPage() {
     return counts;
   }, [documents]);
 
+  const isSearching = search.trim().length > 0;
+
   const visibleDocuments = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR');
     return documents
       .filter((document) => {
-        const matchesFolder = document.folderId === selectedFolderId;
+        const matchesFolder =
+          normalizedSearch.length > 0 || document.folderId === selectedFolderId;
         const matchesSearch =
           !normalizedSearch ||
           `${document.title} ${document.fileName}`
@@ -179,11 +182,11 @@ export function CompanyDocumentsPage() {
       >
         <label className="flex min-h-10 min-w-[260px] flex-1 items-center gap-2 rounded-control bg-surface-muted px-3 text-text-muted max-[720px]:min-w-full">
           <Search aria-hidden="true" size={17} />
-          <span className="sr-only">Buscar arquivo ou documento</span>
+          <span className="sr-only">Buscar arquivo</span>
           <input
             className="w-full border-0 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar nesta pasta..."
+            placeholder="Buscar arquivo"
             value={search}
           />
         </label>
@@ -263,36 +266,41 @@ export function CompanyDocumentsPage() {
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <nav
-                  aria-label="Caminho da pasta"
-                  className="mb-1 flex flex-wrap items-center gap-1 text-xs text-text-muted"
-                >
-                  <button
-                    className="hover:text-primary-strong hover:underline"
-                    onClick={() => setCurrentFolderId(null)}
-                    type="button"
+                {!isSearching ? (
+                  <nav
+                    aria-label="Caminho da pasta"
+                    className="mb-1 flex flex-wrap items-center gap-1 text-xs text-text-muted"
                   >
-                    Raiz
-                  </button>
-                  {folderPath.map((folder) => (
-                    <span className="flex items-center gap-1" key={folder.id}>
-                      <ChevronRight aria-hidden="true" size={12} />
-                      <button
-                        className="hover:text-primary-strong hover:underline"
-                        onClick={() => setCurrentFolderId(folder.id)}
-                        type="button"
-                      >
-                        {folder.name}
-                      </button>
-                    </span>
-                  ))}
-                </nav>
+                    <button
+                      className="hover:text-primary-strong hover:underline"
+                      onClick={() => setCurrentFolderId(null)}
+                      type="button"
+                    >
+                      Raiz
+                    </button>
+                    {folderPath.map((folder) => (
+                      <span className="flex items-center gap-1" key={folder.id}>
+                        <ChevronRight aria-hidden="true" size={12} />
+                        <button
+                          className="hover:text-primary-strong hover:underline"
+                          onClick={() => setCurrentFolderId(folder.id)}
+                          type="button"
+                        >
+                          {folder.name}
+                        </button>
+                      </span>
+                    ))}
+                  </nav>
+                ) : null}
                 <h2 className="m-0 text-base font-bold text-text-primary">
-                  {currentFolder?.name ?? 'Arquivos da raiz'}
+                  {isSearching
+                    ? 'Resultados da busca'
+                    : (currentFolder?.name ?? 'Arquivos da raiz')}
                 </h2>
                 <p className="mt-1 mb-0 text-xs text-text-muted">
                   {visibleDocuments.length}{' '}
                   {visibleDocuments.length === 1 ? 'arquivo' : 'arquivos'}
+                  {isSearching ? ' em todas as pastas' : ''}
                 </p>
               </div>
               <div className="relative">
@@ -345,10 +353,14 @@ export function CompanyDocumentsPage() {
                 />
                 <div>
                   <p className="m-0 text-sm font-bold text-text-primary">
-                    Esta pasta está vazia
+                    {isSearching
+                      ? 'Nenhum arquivo encontrado'
+                      : 'Esta pasta está vazia'}
                   </p>
                   <p className="mt-1 mb-0 text-xs text-text-muted">
-                    Envie documentos ou crie uma subpasta para começar.
+                    {isSearching
+                      ? 'Tente buscar usando outro título ou nome de arquivo.'
+                      : 'Envie documentos ou crie uma subpasta para começar.'}
                   </p>
                 </div>
               </div>

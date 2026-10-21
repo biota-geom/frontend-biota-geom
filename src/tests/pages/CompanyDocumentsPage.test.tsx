@@ -230,6 +230,37 @@ describe('CompanyDocumentsPage', () => {
     );
   });
 
+  it('searches files across every folder', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.listDocumentFolders).mockResolvedValue([
+      {
+        id: 'folder-environmental',
+        name: 'Ambiental',
+        parentId: null,
+        createdAt: '2026-10-21T18:00:00.000Z',
+      },
+    ]);
+    vi.mocked(documentsApi.listDocuments).mockResolvedValue([
+      DOCUMENTS[0]!,
+      { ...DOCUMENTS[1]!, folderId: 'folder-environmental' },
+    ]);
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /ambiental/i }));
+    expect(screen.queryByText('Contrato social')).not.toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('Buscar arquivo'), 'contrato');
+
+    expect(await screen.findByText('Contrato social')).toBeInTheDocument();
+    expect(screen.queryByText('Laudo de Ruído 2026')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Resultados da busca' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('1 arquivo em todas as pastas')
+    ).toBeInTheDocument();
+  });
+
   it('uploads three files sequentially and refreshes the listing', async () => {
     const user = userEvent.setup();
     const resolvers: Array<(document: CompanyDocument) => void> = [];
