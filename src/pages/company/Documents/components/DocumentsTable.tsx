@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import {
-  DOCUMENT_TYPE_LABELS,
-  type CompanyDocument,
-} from '../../../../features/documents/types';
+import type { CompanyDocument } from '../../../../features/documents/types';
+import { ApiError } from '../../../../services/api/apiError';
+import { getDocumentAccessUrl } from '../../../../services/api/documentsApi';
+import { openProtectedFile } from '../../../../utils/openProtectedFile';
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
@@ -10,13 +11,11 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   timeStyle: 'short',
 });
 
-const COLUMNS = [
-  'Título',
-  'Tipo',
-  'Data do documento',
-  'Enviado por',
-  'Enviado em',
-] as const;
+const COLUMNS = ['Título', 'Data do documento', 'Enviado em', 'Ações'] as const;
+
+const OPEN_ERROR = 'Não foi possível abrir o documento.';
+const POPUP_BLOCKED_ERROR =
+  'Permita a abertura de pop-ups para visualizar o documento.';
 
 function formatDate(dateOnly: string): string {
   const date = new Date(`${dateOnly.slice(0, 10)}T00:00:00.000Z`);
@@ -32,9 +31,11 @@ function TableHeader() {
   return (
     <thead>
       <tr className="border-b border-border bg-surface-muted">
-        {COLUMNS.map((column) => (
+        {COLUMNS.map((column, index) => (
           <th
-            className="px-5 py-3 text-xs font-semibold text-text-muted"
+            className={`px-5 py-3 text-left text-xs font-semibold text-text-muted ${
+              index === COLUMNS.length - 1 ? 'w-48' : ''
+            }`}
             key={column}
             scope="col"
           >
@@ -68,10 +69,33 @@ export function DocumentsTableSkeleton() {
 }
 
 export function DocumentsTable({
+  companyId,
   documents,
 }: {
+  companyId: string;
   documents: CompanyDocument[];
 }) {
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(
+    null
+  );
+  const [openError, setOpenError] = useState<string | null>(null);
+
+  async function handleOpen(documentId: string) {
+    setOpeningDocumentId(documentId);
+    setOpenError(null);
+
+    try {
+      const result = await openProtectedFile(() =>
+        getDocumentAccessUrl(companyId, documentId)
+      );
+      if (result === 'popup-blocked') setOpenError(POPUP_BLOCKED_ERROR);
+    } catch (error) {
+      setOpenError(error instanceof ApiError ? error.message : OPEN_ERROR);
+    } finally {
+      setOpeningDocumentId(null);
+    }
+  }
+
   return (
     <section
       aria-label="Documentos da empresa"
@@ -84,6 +108,11 @@ export function DocumentsTable({
         <p className="mt-1 mb-0 text-xs text-text-muted">
           {documents.length} {documents.length === 1 ? 'arquivo' : 'arquivos'}
         </p>
+        {openError ? (
+          <p className="mt-2 mb-0 text-xs text-red-600" role="alert">
+            {openError}
+          </p>
+        ) : null}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] border-collapse text-left text-sm">
@@ -109,17 +138,24 @@ export function DocumentsTable({
                     </div>
                   </div>
                 </td>
-                <td className="px-5 py-4 text-text-secondary">
-                  {DOCUMENT_TYPE_LABELS[document.type]}
-                </td>
                 <td className="px-5 py-4 whitespace-nowrap text-text-secondary">
                   {formatDate(document.documentDate)}
                 </td>
-                <td className="px-5 py-4 text-text-secondary">
-                  {document.uploadedBy.name}
-                </td>
                 <td className="px-5 py-4 whitespace-nowrap text-text-secondary">
                   {formatDateTime(document.createdAt)}
+                </td>
+                <td className="w-48 px-5 py-4 text-left">
+                  <button
+                    className="inline-flex items-center gap-2 whitespace-nowrap border-0 bg-transparent p-0 text-sm font-extrabold text-primary-strong hover:underline hover:underline-offset-[3px] disabled:cursor-wait disabled:opacity-60"
+                    disabled={openingDocumentId === document.id}
+                    onClick={() => void handleOpen(document.id)}
+                    type="button"
+                  >
+                    <FileText aria-hidden="true" size={16} />
+                    {openingDocumentId === document.id
+                      ? 'Abrindo...'
+                      : 'Abrir arquivo'}
+                  </button>
                 </td>
               </tr>
             ))}
