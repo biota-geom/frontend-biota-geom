@@ -395,6 +395,50 @@ describe('LicenseDetailsPage', () => {
   });
 
   describe('Registrar Cumprimento modal', () => {
+    const FULFILLMENT_DETAILS: LicenseDetails = {
+      ...DETAILS,
+      conditions: [
+        {
+          id: 'condition-group-1',
+          itemNumber: '1',
+          isEnvironmentalDescriptor: false,
+          environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
+          name: 'Controle de entrada',
+          description: 'Manter controle de entrada.',
+          conditionType: 'Informativo',
+          periodicity: 'NA',
+          deadline: null,
+          status: 'Atendida',
+          completionDate: '2024-03-12T00:00:00.000Z',
+          responsibleName: 'Lucas Silva',
+          hasDelivery: true,
+          isViolated: false,
+        },
+        {
+          id: 'condition-1-1',
+          itemNumber: '1.1',
+          isEnvironmentalDescriptor: false,
+          environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
+          name: 'Controle da frota',
+          description: 'Manter registros de estacionamento da frota.',
+          conditionType: 'Informativo',
+          periodicity: 'NA',
+          deadline: null,
+          status: 'Atendida',
+          completionDate: '2024-03-12T00:00:00.000Z',
+          responsibleName: 'Lucas Silva',
+          hasDelivery: true,
+          isViolated: false,
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(
+        FULFILLMENT_DETAILS
+      );
+    });
+
     async function openFulfillmentModal(
       user: ReturnType<typeof userEvent.setup>
     ) {
