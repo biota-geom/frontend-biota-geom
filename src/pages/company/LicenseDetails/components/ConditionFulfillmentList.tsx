@@ -33,15 +33,28 @@ function notFulfilledButtonClass(selected: boolean): string {
 }
 
 export function ConditionFulfillmentList({ conditions, onChange }: Props) {
+  /*
+   * Environmental descriptor rows (isEnvironmentalDescriptor === true) have
+   * id === null and represent section headers, not actionable conditions.
+   * We filter them out so only real conditions (with a stable string id) are
+   * listed here.
+   */
+  const actionableConditions = conditions.filter(
+    (c): c is LicenseConditionDetail & { id: string } =>
+      !c.isEnvironmentalDescriptor && c.id !== null
+  );
+
   const [selections, setSelections] = useState<
     Record<string, boolean | undefined>
-  >(() => Object.fromEntries(conditions.map((c) => [c.id, undefined])));
+  >(() =>
+    Object.fromEntries(actionableConditions.map((c) => [c.id, undefined]))
+  );
 
   function handleSelect(conditionId: string, fulfilled: boolean) {
     const next = { ...selections, [conditionId]: fulfilled };
     setSelections(next);
 
-    const rows: ConditionFulfillmentRow[] = conditions.map((c) => ({
+    const rows: ConditionFulfillmentRow[] = actionableConditions.map((c) => ({
       conditionId: c.id,
       itemNumber: c.itemNumber,
       description: c.description,
@@ -53,7 +66,7 @@ export function ConditionFulfillmentList({ conditions, onChange }: Props) {
     onChange(rows, isComplete);
   }
 
-  if (conditions.length === 0) {
+  if (actionableConditions.length === 0) {
     return (
       <p className="py-4 text-center text-sm text-text-secondary">
         Nenhuma condicionante cadastrada para esta licença.
@@ -63,7 +76,7 @@ export function ConditionFulfillmentList({ conditions, onChange }: Props) {
 
   return (
     <div className="divide-y divide-border" role="list">
-      {conditions.map((condition) => {
+      {actionableConditions.map((condition) => {
         const selected = selections[condition.id];
         const itemLabel = condition.itemNumber ?? '—';
 

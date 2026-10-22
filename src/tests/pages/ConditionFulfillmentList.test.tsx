@@ -7,6 +7,9 @@ import type { LicenseConditionDetail } from '../../features/licenses/types';
 const CONDITION_A: LicenseConditionDetail = {
   id: 'cond-a',
   itemNumber: '1.1',
+  isEnvironmentalDescriptor: false,
+  environmentalDescriptor: 'Recursos Hídricos',
+  name: null,
   description: 'Manter registro de estacionamento.',
   conditionType: 'Informativo',
   periodicity: 'NA',
@@ -14,12 +17,16 @@ const CONDITION_A: LicenseConditionDetail = {
   status: 'Em andamento',
   completionDate: null,
   responsibleName: 'Lucas',
+  hasDelivery: null,
   isViolated: false,
 };
 
 const CONDITION_B: LicenseConditionDetail = {
   id: 'cond-b',
   itemNumber: '1.2',
+  isEnvironmentalDescriptor: false,
+  environmentalDescriptor: 'Recursos Hídricos',
+  name: null,
   description: 'Apresentar relatório trimestral.',
   conditionType: 'Periódico',
   periodicity: 'Trimestral',
@@ -27,6 +34,7 @@ const CONDITION_B: LicenseConditionDetail = {
   status: 'Em andamento',
   completionDate: null,
   responsibleName: 'Ana',
+  hasDelivery: null,
   isViolated: false,
 };
 
