@@ -95,6 +95,13 @@ export interface LicensePanelItem {
   documentUrl: string | null;
 }
 
+/** Temporary URL to view a license PDF (GET /licenses/:id/document/url). */
+export interface LicenseDocumentUrl {
+  url: string;
+  /** Seconds until `url` expires, or null when it does not expire. */
+  expiresIn: number | null;
+}
+
 export interface LicensesPanel {
   summary: LicenseSummary;
   licenses: LicensePanelItem[];

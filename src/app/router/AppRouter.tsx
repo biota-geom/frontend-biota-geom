@@ -41,6 +41,16 @@ function CompanyRootRedirect() {
   return <Navigate to={buildCompanyRoutes.dashboard(companyId)} replace />;
 }
 
+function CustomerEsgRedirect() {
+  const { customerId } = useParams<{ customerId: string }>();
+
+  if (!customerId) {
+    return <Navigate to={APP_ROUTES.admin.companies} replace />;
+  }
+
+  return <Navigate to={buildCompanyRoutes.indicators(customerId)} replace />;
+}
+
 /*
  * Exported for RootRedirect.test.tsx: mounted inside <AppRoutes/> its decision
  * is invisible, because PublicOnlyRoute/ProtectedRoute re-derive the same one
@@ -89,8 +99,14 @@ export function AppRoutes() {
           <Route path="conditions" element={<CompanyConditionsPage />} />
           <Route path="legislation" element={<CompanyLegislationPage />} />
           <Route path="indicators" element={<CompanyIndicatorsPage />} />
+          <Route path="esg" element={<CompanyIndicatorsPage />} />
           <Route path="documents" element={<CompanyDocumentsPage />} />
         </Route>
+
+        <Route
+          path={APP_ROUTES.customer.esg}
+          element={<CustomerEsgRedirect />}
+        />
       </Route>
 
       <Route path="*" element={<Navigate to={APP_ROUTES.root} replace />} />

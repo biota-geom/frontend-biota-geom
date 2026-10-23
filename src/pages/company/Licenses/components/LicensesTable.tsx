@@ -1,8 +1,11 @@
+import { Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { buildCompanyRoutes } from '../../../../app/router/routes';
+import { ErrorToast } from '../../../../components/feedback/ErrorToast';
 import { ArrowRightIcon, FileIcon } from '../../../../components/ui/icons';
 import { getLicenseStatusBadgeTone } from '../../../../features/licenses/licenseStatusFormatting';
 import type { LicensePanelItem } from '../../../../features/licenses/types';
+import { useOpenLicenseDocument } from '../../../../features/licenses/useOpenLicenseDocument';
 import { cn } from '../../../../utils/cn';
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -77,8 +80,14 @@ export function LicensesTableSkeleton() {
 }
 
 export function LicensesTable({ companyId, licenses }: LicensesTableProps) {
+  const { openDocument, openingLicenseId, errorMessage, dismissError } =
+    useOpenLicenseDocument();
+
   return (
     <div className="rounded-panel overflow-x-auto border border-border bg-surface shadow-control">
+      {errorMessage ? (
+        <ErrorToast message={errorMessage} onDismiss={dismissError} />
+      ) : null}
       <table className="w-full min-w-[720px] border-collapse text-left text-sm">
         <TableHeader />
         <tbody>
@@ -115,15 +124,24 @@ export function LicensesTable({ companyId, licenses }: LicensesTableProps) {
               <td className="px-5 py-4">
                 <div className="flex items-center justify-end gap-4">
                   {license.documentUrl ? (
-                    <a
-                      className="inline-flex items-center gap-[7px] whitespace-nowrap text-sm font-extrabold text-text-secondary no-underline hover:text-primary-strong hover:underline hover:underline-offset-[3px]"
-                      href={license.documentUrl}
-                      rel="noopener noreferrer"
-                      target="_blank"
+                    <button
+                      aria-busy={openingLicenseId === license.id}
+                      className="inline-flex cursor-pointer items-center gap-[7px] whitespace-nowrap text-sm font-extrabold text-text-secondary hover:text-primary-strong hover:underline hover:underline-offset-[3px] disabled:cursor-wait disabled:opacity-60 disabled:hover:no-underline"
+                      disabled={openingLicenseId !== null}
+                      onClick={() => void openDocument(license.id)}
+                      type="button"
                     >
-                      <FileIcon />
+                      {openingLicenseId === license.id ? (
+                        <Loader2
+                          aria-hidden="true"
+                          className="animate-spin"
+                          size={16}
+                        />
+                      ) : (
+                        <FileIcon />
+                      )}
                       Abrir PDF
-                    </a>
+                    </button>
                   ) : (
                     <span className="inline-flex items-center gap-[7px] whitespace-nowrap text-sm text-text-muted">
                       <FileIcon />

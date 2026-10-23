@@ -5,12 +5,99 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { createLicense, getLicenseHistory, listLicenses, renewLicense } =
-  await import('../../services/api/licensesApi');
+const {
+  createLicense,
+  getLicenseDetails,
+  getLicenseDocumentUrl,
+  getLicenseHistory,
+  listLicenses,
+  renewLicense,
+} = await import('../../services/api/licensesApi');
 
 describe('licensesApi', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('getLicenseDocumentUrl() requests the signed URL and maps the response', async () => {
+    vi.mocked(request).mockResolvedValue({
+      document_url:
+        'https://bucket.s3.amazonaws.com/licenses/c-1/doc.pdf?X-Amz-Signature=abc',
+      expires_in: 900,
+    });
+
+    const documentUrl = await getLicenseDocumentUrl('license-1');
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/licenses/license-1/document/url'
+    );
+    expect(documentUrl).toEqual({
+      url: 'https://bucket.s3.amazonaws.com/licenses/c-1/doc.pdf?X-Amz-Signature=abc',
+      expiresIn: 900,
+    });
+  });
+
+  it('getLicenseDetails() requests the customer license and maps its conditions', async () => {
+    vi.mocked(request).mockResolvedValue({
+      id: 'license-1',
+      process_number: 'LO nº 118/2020',
+      type: 'Licença de Operação (LO)',
+      issuing_agency: 'FEPAM',
+      issue_date: '2020-01-10T00:00:00.000Z',
+      expiration_date: '2025-01-10T00:00:00.000Z',
+      status: 'Vencida',
+      conditions: [
+        {
+          id: 'condition-1',
+          item_number: '1.1',
+          is_environmental_descriptor: false,
+          environmental_descriptor: 'Água',
+          name: 'Monitoramento',
+          description: 'Laudo trimestral',
+          condition_type: 'PERIODIC',
+          periodicity: 'QUARTERLY',
+          deadline: '2026-01-10T00:00:00.000Z',
+          status: 'IN_PROGRESS',
+          completion_date: null,
+          responsible_name: 'Lucas',
+          has_delivery: true,
+          is_violated: false,
+        },
+      ],
+    });
+
+    const details = await getLicenseDetails('customer-1', 'license-1');
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1'
+    );
+    expect(details).toEqual({
+      id: 'license-1',
+      processNumber: 'LO nº 118/2020',
+      type: 'Licença de Operação (LO)',
+      issuingAgency: 'FEPAM',
+      issueDate: '2020-01-10T00:00:00.000Z',
+      expirationDate: '2025-01-10T00:00:00.000Z',
+      status: 'Vencida',
+      conditions: [
+        {
+          id: 'condition-1',
+          itemNumber: '1.1',
+          isEnvironmentalDescriptor: false,
+          environmentalDescriptor: 'Água',
+          name: 'Monitoramento',
+          description: 'Laudo trimestral',
+          conditionType: 'PERIODIC',
+          periodicity: 'QUARTERLY',
+          deadline: '2026-01-10T00:00:00.000Z',
+          status: 'IN_PROGRESS',
+          completionDate: null,
+          responsibleName: 'Lucas',
+          hasDelivery: true,
+          isViolated: false,
+        },
+      ],
+    });
   });
 
   it('createLicense() posts a FormData body and maps the response to the domain shape', async () => {
