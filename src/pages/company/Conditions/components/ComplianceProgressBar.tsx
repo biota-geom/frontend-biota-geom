@@ -2,6 +2,7 @@ import type { LicenseConditionsCompliance } from '../../../../features/licenseCo
 
 interface ComplianceProgressBarProps {
   compliance: LicenseConditionsCompliance;
+  variant?: 'default' | 'compact';
 }
 
 function clampPercentage(value: number) {
@@ -10,8 +11,38 @@ function clampPercentage(value: number) {
 
 export function ComplianceProgressBar({
   compliance,
+  variant = 'default',
 }: ComplianceProgressBarProps) {
   const percentage = clampPercentage(compliance.compliancePercentage);
+
+  if (variant === 'compact') {
+    return (
+      <div>
+        <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+          <span className="font-semibold text-text-secondary">
+            Conformidade
+          </span>
+          <span className="font-extrabold text-primary-strong">
+            {percentage}%
+          </span>
+        </div>
+        <div
+          aria-label="Percentual de conformidade geral"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={percentage}
+          className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100"
+          role="progressbar"
+        >
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+            data-testid="compliance-progress-fill"
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <section
