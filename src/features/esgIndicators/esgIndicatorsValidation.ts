@@ -1,129 +1,108 @@
 import { z } from 'zod';
-import {
-  ESG_INDICATOR_KEYS,
-  type EsgIndicatorKey,
-  type EsgIndicatorsPayload,
-  type EsgMonthlyIndicators,
-} from './types';
+import type { EsgIndicatorsPayload, MonthlyIndicator } from './types';
 
-export const ESG_INDICATOR_FIELDS: ReadonlyArray<{
-  key: EsgIndicatorKey;
-  label: string;
-  unit: string;
-  placeholder: string;
-}> = [
-  { key: 'water', label: 'Consumo de Água', unit: 'm³', placeholder: '0,00' },
-  { key: 'waste', label: 'Resíduos Gerados', unit: 't', placeholder: '0,00' },
-  {
-    key: 'employees',
-    label: 'Nº de Funcionários',
-    unit: 'pessoas',
-    placeholder: '0',
-  },
-  { key: 'energy', label: 'Consumo de Energia', unit: 'kWh', placeholder: '0' },
-];
+export const INDICATOR_CATEGORIES = [
+  'Ambiental',
+  'Social',
+  'Governança',
+] as const;
+export type IndicatorCategory = (typeof INDICATOR_CATEGORIES)[number];
 
 export const INVALID_NUMBER_MESSAGE = 'Informe um número válido.';
 export const NEGATIVE_NUMBER_MESSAGE = 'O valor não pode ser negativo.';
-export const INTEGER_ONLY_MESSAGE = 'Informe um número inteiro.';
+export const REQUIRED_FIELD_MESSAGE = 'Este campo é obrigatório.';
+
+const MAX_INDICATOR_VALUE = 99_999_999_999_999;
 
 /*
- * Every field is a string in the form (an empty input is ''), because a
- * partially filled month is valid: blank means "not informed", not zero.
+ * Every value field is a string in the form (empty = not informed).
+ * Partial submission is valid: blank means "not informed", not zero.
  */
-function numericField(options: { integer?: boolean } = {}) {
-  return z
-    .string()
-    .trim()
-    .superRefine((value, context) => {
-      if (value === '') return;
+export const numericIndicatorField = z
+  .string()
+  .trim()
+  .superRefine((value, context) => {
+    if (value === '') return;
 
-      const parsed = Number(value);
+    const parsed = Number(value);
 
-      if (!Number.isFinite(parsed)) {
-        context.addIssue({ code: 'custom', message: INVALID_NUMBER_MESSAGE });
-        return;
-      }
-      if (parsed < 0) {
-        context.addIssue({ code: 'custom', message: NEGATIVE_NUMBER_MESSAGE });
-        return;
-      }
-      if (options.integer && !Number.isInteger(parsed)) {
-        context.addIssue({ code: 'custom', message: INTEGER_ONLY_MESSAGE });
-      }
-    });
-}
+    if (!Number.isFinite(parsed)) {
+      context.addIssue({ code: 'custom', message: INVALID_NUMBER_MESSAGE });
+      return;
+    }
+    if (parsed < 0) {
+      context.addIssue({ code: 'custom', message: NEGATIVE_NUMBER_MESSAGE });
+      return;
+    }
+    if (parsed > MAX_INDICATOR_VALUE) {
+      context.addIssue({
+        code: 'custom',
+        message: 'O valor do indicador excede o limite permitido.',
+      });
+    }
+  });
 
-export const esgIndicatorsSchema = z.object({
-  water: numericField(),
-  waste: numericField(),
-  employees: numericField({ integer: true }),
-  energy: numericField(),
+/**
+ * Schema for the dynamic inline-creation form (Name, Unit, Category).
+ */
+export const newIndicatorSchema = z.object({
+  name: z.string().trim().min(1, 'Informe o nome do indicador.').max(120),
+  unit: z.string().trim().min(1, 'Informe a unidade de medida.').max(30),
+
+  category: z.enum(INDICATOR_CATEGORIES, {
+    error: 'Selecione uma categoria válida.',
+  }),
 });
 
-export type EsgIndicatorsFormValues = z.infer<typeof esgIndicatorsSchema>;
+export type NewIndicatorFormValues = z.infer<typeof newIndicatorSchema>;
 
-export const EMPTY_ESG_FORM_VALUES: EsgIndicatorsFormValues = {
-  water: '',
-  waste: '',
-  employees: '',
-  energy: '',
+export const EMPTY_NEW_INDICATOR_VALUES: NewIndicatorFormValues = {
+  name: '',
+  unit: '',
+  category: 'Ambiental',
 };
 
-export function toFormValues(
-  saved: EsgMonthlyIndicators
-): EsgIndicatorsFormValues {
-  const values = { ...EMPTY_ESG_FORM_VALUES };
-
-  for (const key of ESG_INDICATOR_KEYS) {
-    const value = saved[key];
-    values[key] = value === null ? '' : String(value);
-  }
-
-  return values;
-}
-
-/*
- * Blank means "not informed". For an indicator that already has a saved value,
- * though, a blank field is the user clearing it, so it goes out as null (the
- * API deletes the record). Blank with nothing saved is simply left out.
+/**
+ * Converts the form's string map (keyed by indicator_id) into the API payload.
+ * A blank field with a previously saved value becomes null (clear).
+ * A blank field with no previous value is omitted.
  */
 export function toPayload(
-  values: EsgIndicatorsFormValues,
-  saved: EsgMonthlyIndicators | null = null
+  values: Record<string, string>,
+  saved: MonthlyIndicator[]
 ): EsgIndicatorsPayload {
-  const payload: EsgIndicatorsPayload = {};
+  const records: EsgIndicatorsPayload['records'] = [];
 
-  for (const key of ESG_INDICATOR_KEYS) {
-    if (values[key] !== '') {
-      payload[key] = Number(values[key]);
-    } else if (saved?.[key] != null) {
-      payload[key] = null;
+  for (const indicator of saved) {
+    const raw = values[indicator.indicator_id] ?? '';
+    if (raw !== '') {
+      records.push({
+        indicator_id: indicator.indicator_id,
+        value: Number(raw),
+      });
+    } else if (indicator.value !== null) {
+      // Field was cleared — send null to remove the saved record.
+      records.push({ indicator_id: indicator.indicator_id, value: null });
     }
+    // Blank + never saved → omit (backend leaves untouched).
   }
 
-  return payload;
+  return { records };
 }
 
-/** What the month looks like once `payload` has been saved on top of `saved`. */
-export function applyPayload(
-  saved: EsgMonthlyIndicators | null,
-  payload: EsgIndicatorsPayload
-): EsgMonthlyIndicators {
-  const result: EsgMonthlyIndicators = {
-    water: null,
-    waste: null,
-    employees: null,
-    energy: null,
-    ...saved,
-  };
-
-  for (const key of ESG_INDICATOR_KEYS) {
-    const value = payload[key];
-    if (value !== undefined) result[key] = value;
-  }
-
-  return result;
+/**
+ * Initialises the form values string-map from the loaded indicators.
+ * null values become '' (empty string).
+ */
+export function toFormValues(
+  indicators: MonthlyIndicator[]
+): Record<string, string> {
+  return Object.fromEntries(
+    indicators.map((ind) => [
+      ind.indicator_id,
+      ind.value === null ? '' : String(ind.value),
+    ])
+  );
 }
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
