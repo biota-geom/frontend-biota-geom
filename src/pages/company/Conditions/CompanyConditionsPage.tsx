@@ -12,6 +12,7 @@ import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { ComplianceProgressBar } from './components/ComplianceProgressBar';
 import { ConditionCard } from './components/ConditionCard';
 import { ConditionsToolbar } from './components/ConditionsToolbar';
+import { DeleteConditionDialog } from './components/DeleteConditionDialog';
 import { EditConditionModal } from './components/EditConditionModal';
 
 export function CompanyConditionsPage() {
@@ -20,6 +21,8 @@ export function CompanyConditionsPage() {
   const [statusFilter, setStatusFilter] =
     useState<LicenseConditionStatusFilter>('all');
   const [conditionToEdit, setConditionToEdit] =
+    useState<LicenseCondition | null>(null);
+  const [conditionToDelete, setConditionToDelete] =
     useState<LicenseCondition | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { conditions, error, refetch, status, total } = useConditions(
@@ -37,6 +40,18 @@ export function CompanyConditionsPage() {
   function handleUpdated(conditionName: string) {
     setToastMessage(`Condicionante "${conditionName}" atualizada com sucesso.`);
     setConditionToEdit(null);
+    refetch();
+    refetchCompliance();
+  }
+
+  function handleDeleted(conditionName: string) {
+    setToastMessage(`Condicionante "${conditionName}" removida com sucesso.`);
+    setConditionToDelete(null);
+    /*
+     * Both lists are reloaded: refetch refreshes the cards and the
+     * "X condicionantes registradas" counter, refetchCompliance moves the
+     * progress bar, since a removed condition leaves the percentage base.
+     */
     refetch();
     refetchCompliance();
   }
@@ -97,6 +112,7 @@ export function CompanyConditionsPage() {
             <ConditionCard
               condition={condition}
               key={condition.id}
+              onDelete={setConditionToDelete}
               onEdit={setConditionToEdit}
             />
           ))}
@@ -111,6 +127,17 @@ export function CompanyConditionsPage() {
         onUpdated={handleUpdated}
         open={conditionToEdit !== null}
       />
+
+      {companyId ? (
+        <DeleteConditionDialog
+          companyId={companyId}
+          condition={conditionToDelete}
+          onDeleted={handleDeleted}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setConditionToDelete(null);
+          }}
+        />
+      ) : null}
 
       {toastMessage ? (
         <SuccessToast message={toastMessage} onDismiss={dismissToast} />

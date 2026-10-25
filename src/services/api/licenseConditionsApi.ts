@@ -155,3 +155,14 @@ export async function createLicenseConditions(
     }
   );
 }
+
+export async function deleteLicenseCondition(
+  customerId: string,
+  licenseId: string,
+  conditionId: string
+): Promise<void> {
+  await request<void>(
+    `/api/customers/${customerId}/licenses/${licenseId}/conditions/${conditionId}`,
+    { method: 'DELETE' }
+  );
+}

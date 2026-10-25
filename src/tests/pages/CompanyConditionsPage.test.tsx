@@ -22,6 +22,7 @@ vi.mock('../../services/api/licenseConditionsApi', () => ({
   getLicenseConditionsCompliance: vi.fn(),
   createLicenseCondition: vi.fn(),
   updateLicenseCondition: vi.fn(),
+  deleteLicenseCondition: vi.fn(),
 }));
 vi.mock('../../services/api/licensesApi', () => ({
   listLicenses: vi.fn(),
@@ -442,5 +443,129 @@ describe('CompanyConditionsPage', () => {
         screen.getByRole('article', { name: condition.name })
       ).findByText('Violada')
     ).toBeInTheDocument();
+  });
+
+  it('removes a condition after confirmation and reloads list and compliance', async () => {
+    const user = userEvent.setup();
+    const condition = {
+      id: 'condition-regular',
+      licenseId: 'license-1',
+      name: 'MTR mensal',
+      description: 'Manifesto de transporte.',
+      environmentalDescriptor: 'Resíduos sólidos',
+      responsibleAgency: 'FEPAM',
+      dueDate: '2026-11-30T00:00:00.000Z',
+      status: 'Regular' as const,
+      hasDelivery: true,
+      isViolated: false,
+      riskLevel: 'REGULAR' as const,
+    };
+    vi.mocked(licenseConditionsApi.listLicenseConditions)
+      .mockResolvedValueOnce({ total: 1, conditions: [condition] })
+      .mockResolvedValue({ total: 0, conditions: [] });
+    vi.mocked(licenseConditionsApi.deleteLicenseCondition).mockResolvedValue();
+
+    renderConditionsPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Excluir MTR mensal' })
+    );
+
+    const dialog = screen.getByRole('dialog', {
+      name: 'Remover condicionante',
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Remover' }));
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.deleteLicenseCondition).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        'condition-regular'
+      )
+    );
+    // A barra de conformidade sai do cálculo junto com a condicionante.
+    await waitFor(() =>
+      expect(
+        licenseConditionsApi.getLicenseConditionsCompliance
+      ).toHaveBeenCalledTimes(2)
+    );
+    expect(
+      await screen.findByText('0 condicionantes registradas')
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the condition when the confirmation is dismissed', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 1,
+      conditions: [
+        {
+          id: 'condition-regular',
+          licenseId: 'license-1',
+          name: 'MTR mensal',
+          description: 'Manifesto de transporte.',
+          environmentalDescriptor: 'Resíduos sólidos',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-11-30T00:00:00.000Z',
+          status: 'Regular' as const,
+          hasDelivery: true,
+          isViolated: false,
+          riskLevel: 'REGULAR' as const,
+        },
+      ],
+    });
+
+    renderConditionsPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Excluir MTR mensal' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.deleteLicenseCondition).not.toHaveBeenCalled()
+    );
+    expect(
+      screen.getByRole('article', { name: 'MTR mensal' })
+    ).toBeInTheDocument();
+  });
+
+  it('shows the API message and keeps the card when removal fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 1,
+      conditions: [
+        {
+          id: 'condition-regular',
+          licenseId: 'license-1',
+          name: 'MTR mensal',
+          description: 'Manifesto de transporte.',
+          environmentalDescriptor: 'Resíduos sólidos',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-11-30T00:00:00.000Z',
+          status: 'Regular' as const,
+          hasDelivery: true,
+          isViolated: false,
+          riskLevel: 'REGULAR' as const,
+        },
+      ],
+    });
+    vi.mocked(licenseConditionsApi.deleteLicenseCondition).mockRejectedValue(
+      new ApiError(404, 'Condicionante não encontrada.')
+    );
+
+    renderConditionsPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Excluir MTR mensal' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Remover' }));
+
+    expect(
+      await screen.findByText('Condicionante não encontrada.')
+    ).toBeInTheDocument();
+    // O diálogo segue aberto e a listagem não é recarregada, então o card
+    // continua lá por baixo do modal.
+    expect(
+      screen.getByRole('dialog', { name: 'Remover condicionante' })
+    ).toBeInTheDocument();
+    expect(licenseConditionsApi.listLicenseConditions).toHaveBeenCalledTimes(1);
   });
 });

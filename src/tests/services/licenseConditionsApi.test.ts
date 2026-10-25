@@ -8,6 +8,7 @@ const { request } = await import('../../services/api/http');
 const {
   createLicenseCondition,
   createLicenseConditions,
+  deleteLicenseCondition,
   getLicenseConditionsCompliance,
   listLicenseConditions,
   updateLicenseCondition,
@@ -146,6 +147,18 @@ describe('licenseConditionsApi', () => {
           ],
         },
       }
+    );
+  });
+
+  it('deletes a condition through the license-scoped route', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await expect(
+      deleteLicenseCondition('customer-1', 'license-1', 'condition-1')
+    ).resolves.toBeUndefined();
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions/condition-1',
+      { method: 'DELETE' }
     );
   });
 });

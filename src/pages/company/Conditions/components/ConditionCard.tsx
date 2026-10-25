@@ -46,9 +46,11 @@ function formatDueDate(value: string): string {
 export function ConditionCard({
   condition,
   onEdit,
+  onDelete,
 }: {
   condition: LicenseCondition;
   onEdit: (condition: LicenseCondition) => void;
+  onDelete: (condition: LicenseCondition) => void;
 }) {
   const style = RISK_STYLES[condition.riskLevel];
   const StatusIcon = style.symbol;
@@ -127,6 +129,7 @@ export function ConditionCard({
         <button
           aria-label={`Excluir ${condition.name}`}
           className="rounded-control flex h-7 w-7 items-center justify-center bg-rose-100 text-rose-500"
+          onClick={() => onDelete(condition)}
           type="button"
         >
           <Trash2 size={16} strokeWidth={2} />

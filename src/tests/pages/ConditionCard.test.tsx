@@ -19,6 +19,7 @@ describe('ConditionCard', () => {
           isViolated: true,
           riskLevel: 'RISK',
         }}
+        onDelete={vi.fn()}
         onEdit={vi.fn()}
       />
     );
@@ -60,6 +61,7 @@ describe('ConditionCard', () => {
           isViolated: false,
           riskLevel: 'ATTENTION',
         }}
+        onDelete={vi.fn()}
         onEdit={vi.fn()}
       />
     );
