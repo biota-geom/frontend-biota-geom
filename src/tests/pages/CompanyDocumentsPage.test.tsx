@@ -11,6 +11,7 @@ import { renderWithAuth } from '../mocks/renderWithAuth';
 vi.mock('../../services/api/documentsApi', () => ({
   createDocument: vi.fn(),
   getDocumentAccessUrl: vi.fn(),
+  deleteDocument: vi.fn(),
   createDocumentFolder: vi.fn(),
   listDocumentFolders: vi.fn(),
   listDocuments: vi.fn(),
@@ -93,7 +94,7 @@ describe('CompanyDocumentsPage', () => {
       'Laudo de Ruído 2026'
     );
     expect(
-      within(table).getAllByRole('button', { name: /abrir arquivo/i })
+      within(table).getAllByRole('button', { name: /^visualizar /i })
     ).toHaveLength(2);
   });
 
@@ -112,7 +113,7 @@ describe('CompanyDocumentsPage', () => {
     renderPage();
 
     const buttons = await screen.findAllByRole('button', {
-      name: /abrir arquivo/i,
+      name: /^visualizar /i,
     });
     await user.click(buttons[0]!);
 
@@ -317,4 +318,68 @@ describe('CompanyDocumentsPage', () => {
       screen.queryByRole('heading', { name: /^enviar documentos$/i })
     ).not.toBeInTheDocument();
   }, 20_000);
+
+  it('asks for confirmation before deleting and keeps the document on cancel', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^excluir /i }))[0]!
+    );
+
+    expect(
+      screen.getByText(
+        'Excluir este documento? Ele deixará de aparecer na lista.'
+      )
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancelar/i }));
+
+    await waitFor(() =>
+      expect(documentsApi.deleteDocument).not.toHaveBeenCalled()
+    );
+  });
+
+  it('deletes the document and reloads the listing after confirmation', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.deleteDocument).mockResolvedValue(undefined);
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^excluir /i }))[0]!
+    );
+    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+
+    await waitFor(() =>
+      expect(documentsApi.deleteDocument).toHaveBeenCalledWith(
+        COMPANY_ID,
+        'document-new'
+      )
+    );
+    // A listagem é recarregada para o contador de arquivos acompanhar.
+    await waitFor(() =>
+      expect(documentsApi.listDocuments).toHaveBeenCalledTimes(2)
+    );
+    expect(
+      await screen.findByText('Documento excluído com sucesso.')
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the dialog open and shows the API message when deletion fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.deleteDocument).mockRejectedValue(
+      new ApiError(404, 'Documento não encontrado.')
+    );
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^excluir /i }))[0]!
+    );
+    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+
+    expect(
+      await screen.findByText('Documento não encontrado.')
+    ).toBeInTheDocument();
+    expect(documentsApi.listDocuments).toHaveBeenCalledTimes(1);
+  });
 });

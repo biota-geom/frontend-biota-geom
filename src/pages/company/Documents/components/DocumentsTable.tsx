@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { Download, Eye, FileText, Trash2 } from 'lucide-react';
 import type { CompanyDocument } from '../../../../features/documents/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { getDocumentAccessUrl } from '../../../../services/api/documentsApi';
@@ -16,6 +16,10 @@ const COLUMNS = ['Título', 'Data do documento', 'Enviado em', 'Ações'] as con
 const OPEN_ERROR = 'Não foi possível abrir o documento.';
 const POPUP_BLOCKED_ERROR =
   'Permita a abertura de pop-ups para visualizar o documento.';
+const DOWNLOAD_ERROR = 'Não foi possível baixar o documento.';
+
+const ACTION_BUTTON_CLASS =
+  'rounded-control grid size-7 place-items-center border-0 bg-surface-muted p-0 text-text-secondary transition-colors hover:text-primary-strong disabled:cursor-wait disabled:opacity-60';
 
 function formatDate(dateOnly: string): string {
   const date = new Date(`${dateOnly.slice(0, 10)}T00:00:00.000Z`);
@@ -71,13 +75,18 @@ export function DocumentsTableSkeleton() {
 export function DocumentsTable({
   companyId,
   documents,
+  onRequestDelete,
 }: {
   companyId: string;
   documents: CompanyDocument[];
+  onRequestDelete: (document: CompanyDocument) => void;
 }) {
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(
     null
   );
+  const [downloadingDocumentId, setDownloadingDocumentId] = useState<
+    string | null
+  >(null);
   const [openError, setOpenError] = useState<string | null>(null);
 
   async function handleOpen(documentId: string) {
@@ -93,6 +102,34 @@ export function DocumentsTable({
       setOpenError(error instanceof ApiError ? error.message : OPEN_ERROR);
     } finally {
       setOpeningDocumentId(null);
+    }
+  }
+
+  async function handleDownload(document: CompanyDocument) {
+    setDownloadingDocumentId(document.id);
+    setOpenError(null);
+
+    try {
+      const url = await getDocumentAccessUrl(companyId, document.id);
+      /*
+       * The access URL points at the storage backend, so `download` alone is
+       * ignored cross-origin. Fetching the bytes first and handing the anchor
+       * a blob URL is what makes the browser save the file under its real
+       * name instead of navigating to it.
+       */
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(DOWNLOAD_ERROR);
+
+      const blobUrl = URL.createObjectURL(await response.blob());
+      const anchor = window.document.createElement('a');
+      anchor.href = blobUrl;
+      anchor.download = document.fileName;
+      anchor.click();
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      setOpenError(error instanceof ApiError ? error.message : DOWNLOAD_ERROR);
+    } finally {
+      setDownloadingDocumentId(null);
     }
   }
 
@@ -145,17 +182,37 @@ export function DocumentsTable({
                   {formatDateTime(document.createdAt)}
                 </td>
                 <td className="w-48 px-5 py-4 text-left">
-                  <button
-                    className="inline-flex items-center gap-2 whitespace-nowrap border-0 bg-transparent p-0 text-sm font-extrabold text-primary-strong hover:underline hover:underline-offset-[3px] disabled:cursor-wait disabled:opacity-60"
-                    disabled={openingDocumentId === document.id}
-                    onClick={() => void handleOpen(document.id)}
-                    type="button"
-                  >
-                    <FileText aria-hidden="true" size={16} />
-                    {openingDocumentId === document.id
-                      ? 'Abrindo...'
-                      : 'Abrir arquivo'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      aria-label={`Visualizar ${document.title}`}
+                      className={ACTION_BUTTON_CLASS}
+                      disabled={openingDocumentId === document.id}
+                      onClick={() => void handleOpen(document.id)}
+                      title="Visualizar"
+                      type="button"
+                    >
+                      <Eye aria-hidden="true" size={16} />
+                    </button>
+                    <button
+                      aria-label={`Baixar ${document.title}`}
+                      className={ACTION_BUTTON_CLASS}
+                      disabled={downloadingDocumentId === document.id}
+                      onClick={() => void handleDownload(document)}
+                      title="Baixar"
+                      type="button"
+                    >
+                      <Download aria-hidden="true" size={16} />
+                    </button>
+                    <button
+                      aria-label={`Excluir ${document.title}`}
+                      className="rounded-control grid size-7 place-items-center border-0 bg-red-100 p-0 text-red-500 transition-colors hover:text-red-700"
+                      onClick={() => onRequestDelete(document)}
+                      title="Excluir"
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

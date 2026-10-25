@@ -108,3 +108,12 @@ export async function getDocumentAccessUrl(
 
   return wire.document_url;
 }
+
+export async function deleteDocument(
+  customerId: string,
+  documentId: string
+): Promise<void> {
+  await request<void>(`/api/customers/${customerId}/documents/${documentId}`, {
+    method: 'DELETE',
+  });
+}
