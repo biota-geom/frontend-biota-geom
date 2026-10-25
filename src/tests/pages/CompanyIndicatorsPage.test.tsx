@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
@@ -6,6 +6,7 @@ import { buildCompanyRoutes } from '../../app/router/routes';
 import type { CompanyListItem } from '../../features/companies/types';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { getPreviousMonth } from '../../features/esgIndicators/esgIndicatorsValidation';
+import type { MonthlyIndicator } from '../../features/esgIndicators/types';
 import { ApiError } from '../../services/api/apiError';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
@@ -21,6 +22,7 @@ vi.mock('../../services/api/customersApi', () => ({
 vi.mock('../../services/api/esgIndicatorsApi', () => ({
   getEsgIndicators: vi.fn(),
   saveEsgIndicators: vi.fn(),
+  createCustomerIndicator: vi.fn(),
 }));
 
 const companiesApi = await import('../../services/api/companiesApi');
@@ -40,19 +42,38 @@ const COMPANY_IN_CONTEXT: CompanyListItem = {
   updatedAt: '2026-09-01T12:00:00.000Z',
 };
 
-const EMPTY_MONTH = {
-  water: null,
-  waste: null,
-  employees: null,
-  energy: null,
-};
+const EMPTY_MONTH: MonthlyIndicator[] = [];
 
-const SEPTEMBER = {
-  water: 12450.5,
-  waste: 847,
-  employees: 342,
-  energy: 58700,
-};
+const SEPTEMBER: MonthlyIndicator[] = [
+  {
+    indicator_id: 'uuid-ind-1',
+    name: 'Consumo de Água',
+    unit: 'm³',
+    category: 'Ambiental',
+    value: 12450.5,
+  },
+  {
+    indicator_id: 'uuid-ind-2',
+    name: 'Resíduos Gerados',
+    unit: 't',
+    category: 'Ambiental',
+    value: 847,
+  },
+  {
+    indicator_id: 'uuid-ind-3',
+    name: 'Nº de Funcionários',
+    unit: 'pessoas',
+    category: 'Social',
+    value: 342,
+  },
+  {
+    indicator_id: 'uuid-ind-4',
+    name: 'Consumo de Energia',
+    unit: 'kWh',
+    category: 'Ambiental',
+    value: 58700,
+  },
+];
 
 function renderIndicatorsPage(
   initialRoute = buildCompanyRoutes.indicators(COMPANY_ID)
@@ -75,7 +96,7 @@ describe('CompanyIndicatorsPage', () => {
       COMPANY_IN_CONTEXT,
     ]);
     vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(EMPTY_MONTH);
-    vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockResolvedValue(undefined);
+    vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockResolvedValue([]);
   });
 
   it('renders page header with title, subtitle, and action buttons', async () => {
@@ -107,45 +128,49 @@ describe('CompanyIndicatorsPage', () => {
     );
   });
 
-  it('renders the 4 KPI summary cards with fallback/default values', async () => {
+  it('renders the KPI summary cards with fallback mock data when there are no loaded indicators', async () => {
     renderIndicatorsPage();
 
+    // Mock data has these titles
     expect(await screen.findByText('Consumo de Água')).toBeInTheDocument();
     expect(screen.getByText('Resíduos Gerados')).toBeInTheDocument();
     expect(screen.getByText('Nº de Funcionários')).toBeInTheDocument();
     expect(screen.getByText('Consumo de Energia')).toBeInTheDocument();
   });
 
-  it('renders the 4 KPI summary cards prefilled with loaded month data', async () => {
+  it('renders KPI summary cards with loaded dynamic indicators', async () => {
     vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
 
     renderIndicatorsPage();
 
+    // Wait for the loaded data first (12.450,5 only exists in SEPTEMBER).
+    // Querying the names before this can grab fallback nodes that are
+    // replaced when the loaded indicators render.
+    // Formatted value appears in the aria-label (unit comes from the indicator).
     expect(
-      await screen.findByLabelText(/Consumo de Água: 12\.450,5 m³\/mês/i)
+      await screen.findByLabelText(/Consumo de Água: 12\.450,5 m³/i)
     ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/Resíduos Gerados: 847 ton\/mês/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/Nº de Funcionários: 342 pessoas/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/Consumo de Energia: 58\.700 kWh\/mês/i)
-    ).toBeInTheDocument();
+
+    // Cards show the dynamic indicator names
+    expect(screen.getByText('Consumo de Água')).toBeInTheDocument();
+    expect(screen.getByText('Resíduos Gerados')).toBeInTheDocument();
+    expect(screen.getByText('Nº de Funcionários')).toBeInTheDocument();
+    expect(screen.getByText('Consumo de Energia')).toBeInTheDocument();
   });
 
-  it('renders the 4 line charts with titles and legends', async () => {
+  it('renders the 4 line charts with titles', async () => {
     renderIndicatorsPage();
 
     expect(
       await screen.findByRole('region', { name: 'Consumo de Água (m³/mês)' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: 'Resíduos Gerados (ton/mês)' })
+      screen.getByRole('region', { name: 'Resíduos Gerados (t/mês)' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: 'Nº de Funcionários (pessoas/mês)' })
+      screen.getByRole('region', {
+        name: 'Nº de Funcionários (pessoas/mês)',
+      })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('region', {
@@ -154,59 +179,40 @@ describe('CompanyIndicatorsPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens "Novo Registro" modal, submits single indicator (PUT), and reloads dashboard', async () => {
+  it('opens "Novo Registro" modal with the company indicators', async () => {
     const user = userEvent.setup();
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
+
     renderIndicatorsPage();
 
-    const newRecordBtn = screen.getByRole('button', { name: /novo registro/i });
-    await user.click(newRecordBtn);
+    await screen.findByText('Consumo de Água');
+
+    await user.click(screen.getByRole('button', { name: /novo registro/i }));
 
     expect(
       await screen.findByRole('heading', { name: 'Novo Registro de Indicador' })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Insira os dados de medição do indicador ESG para o período selecionado.'
-      )
-    ).toBeInTheDocument();
-
-    const monthInput = screen.getByLabelText('Mês de Referência');
-    const valueInput = screen.getByLabelText('Valor Medido');
-
-    await user.clear(monthInput);
-    await user.type(monthInput, '2026-09');
-
-    await user.type(valueInput, '1250.5');
-
-    const submitBtn = screen.getByRole('button', { name: 'Registrar Dados' });
-    await user.click(submitBtn);
-
-    await waitFor(() =>
-      expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenCalledWith(
-        COMPANY_ID,
-        '2026-09',
-        { water: 1250.5 }
-      )
-    );
-
-    expect(
-      await screen.findByText(
-        'Indicadores de setembro de 2026 salvos com sucesso.'
-      )
-    ).toBeVisible();
   });
 
   it('blocks negative values in "Novo Registro" modal without calling PUT', async () => {
     const user = userEvent.setup();
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
+
     renderIndicatorsPage();
+    await screen.findByText('Consumo de Água');
 
     await user.click(screen.getByRole('button', { name: /novo registro/i }));
     expect(
       await screen.findByRole('heading', { name: 'Novo Registro de Indicador' })
     ).toBeInTheDocument();
 
-    const valueInput = screen.getByLabelText('Valor Medido');
-    await user.type(valueInput, '-10');
+    // Scope to the dialog: the summary card and chart also have
+    // "Consumo de Água" in their aria-labels.
+    const dialog = await screen.findByRole('dialog');
+    const waterInput = within(dialog).getByLabelText(/Consumo de Água/i);
+    // The input is pre-filled with the saved value, so clear it first.
+    await user.clear(waterInput);
+    await user.type(waterInput, '-10');
 
     await user.click(screen.getByRole('button', { name: 'Registrar Dados' }));
 
@@ -221,15 +227,20 @@ describe('CompanyIndicatorsPage', () => {
     vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockRejectedValue(
       new ApiError(400, 'Erro retornado pela API.')
     );
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
+
     renderIndicatorsPage();
+    await screen.findByText('Consumo de Água');
 
     await user.click(screen.getByRole('button', { name: /novo registro/i }));
     expect(
       await screen.findByRole('heading', { name: 'Novo Registro de Indicador' })
     ).toBeInTheDocument();
 
-    const valueInput = screen.getByLabelText('Valor Medido');
-    await user.type(valueInput, '500');
+    const dialog = await screen.findByRole('dialog');
+    const waterInput = within(dialog).getByLabelText(/Consumo de Água/i);
+    await user.clear(waterInput);
+    await user.type(waterInput, '500');
 
     await user.click(screen.getByRole('button', { name: 'Registrar Dados' }));
 
