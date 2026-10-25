@@ -104,7 +104,7 @@ export function CompanyIndicatorsPage() {
       {/* 2x2 Line Charts Grid */}
       <EsgChartsGrid indicators={indicators} />
 
-      {/* New Indicator Record Modal (PUT upsert) */}
+      {/* New Indicator Record Modal (PUT upsert + inline creation) */}
       {companyId && (
         <NewEsgIndicatorModal
           companyId={companyId}
