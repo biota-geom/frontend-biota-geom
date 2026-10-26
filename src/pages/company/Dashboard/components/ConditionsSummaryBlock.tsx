@@ -90,12 +90,12 @@ export function ConditionsSummaryBlock({
 
   return (
     <article
-      aria-label="Obrigações Ambientais"
+      aria-label="Condicionantes Ambientais"
       className="rounded-panel flex flex-col gap-5 border border-border bg-surface p-6 shadow-control max-[520px]:p-5"
     >
       <header className="flex items-center justify-between gap-4">
         <h2 className="m-0 text-base font-bold text-text-primary">
-          Obrigações Ambientais
+          Condicionantes Ambientais
         </h2>
         <Link
           className="shrink-0 text-xs font-bold text-primary-strong no-underline hover:underline"
@@ -111,7 +111,7 @@ export function ConditionsSummaryBlock({
 
       {isLoading ? (
         <p className="m-0 text-sm text-text-secondary" role="status">
-          Carregando obrigações ambientais...
+          Carregando condicionantes ambientais...
         </p>
       ) : null}
 
