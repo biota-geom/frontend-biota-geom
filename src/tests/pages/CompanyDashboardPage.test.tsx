@@ -7,6 +7,12 @@ import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { ApiError } from '../../services/api/apiError';
 import { getCompanyById } from '../../services/api/companiesApi';
 import { listCompanies } from '../../services/api/customersApi';
+import {
+  getLicenseConditionsCompliance,
+  listLicenseConditions,
+} from '../../services/api/licenseConditionsApi';
+import { listLicenses } from '../../services/api/licensesApi';
+import { useLicensesPanel } from '../../features/licenses/useLicensesPanel';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
 vi.mock('../../services/api/companiesApi', () => ({
@@ -17,6 +23,15 @@ vi.mock('../../services/api/companiesApi', () => ({
 
 vi.mock('../../services/api/customersApi', () => ({
   listCompanies: vi.fn(),
+}));
+
+vi.mock('../../services/api/licenseConditionsApi', () => ({
+  listLicenseConditions: vi.fn(),
+  getLicenseConditionsCompliance: vi.fn(),
+}));
+
+vi.mock('../../services/api/licensesApi', () => ({
+  listLicenses: vi.fn(),
 }));
 
 const mockedGetCompanyById = vi.mocked(getCompanyById);
@@ -37,7 +52,27 @@ beforeEach(() => {
   vi.clearAllMocks();
   useCompanies.setState({ companies: [], status: 'idle', error: null });
   useCompanyContext.getState().clearCompany();
+  useLicensesPanel.setState({
+    summary: null,
+    licenses: [],
+    status: 'idle',
+    error: null,
+    requestedCustomerId: null,
+  });
   mockedListCompanies.mockResolvedValue([company]);
+  vi.mocked(listLicenseConditions).mockResolvedValue({
+    total: 0,
+    conditions: [],
+  });
+  vi.mocked(getLicenseConditionsCompliance).mockResolvedValue({
+    totalActive: 0,
+    inCompliance: 0,
+    compliancePercentage: 100,
+  });
+  vi.mocked(listLicenses).mockResolvedValue({
+    summary: { total: 0, regular: 0, attention: 0, expired: 0 },
+    licenses: [],
+  });
 });
 
 describe('CompanyDashboardPage', () => {

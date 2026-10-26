@@ -2,6 +2,7 @@ import { FullPageLoader } from '../../../components/feedback/FullPageLoader';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { useCompanyContext } from '../../../features/companies/useCompanyContext';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
+import { ConditionsSummaryBlock } from './components/ConditionsSummaryBlock';
 
 /*
  * The company in scope is fetched once by CompanyLayout, which wraps every
@@ -18,6 +19,7 @@ export function CompanyDashboardPage() {
   return (
     <CompanyDashboardContent
       breadcrumbs={breadcrumbs}
+      companyId={company?.id}
       isLoading={status !== 'success' || !company}
     />
   );
@@ -25,11 +27,13 @@ export function CompanyDashboardPage() {
 
 type CompanyDashboardContentProps = {
   breadcrumbs: ReturnType<typeof useCompanyBreadcrumbs>;
+  companyId: string | undefined;
   isLoading: boolean;
 };
 
 function CompanyDashboardContent({
   breadcrumbs,
+  companyId,
   isLoading,
 }: CompanyDashboardContentProps) {
   if (isLoading) return <FullPageLoader />;
@@ -40,15 +44,9 @@ function CompanyDashboardContent({
       subtitle="Monitoramento de conformidade ambiental no contexto da empresa."
       title="Painel de controle"
     >
-      <section
-        aria-label="Resumo da empresa"
-        className="rounded-panel border border-border bg-surface p-8 shadow-control max-[640px]:p-6"
-      >
-        <p className="m-0 text-base leading-[1.6] text-text-secondary">
-          O escopo da empresa foi carregado e está disponível para as próximas
-          áreas do sistema.
-        </p>
-      </section>
+      {companyId ? (
+        <ConditionsSummaryBlock companyId={companyId} key={companyId} />
+      ) : null}
     </PageScaffold>
   );
 }
