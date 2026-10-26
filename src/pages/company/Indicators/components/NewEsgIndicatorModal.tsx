@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/shadcn/button';
 import {
   Dialog,
@@ -25,6 +25,7 @@ import {
   INDICATOR_CATEGORIES,
   getPreviousMonth,
   isValidMonth,
+  newIndicatorSchema,
   numericIndicatorField,
 } from '../../../../features/esgIndicators/esgIndicatorsValidation';
 import type { MonthlyIndicator } from '../../../../features/esgIndicators/types';
@@ -71,22 +72,17 @@ function CreateIndicatorForm({
     event.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
-      setError('Informe o nome do indicador.');
-      return;
-    }
-    if (!unit.trim()) {
-      setError('Informe a unidade de medida.');
+    const parsed = newIndicatorSchema.safeParse({ name, unit, category });
+    if (!parsed.success) {
+      setError(
+        parsed.error.issues[0]?.message ?? 'Dados do indicador inválidos.'
+      );
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const indicator = await createCustomerIndicator(companyId, {
-        name: name.trim(),
-        unit: unit.trim(),
-        category,
-      });
+      const indicator = await createCustomerIndicator(companyId, parsed.data);
       onCreated(indicator);
     } catch (caught) {
       setError(
@@ -196,6 +192,7 @@ type NewEsgIndicatorFormProps = {
   companyId: string;
   initialMonth?: string;
   onClose: () => void;
+  onIndicatorCreated: () => void;
   onSaved: (month: string) => void;
   savedIndicators?: MonthlyIndicator[] | null;
 };
@@ -204,6 +201,7 @@ function NewEsgIndicatorForm({
   companyId,
   initialMonth,
   onClose,
+  onIndicatorCreated,
   onSaved,
   savedIndicators,
 }: NewEsgIndicatorFormProps) {
@@ -236,6 +234,7 @@ function NewEsgIndicatorForm({
     setIndicators((prev) => [...prev, newIndicator]);
     setValues((prev) => ({ ...prev, [newIndicator.indicator_id]: '' }));
     setShowCreateForm(false);
+    onIndicatorCreated();
   }
 
   function validateAll(): boolean {
@@ -422,6 +421,7 @@ function NewEsgIndicatorForm({
 type NewEsgIndicatorModalProps = {
   companyId: string;
   initialMonth?: string;
+  onIndicatorCreated?: () => void;
   onOpenChange: (open: boolean) => void;
   onSaved: (month: string) => void;
   open: boolean;
@@ -431,13 +431,35 @@ type NewEsgIndicatorModalProps = {
 export function NewEsgIndicatorModal({
   companyId,
   initialMonth,
+  onIndicatorCreated,
   onOpenChange,
   onSaved,
   open,
   savedIndicators,
 }: NewEsgIndicatorModalProps) {
+  /*
+   * An indicator created inline lives only in the modal until the page
+   * reloads. Reloading right away would remount the form and wipe what was
+   * typed, so the page is refreshed when the modal closes instead. A save
+   * already reloads, so it clears the flag to avoid a second request.
+   */
+  const createdIndicatorRef = useRef(false);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen && createdIndicatorRef.current) {
+      createdIndicatorRef.current = false;
+      onIndicatorCreated?.();
+    }
+    onOpenChange(nextOpen);
+  }
+
+  function handleSaved(savedMonth: string) {
+    createdIndicatorRef.current = false;
+    onSaved(savedMonth);
+  }
+
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="max-h-[92vh] overflow-y-auto border-border bg-surface p-8 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-text-primary">
@@ -454,8 +476,11 @@ export function NewEsgIndicatorModal({
             companyId={companyId}
             initialMonth={initialMonth}
             key={`${initialMonth}-${String(savedIndicators?.length ?? 0)}`}
-            onClose={() => onOpenChange(false)}
-            onSaved={onSaved}
+            onClose={() => handleOpenChange(false)}
+            onIndicatorCreated={() => {
+              createdIndicatorRef.current = true;
+            }}
+            onSaved={handleSaved}
             savedIndicators={savedIndicators}
           />
         )}
