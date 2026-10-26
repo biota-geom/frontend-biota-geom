@@ -7,6 +7,7 @@ vi.mock('../../services/api/http', () => ({
 const { request } = await import('../../services/api/http');
 const {
   createLicense,
+  extractLicenseData,
   getLicenseDetails,
   getLicenseDocumentUrl,
   listLicenses,
@@ -16,6 +17,77 @@ const {
 describe('licensesApi', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('extractLicenseData() posts the PDF in the "document" field and maps the suggestions', async () => {
+    vi.mocked(request).mockResolvedValue({
+      extracted_data: {
+        type: 'LO',
+        process_number: 'LO nº 118/2020',
+        issuing_agency: 'FEPAM',
+        issue_date: '2020-01-10',
+        expiration_date: '2025-01-10',
+      },
+      suggested_conditions: [
+        {
+          environmental_descriptor: 'Resíduos Sólidos',
+          description: 'Apresentar relatório semestral',
+          condition_type: 'PERIODIC',
+          periodicity: 'SEMIANNUAL',
+          due_date: null,
+        },
+      ],
+    });
+    const file = new File(['%PDF-1.4'], 'licenca.pdf', {
+      type: 'application/pdf',
+    });
+
+    const result = await extractLicenseData(file);
+
+    const [path, options] = vi.mocked(request).mock.calls[0] as [
+      string,
+      { method: string; body: FormData },
+    ];
+    expect(path).toBe('/api/licenses/extract');
+    expect(options.method).toBe('POST');
+    expect(options.body.get('document')).toBe(file);
+    expect(result).toEqual({
+      extractedData: {
+        type: 'LO',
+        processNumber: 'LO nº 118/2020',
+        issuingAgency: 'FEPAM',
+        issueDate: '2020-01-10',
+        expirationDate: '2025-01-10',
+      },
+      suggestedConditions: [
+        {
+          environmentalDescriptor: 'Resíduos Sólidos',
+          description: 'Apresentar relatório semestral',
+          conditionType: 'PERIODIC',
+          periodicity: 'SEMIANNUAL',
+          dueDate: null,
+        },
+      ],
+    });
+  });
+
+  it('extractLicenseData() drops a license type the form does not know', async () => {
+    vi.mocked(request).mockResolvedValue({
+      extracted_data: {
+        type: 'LU',
+        process_number: null,
+        issuing_agency: null,
+        issue_date: null,
+        expiration_date: null,
+      },
+      suggested_conditions: [],
+    });
+
+    const result = await extractLicenseData(
+      new File(['%PDF'], 'l.pdf', { type: 'application/pdf' })
+    );
+
+    expect(result.extractedData.type).toBeNull();
   });
 
   it('getLicenseDocumentUrl() requests the signed URL and maps the response', async () => {

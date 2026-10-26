@@ -146,6 +146,31 @@ export interface LicenseWire {
   created_at: string;
 }
 
+/* POST /api/licenses/extract — AI suggestions, every field nullable. */
+export interface ExtractedLicenseDataWire {
+  type: string | null;
+  process_number: string | null;
+  issuing_agency: string | null;
+  /** `YYYY-MM-DD`. */
+  issue_date: string | null;
+  /** `YYYY-MM-DD`. */
+  expiration_date: string | null;
+}
+
+export interface SuggestedConditionWire {
+  environmental_descriptor: string | null;
+  description: string;
+  condition_type: string | null;
+  periodicity: string | null;
+  /** `YYYY-MM-DD`. */
+  due_date: string | null;
+}
+
+export interface LicenseExtractionWire {
+  extracted_data: ExtractedLicenseDataWire;
+  suggested_conditions: SuggestedConditionWire[];
+}
+
 export interface LicenseConditionDetailsWire {
   id: string | null;
   item_number: string;

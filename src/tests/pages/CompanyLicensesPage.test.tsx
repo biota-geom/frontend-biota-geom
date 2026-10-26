@@ -13,6 +13,7 @@ vi.mock('../../services/api/issuingAgenciesApi', () => ({
 }));
 vi.mock('../../services/api/licensesApi', () => ({
   createLicense: vi.fn(),
+  extractLicenseData: vi.fn(),
   getLicenseDocumentUrl: vi.fn(),
   listLicenses: vi.fn(),
 }));
@@ -199,6 +200,11 @@ describe('CompanyLicensesPage', () => {
       { id: 'agency-1', name: 'FEPAM', acronym: 'FEPAM' },
     ]);
     vi.mocked(licensesApi.listLicenses).mockResolvedValue(LICENSES_PANEL);
+    // AI pre-fill is covered in NewLicenseModalExtraction.test.tsx; here the
+    // reading never finishes so the manual flow is exercised on its own.
+    vi.mocked(licensesApi.extractLicenseData).mockReturnValue(
+      new Promise(() => {})
+    );
   });
 
   it('opens the "Nova Licença" modal and loads the issuing agencies', async () => {

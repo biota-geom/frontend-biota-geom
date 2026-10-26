@@ -2,16 +2,19 @@ import type {
   License,
   LicenseDetails,
   LicenseDocumentUrl,
+  LicenseExtraction,
   LicensePanelItem,
   LicensesPanel,
   LicenseRenewed,
   LicenseType,
 } from '../../features/licenses/types';
+import { LICENSE_TYPES } from '../../features/licenses/createLicenseValidation';
 import { request } from './http';
 import type {
   LicenseDocumentUrlWire,
   LicensePanelItemWire,
   LicenseDetailsWire,
+  LicenseExtractionWire,
   LicensePanelResponseWire,
   LicenseRenewedWire,
   LicenseWire,
@@ -154,6 +157,50 @@ export async function getLicenseDocumentUrl(
   );
 
   return { url: wire.document_url, expiresIn: wire.expires_in };
+}
+
+function toLicenseExtraction(wire: LicenseExtractionWire): LicenseExtraction {
+  const data = wire.extracted_data;
+
+  return {
+    extractedData: {
+      type:
+        data.type && LICENSE_TYPES.includes(data.type as LicenseType)
+          ? (data.type as LicenseType)
+          : null,
+      processNumber: data.process_number,
+      issuingAgency: data.issuing_agency,
+      issueDate: data.issue_date,
+      expirationDate: data.expiration_date,
+    },
+    suggestedConditions: wire.suggested_conditions.map((condition) => ({
+      environmentalDescriptor: condition.environmental_descriptor,
+      description: condition.description,
+      conditionType: condition.condition_type,
+      periodicity: condition.periodicity,
+      dueDate: condition.due_date,
+    })),
+  };
+}
+
+/**
+ * Sends the license PDF to be read by the AI and returns suggestions for the
+ * registration form. Nothing is saved server-side — the license and its
+ * conditions are still created through `createLicense` and
+ * `createLicenseConditions` once the user has reviewed them.
+ */
+export async function extractLicenseData(
+  documentFile: File
+): Promise<LicenseExtraction> {
+  const formData = new FormData();
+  formData.append('document', documentFile);
+
+  const wire = await request<LicenseExtractionWire>('/api/licenses/extract', {
+    method: 'POST',
+    body: formData,
+  });
+
+  return toLicenseExtraction(wire);
 }
 
 function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {

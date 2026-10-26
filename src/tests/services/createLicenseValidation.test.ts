@@ -38,6 +38,56 @@ describe('createLicenseSchema', () => {
     );
   });
 
+  it('ignores an incomplete AI suggestion while it is not selected', () => {
+    expect(
+      createLicenseSchema.safeParse({
+        ...VALID,
+        suggestedConditions: [
+          { ...EMPTY_CONDITION_ROW, description: 'Sugerida', selected: false },
+        ],
+      }).success
+    ).toBe(true);
+  });
+
+  it('validates a selected AI suggestion like a manual condition', () => {
+    const result = createLicenseSchema.safeParse({
+      ...VALID,
+      suggestedConditions: [
+        { ...EMPTY_CONDITION_ROW, description: 'Sugerida', selected: true },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(
+      expect.arrayContaining([
+        'suggestedConditions.0.environmentalDescriptor',
+        'suggestedConditions.0.conditionType',
+        'suggestedConditions.0.deadline',
+        'suggestedConditions.0.responsibleName',
+      ])
+    );
+  });
+
+  it('accepts a selected AI suggestion once it is complete', () => {
+    expect(
+      createLicenseSchema.safeParse({
+        ...VALID,
+        suggestedConditions: [
+          {
+            environmentalDescriptor: 'Resíduos',
+            description: 'Relatório semestral',
+            conditionType: 'PERIODIC',
+            periodicity: 'QUARTERLY',
+            deadline: '2026-07-10',
+            responsibleName: 'Ana',
+            hasDelivery: true,
+            selected: true,
+          },
+        ],
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects a non-PDF file', () => {
     const jpg = new File(['x'], 'a.jpg', { type: 'image/jpeg' });
     expect(messages({ ...VALID, file: jpg })).toContain(

@@ -96,3 +96,33 @@ export interface LicensesPanel {
   summary: LicenseSummary;
   licenses: LicensePanelItem[];
 }
+
+/**
+ * AI suggestions read from a license PDF (POST /licenses/extract). Nothing
+ * here is saved: every field is a suggestion the user reviews, and a value
+ * the document did not state clearly is null rather than guessed.
+ */
+export interface ExtractedLicenseData {
+  type: LicenseType | null;
+  processNumber: string | null;
+  /** Name or acronym as printed — matched against the agency list client-side. */
+  issuingAgency: string | null;
+  /** `YYYY-MM-DD`. */
+  issueDate: string | null;
+  /** `YYYY-MM-DD`. */
+  expirationDate: string | null;
+}
+
+export interface SuggestedCondition {
+  environmentalDescriptor: string | null;
+  description: string;
+  conditionType: string | null;
+  periodicity: string | null;
+  /** `YYYY-MM-DD`. */
+  dueDate: string | null;
+}
+
+export interface LicenseExtraction {
+  extractedData: ExtractedLicenseData;
+  suggestedConditions: SuggestedCondition[];
+}

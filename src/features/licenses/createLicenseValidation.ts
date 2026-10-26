@@ -74,6 +74,15 @@ export type LicenseConditionRow = {
   hasDelivery: boolean;
 };
 
+/*
+ * A condition suggested by the AI reading of the PDF. It only becomes part of
+ * the license when the user ticks it (`selected`), and only then does it have
+ * to pass the same rules as a manually added condition.
+ */
+export type SuggestedConditionRow = LicenseConditionRow & {
+  selected: boolean;
+};
+
 export type CreateLicenseForm = {
   type: string;
   processNumber: string;
@@ -82,7 +91,34 @@ export type CreateLicenseForm = {
   expirationDate: string;
   file: File | null;
   conditions: LicenseConditionRow[];
+  suggestedConditions: SuggestedConditionRow[];
 };
+
+const suggestedConditionRowSchema = z
+  .object({
+    environmentalDescriptor: z.string(),
+    description: z.string(),
+    conditionType: z.string(),
+    periodicity: z.string(),
+    deadline: z.string(),
+    responsibleName: z.string(),
+    hasDelivery: z.boolean(),
+    selected: z.boolean(),
+  })
+  .superRefine((row, context) => {
+    if (!row.selected) return;
+
+    const result = licenseConditionRowSchema.safeParse(row);
+    if (result.success) return;
+
+    for (const issue of result.error.issues) {
+      context.addIssue({
+        code: 'custom',
+        message: issue.message,
+        path: issue.path,
+      });
+    }
+  });
 
 export const createLicenseSchema: z.ZodType<
   CreateLicenseForm,
@@ -112,6 +148,7 @@ export const createLicenseSchema: z.ZodType<
         FILE_TOO_LARGE_MESSAGE
       ),
     conditions: z.array(licenseConditionRowSchema),
+    suggestedConditions: z.array(suggestedConditionRowSchema),
   })
   .refine(
     (data) =>
@@ -139,6 +176,7 @@ export const CREATE_LICENSE_DEFAULT_VALUES: CreateLicenseForm = {
   expirationDate: '',
   file: null,
   conditions: [],
+  suggestedConditions: [],
 };
 
 export type AddLicenseConditionsForm = {
