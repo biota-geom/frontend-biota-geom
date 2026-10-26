@@ -179,6 +179,34 @@ describe('CompanyIndicatorsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders one chart per company indicator, including inline-created ones, with monthly history', async () => {
+    const fuel: MonthlyIndicator = {
+      indicator_id: 'uuid-fuel',
+      name: 'Consumo de Combustível',
+      unit: 'L',
+      category: 'Ambiental',
+      value: 300,
+    };
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockImplementation(
+      async (_companyId, requestedMonth) =>
+        requestedMonth === getPreviousMonth()
+          ? [fuel]
+          : [{ ...fuel, value: 100 }]
+    );
+
+    renderIndicatorsPage();
+
+    const chart = await screen.findByRole('region', {
+      name: 'Consumo de Combustível (L/mês)',
+    });
+    await waitFor(() =>
+      expect(within(chart).getAllByTitle(/ L$/)).toHaveLength(6)
+    );
+    expect(
+      screen.queryByRole('region', { name: 'Resíduos Gerados (t/mês)' })
+    ).not.toBeInTheDocument();
+  });
+
   it('opens "Novo Registro" modal with the company indicators', async () => {
     const user = userEvent.setup();
     vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
@@ -247,6 +275,49 @@ describe('CompanyIndicatorsPage', () => {
     expect(await screen.findByText('Erro retornado pela API.')).toBeVisible();
   });
 
+  it('reloads the indicators when the modal closes after creating one inline', async () => {
+    const user = userEvent.setup();
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
+    vi.mocked(esgIndicatorsApi.createCustomerIndicator).mockResolvedValue({
+      indicator_id: 'uuid-new',
+      name: 'Geração de Efluentes',
+      unit: 'm³',
+      category: 'Ambiental',
+      value: null,
+    });
+    const selectedMonthCalls = () =>
+      vi
+        .mocked(esgIndicatorsApi.getEsgIndicators)
+        .mock.calls.filter(([, month]) => month === getPreviousMonth()).length;
+
+    renderIndicatorsPage();
+    await screen.findByText('Consumo de Água');
+    await user.click(screen.getByRole('button', { name: /novo registro/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(
+      within(dialog).getByRole('button', { name: '+ Novo Indicador' })
+    );
+    await user.type(
+      within(dialog).getByLabelText('Nome'),
+      'Geração de Efluentes'
+    );
+    await user.type(within(dialog).getByLabelText('Unidade'), 'm³');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Criar Indicador' })
+    );
+
+    // The new field shows up in the form right away, ready to be filled.
+    expect(
+      await within(dialog).findByLabelText(/Geração de Efluentes \(m³\)/)
+    ).toBeInTheDocument();
+
+    const before = selectedMonthCalls();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
+
+    await waitFor(() => expect(selectedMonthCalls()).toBe(before + 1));
+  });
+
   it('opens "Gerar Relatório" modal, triggers GET endpoint, and loads new data', async () => {
     const user = userEvent.setup();
     renderIndicatorsPage();
@@ -297,8 +368,15 @@ describe('CompanyIndicatorsPage', () => {
     const retryBtn = screen.getByRole('button', { name: 'Tentar novamente' });
     await user.click(retryBtn);
 
+    // Chart history requests hit the same mock, so count only the selected month.
     await waitFor(() =>
-      expect(esgIndicatorsApi.getEsgIndicators).toHaveBeenCalledTimes(2)
+      expect(
+        vi
+          .mocked(esgIndicatorsApi.getEsgIndicators)
+          .mock.calls.filter(
+            ([, requestedMonth]) => requestedMonth === getPreviousMonth()
+          )
+      ).toHaveLength(2)
     );
   });
 

@@ -1,54 +1,54 @@
-import {
-  MOCK_DEFAULT_MONTHLY_INDICATORS,
-  MOCK_ESG_HISTORICAL_DATA,
-} from '../../../../features/esgIndicators/esgIndicators.mock';
+import { MOCK_ESG_HISTORICAL_DATA } from '../../../../features/esgIndicators/esgIndicators.mock';
 import type { MonthlyIndicator } from '../../../../features/esgIndicators/types';
+import type { EsgSeries } from '../../../../features/esgIndicators/useEsgHistory';
 import { EsgChartCard } from './EsgChartCard';
 
 type EsgChartsGridProps = {
   indicators: MonthlyIndicator[] | null;
+  /** Chart line per indicator_id (see useEsgHistory). */
+  series: Record<string, EsgSeries>;
 };
 
-export function EsgChartsGrid({ indicators }: EsgChartsGridProps) {
-  /*
-   * Charts always display the 4 static mock series for now (historical data
-   * is not yet backed by the real API). The real current-month value is
-   * spliced into the last position of each series so the chart reflects what
-   * was just registered.
-   */
-  const display =
-    indicators && indicators.length > 0
-      ? indicators
-      : MOCK_DEFAULT_MONTHLY_INDICATORS;
+export function EsgChartsGrid({ indicators, series }: EsgChartsGridProps) {
+  const hasCompanyIndicators = Boolean(indicators && indicators.length > 0);
 
   return (
     <div
       aria-label="Gráficos de indicadores ESG"
       className="grid grid-cols-1 gap-6 lg:grid-cols-2"
     >
-      {MOCK_ESG_HISTORICAL_DATA.map((series) => {
-        /*
-         * Find the real value for this indicator from the loaded data, if any.
-         * Fall back to the series' own currentValue when there's no match.
-         */
-        const live = display.find(
-          (ind) => ind.indicator_id === series.indicator_id
-        );
-        const currentValue = live?.value ?? series.currentValue;
+      {hasCompanyIndicators && indicators
+        ? // One chart per indicator the company reports (including the ones
+          // created inline), built from its saved monthly values.
+          indicators.map((indicator) => {
+            const line = series[indicator.indicator_id] ?? {
+              labels: [],
+              data: [],
+            };
 
-        const data = [...series.data.slice(0, -1), currentValue];
-
-        return (
-          <EsgChartCard
-            data={data}
-            key={series.indicator_id}
-            labels={series.labels}
-            legend={series.legend}
-            title={series.chartTitle}
-            unit={series.unit}
-          />
-        );
-      })}
+            return (
+              <EsgChartCard
+                data={line.data}
+                key={indicator.indicator_id}
+                labels={line.labels}
+                legend={`${indicator.name} (${indicator.unit})`}
+                title={`${indicator.name} (${indicator.unit}/mês)`}
+                unit={indicator.unit}
+              />
+            );
+          })
+        : // No indicators loaded yet (or the company has none): static
+          // placeholder charts so the layout is never empty.
+          MOCK_ESG_HISTORICAL_DATA.map((mock) => (
+            <EsgChartCard
+              data={mock.data}
+              key={mock.indicator_id}
+              labels={mock.labels}
+              legend={mock.legend}
+              title={mock.chartTitle}
+              unit={mock.unit}
+            />
+          ))}
     </div>
   );
 }
