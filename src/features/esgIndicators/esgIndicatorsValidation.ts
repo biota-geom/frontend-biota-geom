@@ -10,6 +10,7 @@ export type IndicatorCategory = (typeof INDICATOR_CATEGORIES)[number];
 
 export const INVALID_NUMBER_MESSAGE = 'Informe um número válido.';
 export const NEGATIVE_NUMBER_MESSAGE = 'O valor não pode ser negativo.';
+export const DECIMAL_PLACES_MESSAGE = 'Use no máximo 4 casas decimais.';
 export const REQUIRED_FIELD_MESSAGE = 'Este campo é obrigatório.';
 
 const MAX_INDICATOR_VALUE = 99_999_999_999_999;
@@ -39,6 +40,11 @@ export const numericIndicatorField = z
         code: 'custom',
         message: 'O valor do indicador excede o limite permitido.',
       });
+      return;
+    }
+    // The backend stores NUMERIC(18,4) and answers 400 beyond 4 decimals.
+    if (Number(parsed.toFixed(4)) !== parsed) {
+      context.addIssue({ code: 'custom', message: DECIMAL_PLACES_MESSAGE });
     }
   });
 
@@ -46,8 +52,16 @@ export const numericIndicatorField = z
  * Schema for the dynamic inline-creation form (Name, Unit, Category).
  */
 export const newIndicatorSchema = z.object({
-  name: z.string().trim().min(1, 'Informe o nome do indicador.').max(120),
-  unit: z.string().trim().min(1, 'Informe a unidade de medida.').max(30),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Informe o nome do indicador.')
+    .max(120, 'O nome do indicador excede o tamanho permitido.'),
+  unit: z
+    .string()
+    .trim()
+    .min(1, 'Informe a unidade de medida.')
+    .max(30, 'A unidade de medida excede o tamanho permitido.'),
 
   category: z.enum(INDICATOR_CATEGORIES, {
     error: 'Selecione uma categoria válida.',
