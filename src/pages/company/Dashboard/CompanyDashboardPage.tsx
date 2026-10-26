@@ -8,7 +8,6 @@ import type { LicenseDashboard } from '../../../features/licenses/types';
 import { ApiError } from '../../../services/api/apiError';
 import { getLicenseDashboard } from '../../../services/api/licensesApi';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
-import { EnvironmentalObligationsDashboardCard } from './components/EnvironmentalObligationsDashboardCard';
 import {
   LicenseDashboardCard,
   LicenseDashboardSkeleton,
@@ -30,6 +29,7 @@ type DashboardRequestResult =
       dashboard: null;
       error: string;
     };
+import { ConditionsSummaryBlock } from './components/ConditionsSummaryBlock';
 
 /*
  * The company in scope is fetched once by CompanyLayout, which wraps every
@@ -46,6 +46,7 @@ export function CompanyDashboardPage() {
   return (
     <CompanyDashboardContent
       breadcrumbs={breadcrumbs}
+      companyId={company?.id}
       isLoading={status !== 'success' || !company}
       company={company}
     />
@@ -54,12 +55,14 @@ export function CompanyDashboardPage() {
 
 type CompanyDashboardContentProps = {
   breadcrumbs: ReturnType<typeof useCompanyBreadcrumbs>;
+  companyId: string | undefined;
   isLoading: boolean;
   company: Company | null;
 };
 
 function CompanyDashboardContent({
   breadcrumbs,
+  companyId,
   isLoading,
   company,
 }: CompanyDashboardContentProps) {
@@ -157,7 +160,9 @@ function CompanyDashboardContent({
             <LicenseDashboardSkeleton />
           )}
         </div>
-        <EnvironmentalObligationsDashboardCard />
+        {companyId ? (
+          <ConditionsSummaryBlock companyId={companyId} key={companyId} />
+        ) : null}
       </div>
     </PageScaffold>
   );

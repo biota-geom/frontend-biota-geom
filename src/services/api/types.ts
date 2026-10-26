@@ -240,6 +240,30 @@ export interface LicenseDashboardWire {
   header: LicenseDashboardHeaderWire;
   counts: LicenseDashboardCountsWire;
   critical: LicenseDashboardCriticalItemWire[];
+export interface DocumentWire {
+  id: string;
+  title: string;
+  document_date: string;
+  file_name: string;
+  size_bytes: number;
+  uploaded_by: {
+    id: string;
+    name: string;
+  };
+  created_at: string;
+  folder_id: string | null;
+}
+
+export interface DocumentFolderWire {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  created_at: string;
+}
+
+export interface FileAccessUrlWire {
+  document_url: string;
+  expires_in: number | null;
 }
 
 export interface LicenseConditionWire {
@@ -293,4 +317,16 @@ export interface LicenseConditionBatchItemWire {
 
 export interface CreateLicenseConditionsRequestWire {
   conditions: LicenseConditionBatchItemWire[];
+}
+
+/*
+ * GET /customers/:customerId/esg-indicators/:month. Not in the issue's
+ * contract (which only lists the PUT) — the shape mirrors the PUT body, with
+ * null/absent for an indicator that was never informed.
+ */
+export interface EsgIndicatorsWire {
+  water?: number | string | null;
+  waste?: number | string | null;
+  employees?: number | string | null;
+  energy?: number | string | null;
 }
