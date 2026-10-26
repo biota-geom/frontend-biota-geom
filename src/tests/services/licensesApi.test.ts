@@ -9,6 +9,7 @@ const {
   createLicense,
   getLicenseDetails,
   getLicenseDocumentUrl,
+  getLicenseDashboard,
   listLicenses,
   renewLicense,
 } = await import('../../services/api/licensesApi');

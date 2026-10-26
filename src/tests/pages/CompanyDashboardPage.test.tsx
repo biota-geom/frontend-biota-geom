@@ -8,12 +8,14 @@ import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { ApiError } from '../../services/api/apiError';
 import { getCompanyById } from '../../services/api/companiesApi';
 import { listCompanies } from '../../services/api/customersApi';
-import { getLicenseDashboard } from '../../services/api/licensesApi';
+import {
+  getLicenseDashboard,
+  listLicenses,
+} from '../../services/api/licensesApi';
 import {
   getLicenseConditionsCompliance,
   listLicenseConditions,
 } from '../../services/api/licenseConditionsApi';
-import { listLicenses } from '../../services/api/licensesApi';
 import { useLicensesPanel } from '../../features/licenses/useLicensesPanel';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
@@ -29,13 +31,12 @@ vi.mock('../../services/api/customersApi', () => ({
 
 vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDashboard: vi.fn(),
+  listLicenses: vi.fn(),
+}));
+
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   listLicenseConditions: vi.fn(),
   getLicenseConditionsCompliance: vi.fn(),
-}));
-
-vi.mock('../../services/api/licensesApi', () => ({
-  listLicenses: vi.fn(),
 }));
 
 const mockedGetCompanyById = vi.mocked(getCompanyById);
@@ -77,6 +78,7 @@ beforeEach(() => {
         status: 'Vencida',
       },
     ],
+  });
   vi.mocked(listLicenseConditions).mockResolvedValue({
     total: 0,
     conditions: [],
@@ -121,7 +123,7 @@ describe('CompanyDashboardPage', () => {
     expect(screen.getByText('4 Licenças Ativas')).toBeInTheDocument();
     expect(screen.getByText('3 Pendências')).toBeInTheDocument();
     expect(
-      screen.getByRole('article', { name: 'Obrigações ambientais' })
+      screen.getByRole('article', { name: 'Condicionantes Ambientais' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: 'Contagem de licenças por situação' })

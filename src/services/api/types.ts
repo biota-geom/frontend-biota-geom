@@ -240,6 +240,8 @@ export interface LicenseDashboardWire {
   header: LicenseDashboardHeaderWire;
   counts: LicenseDashboardCountsWire;
   critical: LicenseDashboardCriticalItemWire[];
+}
+
 export interface DocumentWire {
   id: string;
   title: string;
