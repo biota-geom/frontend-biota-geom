@@ -1,7 +1,11 @@
-import type { MonthlyIndicator } from '../../features/esgIndicators/types';
+import type {
+  EsgIndicatorsSummary,
+  MonthlyIndicator,
+} from '../../features/esgIndicators/types';
 import { request } from './http';
 import type {
   CreateCustomerIndicatorWire,
+  EsgIndicatorsSummaryWire,
   MonthlyIndicatorWire,
   SaveEsgIndicatorsWire,
 } from './types';
@@ -68,5 +72,32 @@ export async function createCustomerIndicator(
     unit: item.unit,
     category: item.category,
     value: item.value ?? null,
+  };
+}
+
+/** Without `month`, the backend uses the latest month that has a record. */
+export async function getEsgIndicatorsSummary(
+  customerId: string,
+  month?: string
+): Promise<EsgIndicatorsSummary> {
+  const query = month ? `?${new URLSearchParams({ month }).toString()}` : '';
+  const wire = await request<EsgIndicatorsSummaryWire | undefined>(
+    `/api/customers/${customerId}/esg-indicators/summary${query}`
+  );
+
+  // Defensive, like the month list: an empty body is an empty summary.
+  const indicators = Array.isArray(wire?.indicators) ? wire.indicators : [];
+
+  return {
+    reference_month: wire?.reference_month ?? null,
+    indicators: indicators.map((item) => ({
+      indicator_id: item.indicator_id,
+      name: item.name,
+      unit: item.unit,
+      category: item.category,
+      current: item.current ?? null,
+      previous: item.previous ?? null,
+      variation_pct: item.variation_pct ?? null,
+    })),
   };
 }
