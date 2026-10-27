@@ -24,6 +24,9 @@ const cardVariants = cva('', {
         'rounded-panel flex min-h-[230px] flex-col border border-border-strong bg-surface p-6 shadow-control max-[520px]:p-5',
       /* Summary metric card (e.g. the licenses panel's Total/Regulares/... row). */
       stat: 'rounded-panel flex flex-col gap-2 border bg-surface p-5 shadow-control',
+      /* Company dashboard license summary card. */
+      dashboard:
+        'rounded-panel flex flex-col gap-5 border border-border bg-surface p-6 shadow-control max-[640px]:p-5',
     },
   },
 });
@@ -66,6 +69,7 @@ const cardHeaderVariants = cva('', {
         'flex justify-between gap-4 border-b border-border pb-[18px] max-[520px]:flex-col max-[520px]:items-start',
       /* Stat cards don't use CardHeader; entry only keeps CardVariant total. */
       stat: '',
+      dashboard: 'flex flex-wrap items-center justify-between gap-3',
     },
   },
 });
@@ -76,6 +80,7 @@ const cardTitleVariants = cva('', {
       company: 'm-0 text-xl leading-[1.2] font-bold text-text-primary',
       /* The large tone-colored number; tone applied separately, see Card. */
       stat: 'm-0 text-3xl leading-[1.2] font-bold',
+      dashboard: 'm-0 text-base font-bold text-text-primary',
     },
   },
 });
@@ -85,6 +90,7 @@ const cardDescriptionVariants = cva('', {
     variant: {
       company: 'mt-1 mb-0 text-[13px] leading-[1.45] text-text-secondary',
       stat: 'm-0 text-sm font-semibold text-text-secondary',
+      dashboard: '',
     },
   },
 });
@@ -95,6 +101,7 @@ const cardActionVariants = cva('', {
       company: 'flex items-start gap-[9px]',
       /* Stat cards don't use CardAction; entry only keeps CardVariant total. */
       stat: '',
+      dashboard: '',
     },
   },
 });
@@ -106,6 +113,7 @@ const cardContentVariants = cva('', {
         'm-0 grid grid-cols-4 gap-3.5 border-b border-border px-0 pt-5 pb-[18px] [&_dd]:m-0 [&_dd]:flex [&_dd]:items-center [&_dd]:gap-[7px] [&_dd]:text-[21px] [&_dd]:leading-none [&_dd]:font-extrabold [&_dd]:text-text-primary [&_div]:min-w-0 [&_dt]:mb-1.5 [&_dt]:text-xs [&_dt]:text-text-muted max-[520px]:grid-cols-2',
       /* Stat cards don't use CardContent; entry only keeps CardVariant total. */
       stat: '',
+      dashboard: '',
     },
   },
 });
@@ -117,6 +125,7 @@ const cardFooterVariants = cva('', {
         'mt-auto flex items-center justify-between gap-4 pt-5 text-[13px] text-text-secondary max-[520px]:flex-col max-[520px]:items-start',
       /* Stat cards don't use CardFooter; entry only keeps CardVariant total. */
       stat: '',
+      dashboard: '',
     },
   },
 });

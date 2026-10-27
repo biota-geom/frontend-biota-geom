@@ -217,6 +217,31 @@ export interface LicensePanelResponseWire {
   licenses: LicensePanelItemWire[];
 }
 
+export interface LicenseDashboardHeaderWire {
+  active_licenses: number;
+  pending_items: number;
+}
+
+export interface LicenseDashboardCriticalItemWire {
+  id: string;
+  type: string;
+  process_number: string;
+  expiration_date: string;
+  status: string;
+}
+
+export interface LicenseDashboardCountsWire {
+  regular: number;
+  attention: number;
+  expired: number;
+}
+
+export interface LicenseDashboardWire {
+  header: LicenseDashboardHeaderWire;
+  counts: LicenseDashboardCountsWire;
+  critical: LicenseDashboardCriticalItemWire[];
+}
+
 export interface DocumentWire {
   id: string;
   title: string;

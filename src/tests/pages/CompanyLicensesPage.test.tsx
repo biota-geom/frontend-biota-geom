@@ -392,6 +392,15 @@ describe('CompanyLicensesPage', () => {
     expect(
       screen.getByRole('row', { name: /1\.1 Segundo laudo/ })
     ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Remover descritor ambiental Água',
+      })
+    );
+    expect(screen.queryByText('Água')).not.toBeInTheDocument();
+    expect(screen.queryByText('Segundo laudo')).not.toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /1 Resíduos/ })).toBeInTheDocument();
   }, 20_000);
 
   it('creates the license first, then posts the conditions with the new license id', async () => {
