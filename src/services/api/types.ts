@@ -137,8 +137,7 @@ export interface LicenseWire {
   customer_id: string;
   type: string;
   process_number: string;
-  issuing_agency_id: string;
-  issuing_agency_name: string | null;
+  issuing_agency: string;
   issue_date: string;
   expiration_date: string;
   status: string;
