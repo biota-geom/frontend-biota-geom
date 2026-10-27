@@ -294,6 +294,31 @@ describe('CompanyIndicatorsPage', () => {
     expect(esgIndicatorsApi.saveEsgIndicators).not.toHaveBeenCalled();
   });
 
+  it('saves a month and moves the KPIs to the saved month', async () => {
+    const user = userEvent.setup();
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
+
+    renderIndicatorsPage();
+    await screen.findByText('Consumo de Água');
+    await user.click(screen.getByRole('button', { name: /novo registro/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    const waterInput = within(dialog).getByLabelText(/Consumo de Água/i);
+    await user.clear(waterInput);
+    await user.type(waterInput, '1100');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Registrar Dados' })
+    );
+
+    await waitFor(() =>
+      expect(esgIndicatorsApi.getEsgIndicatorsSummary).toHaveBeenLastCalledWith(
+        COMPANY_ID,
+        getPreviousMonth()
+      )
+    );
+    expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenCalled();
+  });
+
   it('displays API error inside "Novo Registro" modal when PUT fails', async () => {
     const user = userEvent.setup();
     vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockRejectedValue(
