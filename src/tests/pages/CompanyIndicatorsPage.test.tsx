@@ -199,9 +199,11 @@ describe('CompanyIndicatorsPage', () => {
     const chart = await screen.findByRole('region', {
       name: 'Consumo de Combustível (L/mês)',
     });
-    await waitFor(() =>
-      expect(within(chart).getAllByTitle(/ L$/)).toHaveLength(6)
-    );
+    await waitFor(() => {
+      const titles = chart.querySelectorAll('circle title');
+      expect(titles).toHaveLength(6);
+      titles.forEach((t) => expect(t.textContent).toMatch(/ L$/));
+    });
     expect(
       screen.queryByRole('region', { name: 'Resíduos Gerados (t/mês)' })
     ).not.toBeInTheDocument();
