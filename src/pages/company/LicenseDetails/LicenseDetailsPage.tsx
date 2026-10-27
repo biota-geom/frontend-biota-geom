@@ -156,6 +156,16 @@ export function LicenseDetailsPage() {
     refetch();
   }
 
+  function handleConditionDeleted(conditionName: string) {
+    setToastMessage(`Condicionante "${conditionName}" excluída com sucesso.`);
+    refetch();
+  }
+
+  function handleDescriptorUpdated(descriptor: string) {
+    setToastMessage(`Descritor ambiental alterado para "${descriptor}".`);
+    refetch();
+  }
+
   function handleRenewed(renewed: { id: string }) {
     if (!companyId) return;
     navigate(buildCompanyRoutes.licenseDetails(companyId, renewed.id));
@@ -176,7 +186,7 @@ export function LicenseDetailsPage() {
                   ]
                 : []),
               {
-                label: 'Adicionar Condicionante',
+                label: 'Editar Condicionante',
                 onClick: () => setIsModalOpen(true),
               },
             ]
@@ -309,8 +319,11 @@ export function LicenseDetailsPage() {
       {companyId && licenseId ? (
         <AddLicenseConditionsModal
           companyId={companyId}
+          conditions={details?.conditions ?? []}
           licenseId={licenseId}
           onCreated={handleConditionsCreated}
+          onDeleted={handleConditionDeleted}
+          onDescriptorUpdated={handleDescriptorUpdated}
           onOpenChange={setIsModalOpen}
           open={isModalOpen}
         />
