@@ -9,6 +9,7 @@ const {
   createLicense,
   getLicenseDetails,
   getLicenseDocumentUrl,
+  getLicenseDashboard,
   listLicenses,
   renewLicense,
 } = await import('../../services/api/licensesApi');
@@ -240,6 +241,41 @@ describe('licensesApi', () => {
           expirationDate: '2025-01-10T00:00:00.000Z',
           status: 'Vencida',
           documentUrl: null,
+        },
+      ],
+    });
+  });
+
+  it('getLicenseDashboard() maps dashboard metrics and critical licenses', async () => {
+    vi.mocked(request).mockResolvedValue({
+      header: { active_licenses: 4, pending_items: 3 },
+      counts: { regular: 2, attention: 1, expired: 1 },
+      critical: [
+        {
+          id: 'license-1',
+          type: 'LO',
+          process_number: 'LO 118/2020',
+          expiration_date: '2026-09-01',
+          status: 'Vencida',
+        },
+      ],
+    });
+
+    const dashboard = await getLicenseDashboard('customer-1');
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/dashboard/licenses'
+    );
+    expect(dashboard).toEqual({
+      header: { activeLicenses: 4, pendingItems: 3 },
+      counts: { regular: 2, attention: 1, expired: 1 },
+      critical: [
+        {
+          id: 'license-1',
+          type: 'LO',
+          processNumber: 'LO 118/2020',
+          expirationDate: '2026-09-01',
+          status: 'Vencida',
         },
       ],
     });
