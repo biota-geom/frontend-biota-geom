@@ -1,11 +1,3 @@
-export type LicenseType = 'LP' | 'LI' | 'LO';
-
-export const LICENSE_TYPE_LABELS: Record<LicenseType, string> = {
-  LP: 'LP - Licença Prévia',
-  LI: 'LI - Licença de Instalação',
-  LO: 'LO - Licença de Operação',
-};
-
 export interface IssuingAgency {
   id: string;
   name: string;
@@ -15,10 +7,9 @@ export interface IssuingAgency {
 export interface License {
   id: string;
   customerId: string;
-  type: LicenseType;
+  type: string;
   processNumber: string;
-  issuingAgencyId: string;
-  issuingAgencyName: string | null;
+  issuingAgency: string;
   issueDate: string;
   expirationDate: string;
   status: string;
