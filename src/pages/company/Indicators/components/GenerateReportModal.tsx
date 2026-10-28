@@ -15,7 +15,7 @@ import {
   getPreviousMonth,
   isValidMonth,
 } from '../../../../features/esgIndicators/esgIndicatorsValidation';
-import type { EsgMonthlyIndicators } from '../../../../features/esgIndicators/types';
+import type { MonthlyIndicator } from '../../../../features/esgIndicators/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { getEsgIndicators } from '../../../../services/api/esgIndicatorsApi';
 
@@ -25,7 +25,7 @@ const GENERIC_LOAD_ERROR =
 type GenerateReportModalProps = {
   companyId: string;
   initialMonth?: string;
-  onGenerated: (month: string, data: EsgMonthlyIndicators) => void;
+  onGenerated: (month: string, data: MonthlyIndicator[]) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 };

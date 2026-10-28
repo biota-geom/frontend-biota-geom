@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import {
@@ -9,17 +7,13 @@ import {
 } from '@/components/ui/shadcn/input-group';
 import { Label } from '@/components/ui/shadcn/label';
 import {
-  applyPayload,
-  EMPTY_ESG_FORM_VALUES,
-  ESG_INDICATOR_FIELDS,
-  esgIndicatorsSchema,
   isValidMonth,
+  numericIndicatorField,
   toFormValues,
   toPayload,
-  type EsgIndicatorsFormValues,
 } from '../../../../features/esgIndicators/esgIndicatorsValidation';
 import type { EsgIndicatorsLoadStatus } from '../../../../features/esgIndicators/useEsgIndicators';
-import type { EsgMonthlyIndicators } from '../../../../features/esgIndicators/types';
+import type { MonthlyIndicator } from '../../../../features/esgIndicators/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { saveEsgIndicators } from '../../../../services/api/esgIndicatorsApi';
 
@@ -27,15 +21,18 @@ const SAVE_ERROR_MESSAGE =
   'Não foi possível salvar os indicadores. Tente novamente mais tarde.';
 const NOTHING_TO_SAVE_MESSAGE = 'Preencha ao menos um indicador para salvar.';
 
+type FieldErrors = Record<string, string>;
+
 type EsgIndicatorsFormProps = {
   companyId: string;
   loadError: string | null;
   loadStatus: EsgIndicatorsLoadStatus;
   month: string;
+  onIndicatorCreated: () => void;
   onMonthChange: (month: string) => void;
   onReload: () => void;
   onSaved: (month: string) => void;
-  savedIndicators: EsgMonthlyIndicators | null;
+  savedIndicators: MonthlyIndicator[] | null;
 };
 
 export function EsgIndicatorsForm({
@@ -43,17 +40,20 @@ export function EsgIndicatorsForm({
   loadError,
   loadStatus,
   month,
+  onIndicatorCreated,
   onMonthChange,
   onReload,
   onSaved,
   savedIndicators,
 }: EsgIndicatorsFormProps) {
   /*
-   * What is stored for this month right now: the loaded values, kept up to date
+   * What is stored for this month right now: the loaded list, kept up to date
    * after each save. It decides which blank fields are a "clear" (null) and
    * which are simply "never informed".
    */
-  const [baseline, setBaseline] = useState(savedIndicators);
+  const [baseline, setBaseline] = useState<MonthlyIndicator[] | null>(
+    savedIndicators
+  );
   const [loadedFrom, setLoadedFrom] = useState(savedIndicators);
 
   // A freshly loaded month replaces whatever was tracked for the previous one.
@@ -62,57 +62,79 @@ export function EsgIndicatorsForm({
     setBaseline(savedIndicators);
   }
 
-  const {
-    formState: { errors, isSubmitting },
-    handleSubmit,
-    register,
-    reset,
-    setError,
-  } = useForm<EsgIndicatorsFormValues>({
-    defaultValues: EMPTY_ESG_FORM_VALUES,
-    resolver: zodResolver(esgIndicatorsSchema),
-  });
+  // String-keyed form values: { [indicator_id]: string }
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    savedIndicators ? toFormValues(savedIndicators) : {}
+  );
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [rootError, setRootError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   /*
-   * Opens pre-filled when the month already has data, blank otherwise. It
-   * also blanks the form while a month is loading or failed, so the previous
-   * month's numbers are never left on screen under the new month's name.
+   * Opens pre-filled when the month already has data, blank otherwise. Also
+   * blanks the form while a month is loading, so stale values aren't shown.
    */
-  useEffect(() => {
-    reset(
-      savedIndicators ? toFormValues(savedIndicators) : EMPTY_ESG_FORM_VALUES
-    );
-  }, [reset, savedIndicators]);
+  const [prevSavedIndicators, setPrevSavedIndicators] =
+    useState(savedIndicators);
+  if (savedIndicators !== prevSavedIndicators) {
+    setPrevSavedIndicators(savedIndicators);
+    setValues(savedIndicators ? toFormValues(savedIndicators) : {});
+    setFieldErrors({});
+    setRootError(null);
+  }
 
+  const indicators = savedIndicators ?? [];
   const isMonthValid = isValidMonth(month);
   const isLoading = loadStatus === 'loading';
   const canEdit = isMonthValid && loadStatus === 'success';
 
-  const submit = handleSubmit(async (values) => {
-    const payload = toPayload(values, baseline);
+  function validateAll(): boolean {
+    const errors: FieldErrors = {};
+    for (const indicator of indicators) {
+      const raw = values[indicator.indicator_id] ?? '';
+      const result = numericIndicatorField.safeParse(raw);
+      if (!result.success) {
+        errors[indicator.indicator_id] =
+          result.error.issues[0]?.message ?? 'Valor inválido.';
+      }
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
-    if (Object.keys(payload).length === 0) {
-      setError('root', { message: NOTHING_TO_SAVE_MESSAGE });
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setRootError(null);
+
+    if (!validateAll()) return;
+
+    const payload = toPayload(values, baseline ?? indicators);
+
+    if (payload.records.length === 0) {
+      setRootError(NOTHING_TO_SAVE_MESSAGE);
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      await saveEsgIndicators(companyId, month, payload);
-      setBaseline(applyPayload(baseline, payload));
+      const updated = await saveEsgIndicators(companyId, month, payload);
+      setBaseline(updated.length > 0 ? updated : baseline);
       onSaved(month);
     } catch (error) {
-      setError('root', {
-        message: error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE,
-      });
+      setRootError(
+        error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-  });
+  }
 
   return (
     <form
       aria-label="Cadastro mensal de indicadores ESG"
       className="rounded-panel border border-border bg-surface p-8 shadow-control max-[640px]:p-6"
       noValidate
-      onSubmit={(event) => void submit(event)}
+      onSubmit={(event) => void handleSubmit(event)}
     >
       <div className="mb-6 flex max-w-[260px] flex-col gap-2">
         <Label htmlFor="esg-month">Mês de referência</Label>
@@ -156,52 +178,73 @@ export function EsgIndicatorsForm({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-5 max-[640px]:grid-cols-1">
-        {ESG_INDICATOR_FIELDS.map((field) => {
-          const error = errors[field.key];
-          const inputId = `esg-${field.key}`;
-          const errorId = `${inputId}-error`;
+      {canEdit && indicators.length === 0 ? (
+        <p className="mb-6 text-sm text-text-secondary">
+          Esta empresa ainda não tem indicadores configurados.{' '}
+          <button
+            className="font-bold underline"
+            onClick={onIndicatorCreated}
+            type="button"
+          >
+            Adicionar indicador
+          </button>
+        </p>
+      ) : null}
 
-          return (
-            <div className="flex flex-col gap-2" key={field.key}>
-              <Label htmlFor={inputId}>{field.label}</Label>
-              <InputGroup aria-invalid={Boolean(error)} variant="field">
-                <Input
-                  {...register(field.key)}
-                  aria-describedby={error ? errorId : undefined}
-                  aria-invalid={Boolean(error)}
-                  disabled={!canEdit}
-                  id={inputId}
-                  inputMode={field.key === 'employees' ? 'numeric' : 'decimal'}
-                  min={0}
-                  placeholder={field.placeholder}
-                  step={field.key === 'employees' ? 1 : 'any'}
-                  type="number"
-                />
-                <InputGroupAddon className="text-[13px] font-bold">
-                  {field.unit}
-                </InputGroupAddon>
-              </InputGroup>
-              {error ? (
-                <p
-                  className="m-0 text-[13px] font-semibold text-red-600"
-                  id={errorId}
-                  role="alert"
-                >
-                  {error.message}
-                </p>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
+      {indicators.length > 0 ? (
+        <div className="grid grid-cols-2 gap-5 max-[640px]:grid-cols-1">
+          {indicators.map((indicator) => {
+            const err = fieldErrors[indicator.indicator_id];
+            const inputId = `esg-${indicator.indicator_id}`;
+            const errorId = `${inputId}-error`;
 
-      {errors.root ? (
+            return (
+              <div className="flex flex-col gap-2" key={indicator.indicator_id}>
+                <Label htmlFor={inputId}>{indicator.name}</Label>
+                <InputGroup aria-invalid={Boolean(err)} variant="field">
+                  <Input
+                    aria-describedby={err ? errorId : undefined}
+                    aria-invalid={Boolean(err)}
+                    disabled={!canEdit}
+                    id={inputId}
+                    inputMode="decimal"
+                    min={0}
+                    onChange={(e) =>
+                      setValues((prev) => ({
+                        ...prev,
+                        [indicator.indicator_id]: e.target.value,
+                      }))
+                    }
+                    placeholder="0"
+                    step="any"
+                    type="number"
+                    value={values[indicator.indicator_id] ?? ''}
+                  />
+                  <InputGroupAddon className="text-[13px] font-bold">
+                    {indicator.unit}
+                  </InputGroupAddon>
+                </InputGroup>
+                {err ? (
+                  <p
+                    className="m-0 text-[13px] font-semibold text-red-600"
+                    id={errorId}
+                    role="alert"
+                  >
+                    {err}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {rootError ? (
         <p
           className="mt-6 mb-0 text-[13px] font-semibold text-red-600"
           role="alert"
         >
-          {errors.root.message}
+          {rootError}
         </p>
       ) : null}
 

@@ -13,6 +13,29 @@ export function EsgChartCard({
   title,
   unit = '',
 }: EsgChartCardProps) {
+  // Nothing recorded in the window: say so instead of drawing a fake point.
+  if (data.length === 0) {
+    return (
+      <div
+        aria-label={title}
+        className="flex flex-col justify-between rounded-xl border border-border bg-surface p-6 shadow-control sm:p-7"
+        role="region"
+      >
+        <h2 className="m-0 text-base font-bold text-text-primary">{title}</h2>
+        <p className="my-16 text-center text-sm text-text-secondary">
+          Sem registros nos últimos 6 meses.
+        </p>
+        <div className="mt-3 flex items-center justify-center gap-2 pt-1 text-xs font-semibold text-text-secondary">
+          <span
+            aria-hidden="true"
+            className="h-[3px] w-5 rounded-full bg-primary"
+          />
+          <span>{legend}</span>
+        </div>
+      </div>
+    );
+  }
+
   // High-definition coordinate space
   const width = 800;
   const height = 240;

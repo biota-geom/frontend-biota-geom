@@ -19,6 +19,9 @@ vi.mock('../../services/api/licensesApi', () => ({
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
+  saveConditionsFulfillment: vi.fn(),
+  deleteLicenseCondition: vi.fn(),
+  updateLicenseConditionDescriptor: vi.fn(),
 }));
 
 const licensesApi = await import('../../services/api/licensesApi');
@@ -97,9 +100,9 @@ async function openAddConditionsModal(
   user: ReturnType<typeof userEvent.setup>
 ) {
   await user.click(
-    await screen.findByRole('button', { name: 'Adicionar Condicionante' })
+    await screen.findByRole('button', { name: 'Editar Condicionante' })
   );
-  return screen.findByRole('dialog', { name: 'Adicionar Condicionantes' });
+  return screen.findByRole('dialog', { name: 'Editar Condicionantes' });
 }
 
 async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
@@ -243,7 +246,7 @@ describe('LicenseDetailsPage', () => {
 
     const dialog = await openAddConditionsModal(user);
     const saveButton = within(dialog).getByRole('button', {
-      name: 'Salvar Condicionantes',
+      name: 'Adicionar novas condicionantes',
     });
     expect(saveButton).toBeDisabled();
 
@@ -271,7 +274,7 @@ describe('LicenseDetailsPage', () => {
       await screen.findByText('Condicionante cadastrada com sucesso.')
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('dialog', { name: 'Adicionar Condicionantes' })
+      screen.queryByRole('dialog', { name: 'Editar Condicionantes' })
     ).not.toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
   }, 20_000);
@@ -286,7 +289,9 @@ describe('LicenseDetailsPage', () => {
     const dialog = await openAddConditionsModal(user);
     await fillConditionRow(user);
     await user.click(
-      within(dialog).getByRole('button', { name: 'Salvar Condicionantes' })
+      within(dialog).getByRole('button', {
+        name: 'Adicionar novas condicionantes',
+      })
     );
 
     expect(
@@ -295,10 +300,114 @@ describe('LicenseDetailsPage', () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('dialog', { name: 'Adicionar Condicionantes' })
+      screen.getByRole('dialog', { name: 'Editar Condicionantes' })
     ).toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(1);
   }, 20_000);
+
+  it('lists and deletes an existing condition without closing the editor', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.deleteLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    expect(
+      within(dialog).getByText('Manter registros de estacionamento da frota.')
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Excluir condicionante 1.1',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.deleteLicenseCondition).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        'condition-1-1'
+      )
+    );
+    expect(
+      within(dialog).queryByText('Manter registros de estacionamento da frota.')
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(/excluída com sucesso/i)
+    ).toBeInTheDocument();
+    expect(dialog).toBeInTheDocument();
+    expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
+  });
+
+  it('edits an existing descriptor in every condition from its group', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [
+        ...DETAILS.conditions,
+        {
+          ...DETAILS.conditions[1],
+          id: 'condition-1-2',
+          itemNumber: '1.2',
+          description: 'Revisar os registros da frota.',
+        },
+      ],
+    });
+    vi.mocked(
+      licenseConditionsApi.updateLicenseConditionDescriptor
+    ).mockResolvedValue(undefined);
+    renderDetailsPage();
+
+    await openAddConditionsModal(user);
+    await user.click(
+      screen.getByRole('button', {
+        name: /editar descritor ambiental monitoramento de estacionamento/i,
+      })
+    );
+    const descriptorDialog = await screen.findByRole('dialog', {
+      name: 'Editar Descritor Ambiental',
+    });
+    const descriptorInput = within(descriptorDialog).getByLabelText(
+      'Descritor ambiental'
+    );
+    await user.clear(descriptorInput);
+    await user.type(descriptorInput, 'Gestão da frota');
+    await user.click(
+      within(descriptorDialog).getByRole('button', {
+        name: 'Salvar descritor',
+      })
+    );
+
+    await waitFor(() =>
+      expect(
+        licenseConditionsApi.updateLicenseConditionDescriptor
+      ).toHaveBeenCalledTimes(2)
+    );
+    expect(
+      licenseConditionsApi.updateLicenseConditionDescriptor
+    ).toHaveBeenNthCalledWith(
+      1,
+      'customer-1',
+      'license-1',
+      'condition-1-1',
+      'Gestão da frota'
+    );
+    expect(
+      licenseConditionsApi.updateLicenseConditionDescriptor
+    ).toHaveBeenNthCalledWith(
+      2,
+      'customer-1',
+      'license-1',
+      'condition-1-2',
+      'Gestão da frota'
+    );
+    expect(
+      await screen.findByText(
+        'Descritor ambiental alterado para "Gestão da frota".'
+      )
+    ).toBeInTheDocument();
+  });
 
   it('hides the add action when the license fails to load', async () => {
     vi.mocked(licensesApi.getLicenseDetails).mockRejectedValue(
@@ -310,7 +419,7 @@ describe('LicenseDetailsPage', () => {
       await screen.findByText('Licença não encontrada.')
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Adicionar Condicionante' })
+      screen.queryByRole('button', { name: 'Editar Condicionante' })
     ).not.toBeInTheDocument();
   });
 
@@ -391,7 +500,7 @@ describe('LicenseDetailsPage', () => {
       screen.queryByRole('button', { name: 'Renovar licença' })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Adicionar Condicionante' })
+      screen.queryByRole('button', { name: 'Editar Condicionante' })
     ).not.toBeInTheDocument();
   });
 
@@ -518,5 +627,159 @@ describe('LicenseDetailsPage', () => {
       screen.queryByRole('region', { name: 'Histórico de versões' })
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  describe('Registrar Cumprimento modal', () => {
+    const FULFILLMENT_DETAILS: LicenseDetails = {
+      ...DETAILS,
+      conditions: [
+        {
+          id: 'condition-group-1',
+          itemNumber: '1',
+          isEnvironmentalDescriptor: false,
+          environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
+          name: 'Controle de entrada',
+          description: 'Manter controle de entrada.',
+          conditionType: 'Informativo',
+          periodicity: 'NA',
+          deadline: null,
+          status: 'Atendida',
+          completionDate: '2024-03-12T00:00:00.000Z',
+          responsibleName: 'Lucas Silva',
+          hasDelivery: true,
+          isViolated: false,
+        },
+        {
+          id: 'condition-1-1',
+          itemNumber: '1.1',
+          isEnvironmentalDescriptor: false,
+          environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
+          name: 'Controle da frota',
+          description: 'Manter registros de estacionamento da frota.',
+          conditionType: 'Informativo',
+          periodicity: 'NA',
+          deadline: null,
+          status: 'Atendida',
+          completionDate: '2024-03-12T00:00:00.000Z',
+          responsibleName: 'Lucas Silva',
+          hasDelivery: true,
+          isViolated: false,
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(
+        FULFILLMENT_DETAILS
+      );
+    });
+
+    async function openFulfillmentModal(
+      user: ReturnType<typeof userEvent.setup>
+    ) {
+      await user.click(
+        await screen.findByRole('button', { name: 'Registrar Cumprimento' })
+      );
+      return screen.findByRole('dialog', {
+        name: 'Registrar cumprimento das condicionantes',
+      });
+    }
+
+    it('opens the fulfillment modal when clicking the button', async () => {
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const dialog = await openFulfillmentModal(user);
+      expect(dialog).toBeInTheDocument();
+      expect(
+        within(dialog).getByText('Registrar Cumprimento das Condicionantes')
+      ).toBeInTheDocument();
+    });
+
+    it('Salvar button is disabled until all conditions are answered', async () => {
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const dialog = await openFulfillmentModal(user);
+      const saveBtn = within(dialog).getByRole('button', { name: 'Salvar' });
+      expect(saveBtn).toBeDisabled();
+
+      // Answer only the first condition
+      const groups = within(dialog).getAllByRole('group');
+      await user.click(
+        within(groups[0]).getByRole('button', { name: 'Cumprida' })
+      );
+      expect(saveBtn).toBeDisabled();
+
+      // Answer the second condition
+      await user.click(
+        within(groups[1]).getByRole('button', { name: 'Não cumprida' })
+      );
+      expect(saveBtn).not.toBeDisabled();
+    });
+
+    it('calls saveConditionsFulfillment with the correct payload and shows toast', async () => {
+      const user = userEvent.setup();
+      vi.mocked(
+        licenseConditionsApi.saveConditionsFulfillment
+      ).mockResolvedValue(undefined);
+      renderDetailsPage();
+
+      const dialog = await openFulfillmentModal(user);
+      const groups = within(dialog).getAllByRole('group');
+
+      await user.click(
+        within(groups[0]).getByRole('button', { name: 'Cumprida' })
+      );
+      await user.click(
+        within(groups[1]).getByRole('button', { name: 'Não cumprida' })
+      );
+
+      await user.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() =>
+        expect(
+          licenseConditionsApi.saveConditionsFulfillment
+        ).toHaveBeenCalledWith('customer-1', 'license-1', [
+          { conditionId: 'condition-group-1', fulfilled: true },
+          { conditionId: 'condition-1-1', fulfilled: false },
+        ])
+      );
+
+      expect(
+        await screen.findByText(
+          'Cumprimento das condicionantes registrado com sucesso.'
+        )
+      ).toBeInTheDocument();
+
+      // Modal should be closed
+      expect(
+        screen.queryByRole('dialog', {
+          name: 'Registrar cumprimento das condicionantes',
+        })
+      ).not.toBeInTheDocument();
+
+      // Page should have refetched
+      expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
+    });
+
+    it('closes the modal without saving when Cancel is clicked', async () => {
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const dialog = await openFulfillmentModal(user);
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Cancelar' })
+      );
+
+      expect(
+        screen.queryByRole('dialog', {
+          name: 'Registrar cumprimento das condicionantes',
+        })
+      ).not.toBeInTheDocument();
+      expect(
+        licenseConditionsApi.saveConditionsFulfillment
+      ).not.toHaveBeenCalled();
+    });
   });
 });

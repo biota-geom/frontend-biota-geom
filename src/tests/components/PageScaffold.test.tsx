@@ -57,6 +57,23 @@ describe('PageScaffold', () => {
     expect(screen.getByRole('heading', { name: 'Título' })).toBeInTheDocument();
   });
 
+  it('renders the headerAside node in the page header', () => {
+    render(
+      <PageScaffold
+        headerAside={<span>4 Licenças Ativas</span>}
+        subtitle="Subtítulo"
+        title="Título"
+      >
+        <p>Conteúdo</p>
+      </PageScaffold>
+    );
+
+    expect(screen.getByText('4 Licenças Ativas')).toBeInTheDocument();
+    expect(screen.getByRole('banner')).toContainElement(
+      screen.getByText('4 Licenças Ativas')
+    );
+  });
+
   it('renders nothing beside the title when no titleAside is given', () => {
     render(
       <PageScaffold subtitle="Subtítulo" title="Título">
