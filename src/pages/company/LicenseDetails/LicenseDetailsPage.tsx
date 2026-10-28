@@ -12,19 +12,13 @@ import {
 } from '../../../features/licenses/licenseDetailsFormatting';
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
 import { useLicenseHistory } from '../../../features/licenses/useLicenseHistory';
-import type {
-  ConditionFulfillmentItem,
-  ConditionFulfillmentRow,
-  LicenseConditionDetail,
-} from '../../../features/licenses/types';
+import type { LicenseConditionDetail } from '../../../features/licenses/types';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
-import { ConditionFulfillmentList } from './components/ConditionFulfillmentList';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
 import { LicenseVersionHistory } from './components/LicenseVersionHistory';
 import { RenewLicenseModal } from './components/RenewLicenseModal';
-import { saveConditionsFulfillment } from '../../../services/api/licenseConditionsApi';
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
@@ -123,12 +117,6 @@ export function LicenseDetailsPage() {
   const [filter, setFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
-  const [isFulfillmentModalOpen, setIsFulfillmentModalOpen] = useState(false);
-  const [fulfillmentRows, setFulfillmentRows] = useState<
-    ConditionFulfillmentRow[]
-  >([]);
-  const [isFulfillmentComplete, setIsFulfillmentComplete] = useState(false);
-  const [isSavingFulfillment, setIsSavingFulfillment] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const navigate = useNavigate();
   const { details, error, refetch, status } = useLicenseDetails(
@@ -186,32 +174,6 @@ export function LicenseDetailsPage() {
     navigate(buildCompanyRoutes.licenseDetails(companyId, renewed.id));
   }
 
-  function handleFulfillmentChange(
-    rows: ConditionFulfillmentRow[],
-    isComplete: boolean
-  ) {
-    setFulfillmentRows(rows);
-    setIsFulfillmentComplete(isComplete);
-  }
-
-  async function handleSaveFulfillment() {
-    if (!companyId || !licenseId || !isFulfillmentComplete) return;
-    setIsSavingFulfillment(true);
-    try {
-      const items: ConditionFulfillmentItem[] = fulfillmentRows.map((row) => ({
-        conditionId: row.conditionId,
-        // fulfilled is guaranteed to be boolean when isComplete is true
-        fulfilled: row.fulfilled as boolean,
-      }));
-      await saveConditionsFulfillment(companyId, licenseId, items);
-      setIsFulfillmentModalOpen(false);
-      setToastMessage('Cumprimento das condicionantes registrado com sucesso.');
-      refetch();
-    } finally {
-      setIsSavingFulfillment(false);
-    }
-  }
-
   return (
     <PageScaffold
       actions={
@@ -229,16 +191,6 @@ export function LicenseDetailsPage() {
               {
                 label: 'Editar Condicionante',
                 onClick: () => setIsModalOpen(true),
-              },
-              {
-                // TODO(#101): remove when the fulfillment modal is integrated
-                // into the renewal flow.
-                label: 'Registrar Cumprimento',
-                onClick: () => {
-                  setFulfillmentRows([]);
-                  setIsFulfillmentComplete(false);
-                  setIsFulfillmentModalOpen(true);
-                },
               },
             ]
           : []
@@ -391,63 +343,6 @@ export function LicenseDetailsPage() {
           onRenewed={handleRenewed}
           open={isRenewModalOpen}
         />
-      ) : null}
-
-      {/*
-       * Temporary modal — exercices ConditionFulfillmentList in isolation
-       * until it is embedded in the renewal flow (task #101).
-       */}
-      {isFulfillmentModalOpen && details ? (
-        <div
-          aria-label="Registrar cumprimento das condicionantes"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          role="dialog"
-        >
-          <div className="w-full max-w-2xl overflow-hidden rounded-panel border border-border bg-surface shadow-xl">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <h2 className="m-0 text-sm font-bold text-text-primary">
-                Registrar Cumprimento das Condicionantes
-              </h2>
-              <button
-                className="rounded-control p-1 text-text-muted hover:text-text-primary"
-                onClick={() => setIsFulfillmentModalOpen(false)}
-                type="button"
-                aria-label="Fechar modal"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="max-h-[60vh] overflow-y-auto">
-              <ConditionFulfillmentList
-                conditions={details.conditions}
-                onChange={handleFulfillmentChange}
-              />
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 border-t border-border px-5 py-4">
-              <button
-                className="rounded-control px-4 py-2 text-sm text-text-secondary hover:text-text-primary"
-                onClick={() => setIsFulfillmentModalOpen(false)}
-                type="button"
-              >
-                Cancelar
-              </button>
-              <button
-                className="rounded-control bg-primary px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={!isFulfillmentComplete || isSavingFulfillment}
-                onClick={() => void handleSaveFulfillment()}
-                type="button"
-              >
-                {isSavingFulfillment ? 'Salvando…' : 'Salvar'}
-              </button>
-            </div>
-          </div>
-        </div>
       ) : null}
 
       {toastMessage ? (

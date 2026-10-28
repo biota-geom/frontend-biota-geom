@@ -173,4 +173,20 @@ describe('ConditionFulfillmentList', () => {
       screen.getByText('Nenhuma condicionante cadastrada para esta licença.')
     ).toBeInTheDocument();
   });
+
+  it('renders the row addon under each condition', () => {
+    render(
+      <ConditionFulfillmentList
+        conditions={[CONDITION_A, CONDITION_B]}
+        onChange={vi.fn()}
+        renderRowAddon={(condition) => (
+          <span>Extra de {condition.itemNumber}</span>
+        )}
+      />
+    );
+
+    const [rowA, rowB] = screen.getAllByRole('listitem');
+    expect(within(rowA!).getByText('Extra de 1.1')).toBeInTheDocument();
+    expect(within(rowB!).getByText('Extra de 1.2')).toBeInTheDocument();
+  });
 });

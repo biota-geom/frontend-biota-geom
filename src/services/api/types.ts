@@ -179,6 +179,14 @@ export interface LicenseRenewedWire {
   status: string;
 }
 
+/* One item of the `conditions` JSON field sent with POST /licenses/:id/renew. */
+export interface RenewalConditionWire {
+  condition_id: string;
+  fulfilled: boolean;
+  copy_to_new: boolean;
+  new_due_date?: string;
+}
+
 /* GET /licenses/:licenseId/history, newest version first. */
 export interface LicenseHistoryItemWire {
   id: string;

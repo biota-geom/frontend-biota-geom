@@ -103,6 +103,13 @@ export interface ConditionFulfillmentItem {
   fulfilled: boolean;
 }
 
+/** What the renewal decides for each condition of the previous license. */
+export interface RenewalConditionDecision extends ConditionFulfillmentItem {
+  copyToNew: boolean;
+  /** `YYYY-MM-DD`; only present when `copyToNew` is true. */
+  newDueDate?: string;
+}
+
 /**
  * One row in the ConditionFulfillmentList component.
  * `fulfilled` is `undefined` when the user hasn't answered yet.

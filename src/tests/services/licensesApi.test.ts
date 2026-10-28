@@ -169,6 +169,15 @@ describe('licensesApi', () => {
       issueDate: '2026-01-10',
       expirationDate: '2030-01-10',
       documentFile: file,
+      conditions: [
+        {
+          conditionId: 'condition-1',
+          fulfilled: true,
+          copyToNew: true,
+          newDueDate: '2027-10-01',
+        },
+        { conditionId: 'condition-2', fulfilled: false, copyToNew: false },
+      ],
     });
 
     expect(request).toHaveBeenCalledTimes(1);
@@ -181,6 +190,15 @@ describe('licensesApi', () => {
     expect(formData.get('issue_date')).toBe('2026-01-10');
     expect(formData.get('expiration_date')).toBe('2030-01-10');
     expect(formData.get('document_file')).toBe(file);
+    expect(JSON.parse(formData.get('conditions') as string)).toEqual([
+      {
+        condition_id: 'condition-1',
+        fulfilled: true,
+        copy_to_new: true,
+        new_due_date: '2027-10-01',
+      },
+      { condition_id: 'condition-2', fulfilled: false, copy_to_new: false },
+    ]);
     expect(renewed).toEqual({
       id: 'new-license',
       previousLicenseId: 'old-license',
