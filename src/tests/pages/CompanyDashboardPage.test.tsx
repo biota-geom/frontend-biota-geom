@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../../app/router/AppRouter';
@@ -148,10 +148,11 @@ describe('CompanyDashboardPage', () => {
       screen.getByRole('region', { name: 'Contagem de licenças por situação' })
     ).toHaveTextContent('2');
     expect(screen.getByText('LO 118/2020')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ver detalhes/i })).toHaveAttribute(
-      'href',
-      '/companies/company-1/licenses'
-    );
+    expect(
+      within(
+        screen.getByRole('article', { name: 'Licenças ambientais' })
+      ).getByRole('link', { name: /ver detalhes/i })
+    ).toHaveAttribute('href', '/companies/company-1/licenses');
     expect(screen.getByRole('link', { name: 'LO 118/2020' })).toHaveAttribute(
       'href',
       '/companies/company-1/licenses/license-1'

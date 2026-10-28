@@ -165,12 +165,8 @@ function CompanyDashboardContent({
         {companyId ? (
           <ConditionsSummaryBlock companyId={companyId} key={companyId} />
         ) : null}
-        <div className="col-span-2 max-[900px]:col-span-1">
-          <EsgIndicatorsDashboardCard companyId={company.id} />
-        </div>
-        <div className="col-span-2 max-[900px]:col-span-1">
-          <LegislationRadarDashboardCard />
-        </div>
+        <LegislationRadarDashboardCard />
+        <EsgIndicatorsDashboardCard companyId={company.id} />
       </div>
     </PageScaffold>
   );

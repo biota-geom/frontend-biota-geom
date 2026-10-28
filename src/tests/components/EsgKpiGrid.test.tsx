@@ -59,7 +59,18 @@ describe('EsgKpiGrid', () => {
 
     expect(
       screen.getByLabelText('Variação de Colaboradores: ▼ 1,3%')
-    ).toBeInTheDocument();
+    ).toHaveClass('text-red-600');
+  });
+
+  it('uses green for increases and a neutral color without variation', () => {
+    render(<EsgKpiGrid summary={SEPTEMBER} />);
+
+    expect(
+      screen.getByLabelText('Variação de Consumo de Água: ▲ 10,0%')
+    ).toHaveClass('text-primary-strong');
+    expect(
+      screen.getByLabelText('Variação de Resíduos Gerados: —')
+    ).toHaveClass('text-text-secondary');
   });
 
   it('shows "—" for a month without a previous record', () => {

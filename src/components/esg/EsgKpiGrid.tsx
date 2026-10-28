@@ -15,6 +15,16 @@ const GRID_SPACING = {
   dashboard: '',
 } as const;
 
+const GRID_COLUMNS = {
+  page: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+  dashboard: 'grid-cols-1 sm:grid-cols-2',
+} as const;
+
+const KPI_CARD_STYLE = {
+  page: 'bg-surface p-6',
+  dashboard: 'bg-surface-muted p-4',
+} as const;
+
 type EsgKpiGridProps = {
   /** Null while loading or on error: the grid stays empty until it arrives. */
   summary: EsgIndicatorsSummary | null;
@@ -30,6 +40,8 @@ export function EsgKpiGrid({ summary, variant = 'page' }: EsgKpiGridProps) {
   if (!summary) return null;
 
   const spacing = GRID_SPACING[variant];
+  const columns = GRID_COLUMNS[variant];
+  const cardStyle = KPI_CARD_STYLE[variant];
 
   if (summary.indicators.length === 0) {
     return (
@@ -46,17 +58,26 @@ export function EsgKpiGrid({ summary, variant = 'page' }: EsgKpiGridProps) {
           Referência: {formatMonthLabel(summary.reference_month)}
         </p>
       )}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={cn('grid gap-3', columns)}>
         {summary.indicators.map((indicator) => {
           const displayValue = formatEsgValue(
             indicator.current,
             indicator.unit
           );
           const variation = formatEsgVariation(indicator.variation_pct);
+          const variationColor =
+            indicator.variation_pct === null || indicator.variation_pct === 0
+              ? 'text-text-secondary'
+              : indicator.variation_pct > 0
+                ? 'text-primary-strong'
+                : 'text-red-600';
 
           return (
             <div
-              className="flex flex-col justify-between rounded-xl border border-border bg-surface p-6 shadow-control"
+              className={cn(
+                'flex flex-col justify-between rounded-xl border border-border shadow-control',
+                cardStyle
+              )}
               data-testid={`esg-kpi-card-${indicator.indicator_id}`}
               key={indicator.indicator_id}
             >
@@ -73,7 +94,7 @@ export function EsgKpiGrid({ summary, variant = 'page' }: EsgKpiGridProps) {
               </div>
               <p
                 aria-label={`Variação de ${indicator.name}: ${variation}`}
-                className="text-xs font-semibold text-text-secondary"
+                className={cn('text-xs font-semibold', variationColor)}
               >
                 {variation}
                 <span className="font-normal"> vs mês anterior</span>
