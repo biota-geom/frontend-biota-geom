@@ -88,6 +88,23 @@ export interface LicensesPanel {
   licenses: LicensePanelItem[];
 }
 
+export interface ConditionFulfillmentItem {
+  conditionId: string;
+  fulfilled: boolean;
+}
+
+/**
+ * One row in the ConditionFulfillmentList component.
+ * `fulfilled` is `undefined` when the user hasn't answered yet.
+ */
+export interface ConditionFulfillmentRow {
+  conditionId: string;
+  itemNumber: string | null;
+  description: string | null;
+  conditionType: string | null;
+  fulfilled: boolean | undefined;
+}
+
 export interface LicenseDashboardHeader {
   activeLicenses: number;
   pendingItems: number;

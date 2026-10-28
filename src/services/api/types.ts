@@ -348,3 +348,12 @@ export interface CreateCustomerIndicatorWire {
   unit: string;
   category: 'Ambiental' | 'Social' | 'Governança';
 }
+
+export interface ConditionFulfillmentItemWire {
+  condition_id: string;
+  fulfilled: boolean;
+}
+
+export interface SaveConditionsFulfillmentRequestWire {
+  items: ConditionFulfillmentItemWire[];
+}
