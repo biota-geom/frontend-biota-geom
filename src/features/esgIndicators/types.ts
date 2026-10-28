@@ -1,19 +1,23 @@
-export const ESG_INDICATOR_KEYS = [
-  'water',
-  'waste',
-  'employees',
-  'energy',
-] as const;
+export type IndicatorCategory = 'Ambiental' | 'Social' | 'Governança';
 
-export type EsgIndicatorKey = (typeof ESG_INDICATOR_KEYS)[number];
-
-/** Saved values of one month; null means the indicator was never informed. */
-export type EsgMonthlyIndicators = Record<EsgIndicatorKey, number | null>;
+/** One indicator as returned by the GET endpoint (with monthly value). */
+export interface MonthlyIndicator {
+  indicator_id: string;
+  name: string;
+  unit: string;
+  category: IndicatorCategory;
+  value: number | null;
+}
 
 /**
- * Body of the PUT. A number saves the indicator, null clears one that was
- * saved before, and a missing key leaves it untouched.
+ * Body of the PUT. A number saves/updates the indicator record, null clears
+ * one that was saved before. Indicators absent from the list stay untouched.
  */
-export type EsgIndicatorsPayload = Partial<
-  Record<EsgIndicatorKey, number | null>
->;
+export interface EsgIndicatorRecord {
+  indicator_id: string;
+  value: number | null;
+}
+
+export interface EsgIndicatorsPayload {
+  records: EsgIndicatorRecord[];
+}

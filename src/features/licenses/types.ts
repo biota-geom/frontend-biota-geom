@@ -113,3 +113,28 @@ export interface ConditionFulfillmentRow {
   conditionType: string | null;
   fulfilled: boolean | undefined;
 }
+
+export interface LicenseDashboardHeader {
+  activeLicenses: number;
+  pendingItems: number;
+}
+
+export interface LicenseDashboardCounts {
+  regular: number;
+  attention: number;
+  expired: number;
+}
+
+export interface LicenseDashboardCriticalItem {
+  id: string;
+  type: string;
+  processNumber: string;
+  expirationDate: string;
+  status: string;
+}
+
+export interface LicenseDashboard {
+  header: LicenseDashboardHeader;
+  counts: LicenseDashboardCounts;
+  critical: LicenseDashboardCriticalItem[];
+}

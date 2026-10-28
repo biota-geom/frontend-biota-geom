@@ -36,7 +36,9 @@ type ConditionsFormValues = { conditions: LicenseConditionRow[] };
 
 type LicenseConditionsTableProps<TForm extends ConditionsFormValues> = {
   control: Control<TForm>;
+  description?: string;
   disabled?: boolean;
+  title?: string;
 };
 
 const HEADERS = [
@@ -57,7 +59,9 @@ function formatDeadline(value: string) {
 
 export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
   control: hostControl,
+  description = 'Adicione as condicionantes vinculadas à licença',
   disabled = false,
+  title = 'Condicionantes',
 }: LicenseConditionsTableProps<TForm>) {
   const control = hostControl as unknown as Control<ConditionsFormValues>;
   const { append, fields, insert, remove } = useFieldArray({
@@ -122,6 +126,21 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
     setConditionDescriptor(null);
   }
 
+  function removeEnvironmentalDescriptor(descriptor: string) {
+    const conditionIndexes = conditions.reduce<number[]>(
+      (indexes, condition, index) =>
+        condition.environmentalDescriptor === descriptor
+          ? [...indexes, index]
+          : indexes,
+      []
+    );
+
+    if (conditionIndexes.length > 0) remove(conditionIndexes);
+    setEnvironmentalDescriptors((current) =>
+      current.filter((item) => item !== descriptor)
+    );
+  }
+
   return (
     <section
       aria-labelledby="license-conditions-title"
@@ -132,11 +151,9 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
           className="m-0 text-base font-bold text-text-primary"
           id="license-conditions-title"
         >
-          Condicionantes
+          {title}
         </h3>
-        <p className="m-0 text-[13px] text-text-secondary">
-          Adicione as condicionantes vinculadas à licença
-        </p>
+        <p className="m-0 text-[13px] text-text-secondary">{description}</p>
       </div>
 
       {environmentalDescriptors.length > 0 ? (
@@ -174,6 +191,9 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
                     key={descriptor}
                     onAddCondition={() => setConditionDescriptor(descriptor)}
                     onRemoveCondition={remove}
+                    onRemoveDescriptor={() =>
+                      removeEnvironmentalDescriptor(descriptor)
+                    }
                   />
                 );
               })}
@@ -276,6 +296,7 @@ type EnvironmentalDescriptorRowsProps = {
   disabled: boolean;
   onAddCondition: () => void;
   onRemoveCondition: (index: number) => void;
+  onRemoveDescriptor: () => void;
 };
 
 function EnvironmentalDescriptorRows({
@@ -286,6 +307,7 @@ function EnvironmentalDescriptorRows({
   disabled,
   onAddCondition,
   onRemoveCondition,
+  onRemoveDescriptor,
 }: EnvironmentalDescriptorRowsProps) {
   const descriptorNumber = descriptorIndex + 1;
 
@@ -296,17 +318,29 @@ function EnvironmentalDescriptorRows({
         <td className="px-3 py-2.5" colSpan={5}>
           {descriptor}
         </td>
-        <td className="px-3 py-2.5 text-right" colSpan={2}>
-          <Button
-            aria-label={`Adicionar condicionante em ${descriptor}`}
-            disabled={disabled}
-            onClick={onAddCondition}
-            type="button"
-            variant="addRow"
-          >
-            <Plus aria-hidden="true" size={15} />
-            Adicionar Condicionante
-          </Button>
+        <td className="px-3 py-2.5" colSpan={2}>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              aria-label={`Adicionar condicionante em ${descriptor}`}
+              disabled={disabled}
+              onClick={onAddCondition}
+              type="button"
+              variant="addRow"
+            >
+              <Plus aria-hidden="true" size={15} />
+              Adicionar Condicionante
+            </Button>
+            <Button
+              aria-label={`Remover descritor ambiental ${descriptor}`}
+              disabled={disabled}
+              onClick={onRemoveDescriptor}
+              title={`Remover descritor ambiental ${descriptor}`}
+              type="button"
+              variant="iconDanger"
+            >
+              <Trash2 aria-hidden="true" size={14} />
+            </Button>
+          </div>
         </td>
       </tr>
 

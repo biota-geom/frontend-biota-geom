@@ -6,6 +6,7 @@ import {
   formatMonthLabel,
   getPreviousMonth,
 } from '../../../features/esgIndicators/esgIndicatorsValidation';
+import { useEsgHistory } from '../../../features/esgIndicators/useEsgHistory';
 import { useEsgIndicators } from '../../../features/esgIndicators/useEsgIndicators';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { EsgChartsGrid } from './components/EsgChartsGrid';
@@ -27,6 +28,9 @@ export function CompanyIndicatorsPage() {
     companyId,
     month
   );
+
+  // Chart lines per indicator: the selected month plus the 5 before it
+  const series = useEsgHistory(companyId, month, indicators);
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
 
@@ -102,13 +106,14 @@ export function CompanyIndicatorsPage() {
       <EsgSummaryCards indicators={indicators} />
 
       {/* 2x2 Line Charts Grid */}
-      <EsgChartsGrid indicators={indicators} />
+      <EsgChartsGrid indicators={indicators} series={series} />
 
-      {/* New Indicator Record Modal (PUT upsert) */}
+      {/* New Indicator Record Modal (PUT upsert + inline creation) */}
       {companyId && (
         <NewEsgIndicatorModal
           companyId={companyId}
           initialMonth={month}
+          onIndicatorCreated={reload}
           onOpenChange={setIsNewRecordOpen}
           onSaved={handleSaved}
           open={isNewRecordOpen}

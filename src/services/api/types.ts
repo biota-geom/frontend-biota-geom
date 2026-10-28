@@ -217,6 +217,31 @@ export interface LicensePanelResponseWire {
   licenses: LicensePanelItemWire[];
 }
 
+export interface LicenseDashboardHeaderWire {
+  active_licenses: number;
+  pending_items: number;
+}
+
+export interface LicenseDashboardCriticalItemWire {
+  id: string;
+  type: string;
+  process_number: string;
+  expiration_date: string;
+  status: string;
+}
+
+export interface LicenseDashboardCountsWire {
+  regular: number;
+  attention: number;
+  expired: number;
+}
+
+export interface LicenseDashboardWire {
+  header: LicenseDashboardHeaderWire;
+  counts: LicenseDashboardCountsWire;
+  critical: LicenseDashboardCriticalItemWire[];
+}
+
 export interface DocumentWire {
   id: string;
   title: string;
@@ -297,15 +322,32 @@ export interface CreateLicenseConditionsRequestWire {
 }
 
 /*
- * GET /customers/:customerId/esg-indicators/:month. Not in the issue's
- * contract (which only lists the PUT) — the shape mirrors the PUT body, with
- * null/absent for an indicator that was never informed.
+ * GET /customers/:customerId/esg-indicators/:month — array of all indicators
+ * linked to the company, with the month value (null when not yet reported).
  */
-export interface EsgIndicatorsWire {
-  water?: number | string | null;
-  waste?: number | string | null;
-  employees?: number | string | null;
-  energy?: number | string | null;
+export interface MonthlyIndicatorWire {
+  indicator_id: string;
+  name: string;
+  unit: string;
+  category: 'Ambiental' | 'Social' | 'Governança';
+  value: number | null;
+}
+
+export interface IndicatorRecordWire {
+  indicator_id: string;
+  value: number | null;
+}
+
+/** PUT /customers/:customerId/esg-indicators/:month body */
+export interface SaveEsgIndicatorsWire {
+  records: IndicatorRecordWire[];
+}
+
+/** POST /customers/:customerId/indicators body */
+export interface CreateCustomerIndicatorWire {
+  name: string;
+  unit: string;
+  category: 'Ambiental' | 'Social' | 'Governança';
 }
 
 export interface ConditionFulfillmentItemWire {

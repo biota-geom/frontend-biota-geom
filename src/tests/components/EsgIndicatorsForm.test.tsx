@@ -4,20 +4,43 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EsgIndicatorsForm } from '../../pages/company/Indicators/components/EsgIndicatorsForm';
 import { ApiError } from '../../services/api/apiError';
 import * as esgIndicatorsApi from '../../services/api/esgIndicatorsApi';
+import type { MonthlyIndicator } from '../../features/esgIndicators/types';
 
 vi.mock('../../services/api/esgIndicatorsApi', () => ({
   getEsgIndicators: vi.fn(),
   saveEsgIndicators: vi.fn(),
+  createCustomerIndicator: vi.fn(),
 }));
 
 const COMPANY_ID = 'customer-1';
 const MONTH = '2026-09';
-const SEPTEMBER = {
-  water: 1250.5,
-  waste: 12.3,
-  employees: 148,
-  energy: 53200,
-};
+
+const SEPTEMBER: MonthlyIndicator[] = [
+  {
+    indicator_id: 'uuid-ind-1',
+    name: 'Consumo de Água',
+    unit: 'm³',
+    category: 'Ambiental',
+    value: 1250.5,
+  },
+  {
+    indicator_id: 'uuid-ind-2',
+    name: 'Resíduos Totais',
+    unit: 't',
+    category: 'Ambiental',
+    value: 12.3,
+  },
+  {
+    indicator_id: 'uuid-ind-3',
+    name: 'Número de Colaboradores',
+    unit: 'un',
+    category: 'Social',
+    value: 148,
+  },
+];
+
+// saveEsgIndicators returns the updated list
+const UPDATED_RESPONSE: MonthlyIndicator[] = SEPTEMBER.map((ind) => ind);
 
 function renderForm(props = {}) {
   const defaultProps = {
@@ -25,6 +48,7 @@ function renderForm(props = {}) {
     loadError: null,
     loadStatus: 'success' as const,
     month: MONTH,
+    onIndicatorCreated: vi.fn(),
     onMonthChange: vi.fn(),
     onReload: vi.fn(),
     onSaved: vi.fn(),
@@ -37,16 +61,17 @@ function renderForm(props = {}) {
 describe('EsgIndicatorsForm', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockResolvedValue(undefined);
+    vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockResolvedValue(
+      UPDATED_RESPONSE
+    );
   });
 
-  it('renders prefilled form values and field labels', () => {
+  it('renders dynamic field labels and prefilled values', () => {
     renderForm();
 
     expect(screen.getByLabelText('Consumo de Água')).toHaveValue(1250.5);
-    expect(screen.getByLabelText('Resíduos Gerados')).toHaveValue(12.3);
-    expect(screen.getByLabelText('Nº de Funcionários')).toHaveValue(148);
-    expect(screen.getByLabelText('Consumo de Energia')).toHaveValue(53200);
+    expect(screen.getByLabelText('Resíduos Totais')).toHaveValue(12.3);
+    expect(screen.getByLabelText('Número de Colaboradores')).toHaveValue(148);
   });
 
   it('blocks negative numbers', async () => {
@@ -67,23 +92,7 @@ describe('EsgIndicatorsForm', () => {
     expect(esgIndicatorsApi.saveEsgIndicators).not.toHaveBeenCalled();
   });
 
-  it('blocks non-integer employees', async () => {
-    const user = userEvent.setup();
-    renderForm();
-
-    const empInput = screen.getByLabelText('Nº de Funcionários');
-    await user.clear(empInput);
-    await user.type(empInput, '10.5');
-
-    await user.click(
-      screen.getByRole('button', { name: 'Salvar indicadores' })
-    );
-
-    expect(await screen.findByText('Informe um número inteiro.')).toBeVisible();
-    expect(esgIndicatorsApi.saveEsgIndicators).not.toHaveBeenCalled();
-  });
-
-  it('saves changes successfully via saveEsgIndicators', async () => {
+  it('saves changes successfully via saveEsgIndicators with the records payload', async () => {
     const user = userEvent.setup();
     const onSaved = vi.fn();
     renderForm({ onSaved });
@@ -100,12 +109,11 @@ describe('EsgIndicatorsForm', () => {
       expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenCalledWith(
         COMPANY_ID,
         MONTH,
-        {
-          water: 1300,
-          waste: 12.3,
-          employees: 148,
-          energy: 53200,
-        }
+        expect.objectContaining({
+          records: expect.arrayContaining([
+            { indicator_id: 'uuid-ind-1', value: 1300 },
+          ]),
+        })
       )
     );
     expect(onSaved).toHaveBeenCalledWith(MONTH);
@@ -118,6 +126,10 @@ describe('EsgIndicatorsForm', () => {
     );
     renderForm();
 
+    const waterInput = screen.getByLabelText('Consumo de Água');
+    await user.clear(waterInput);
+    await user.type(waterInput, '100');
+
     await user.click(
       screen.getByRole('button', { name: 'Salvar indicadores' })
     );
@@ -125,9 +137,10 @@ describe('EsgIndicatorsForm', () => {
     expect(await screen.findByText('Erro de validação na API')).toBeVisible();
   });
 
-  it('handles empty save attempt', async () => {
+  it('shows "at least one indicator" error when all fields are blank with no saved value', async () => {
     const user = userEvent.setup();
-    renderForm({ savedIndicators: null });
+    // No indicators configured
+    renderForm({ savedIndicators: [] });
 
     await user.click(
       screen.getByRole('button', { name: 'Salvar indicadores' })
