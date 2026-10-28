@@ -6,7 +6,6 @@ import type {
   LicensePanelItem,
   LicensesPanel,
   LicenseRenewed,
-  LicenseType,
 } from '../../features/licenses/types';
 import { request } from './http';
 import type {
@@ -20,9 +19,9 @@ import type {
 } from './types';
 
 export interface CreateLicenseInput {
-  type: LicenseType;
+  type: string;
   processNumber: string;
-  issuingAgencyId: string;
+  issuingAgency: string;
   /** `YYYY-MM-DD`, straight from a `<input type="date">`. */
   issueDate: string;
   /** `YYYY-MM-DD`, straight from a `<input type="date">`. */
@@ -41,10 +40,9 @@ function toLicense(wire: LicenseWire): License {
   return {
     id: wire.id,
     customerId: wire.customer_id,
-    type: wire.type as LicenseType,
+    type: wire.type,
     processNumber: wire.process_number,
-    issuingAgencyId: wire.issuing_agency_id,
-    issuingAgencyName: wire.issuing_agency_name,
+    issuingAgency: wire.issuing_agency,
     issueDate: wire.issue_date,
     expirationDate: wire.expiration_date,
     status: wire.status,
@@ -107,7 +105,7 @@ export async function createLicense(
   const formData = new FormData();
   formData.append('type', input.type);
   formData.append('process_number', input.processNumber);
-  formData.append('issuing_agency_id', input.issuingAgencyId);
+  formData.append('issuing_agency', input.issuingAgency);
   formData.append('issue_date', input.issueDate);
   formData.append('expiration_date', input.expirationDate);
   formData.append('document_file', input.documentFile);

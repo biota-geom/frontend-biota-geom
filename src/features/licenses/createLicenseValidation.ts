@@ -1,9 +1,5 @@
 import { z } from 'zod';
 import type { LicenseConditionBatchItemInput } from '../../services/api/licenseConditionsApi';
-import type { LicenseType } from './types';
-
-export const LICENSE_TYPES: LicenseType[] = ['LP', 'LI', 'LO'];
-
 export const CONDITION_TYPES = ['INFORMATIVE', 'PERIODIC'] as const;
 export const CONDITION_PERIODICITIES = [
   'MONTHLY',
@@ -77,7 +73,7 @@ export type LicenseConditionRow = {
 export type CreateLicenseForm = {
   type: string;
   processNumber: string;
-  issuingAgencyId: string;
+  issuingAgency: string;
   issueDate: string;
   expirationDate: string;
   file: File | null;
@@ -91,13 +87,15 @@ export const createLicenseSchema: z.ZodType<
   .object({
     type: z
       .string()
-      .min(1, 'Selecione o tipo de licença.')
-      .refine(
-        (value) => LICENSE_TYPES.includes(value as LicenseType),
-        'Selecione um tipo válido.'
-      ),
+      .trim()
+      .min(1, 'Informe o tipo de licença.')
+      .max(50, 'O tipo deve ter no máximo 50 caracteres.'),
     processNumber: z.string().trim().min(1, 'Informe o nº do processo.'),
-    issuingAgencyId: z.string().min(1, 'Selecione o órgão emissor.'),
+    issuingAgency: z
+      .string()
+      .trim()
+      .min(1, 'Informe o órgão emissor.')
+      .max(150, 'O órgão emissor deve ter no máximo 150 caracteres.'),
     issueDate: z.string().min(1, 'Informe a data de emissão.'),
     expirationDate: z.string().min(1, 'Informe a data de validade.'),
     file: z
@@ -134,7 +132,7 @@ export const EMPTY_CONDITION_ROW: LicenseConditionRow = {
 export const CREATE_LICENSE_DEFAULT_VALUES: CreateLicenseForm = {
   type: '',
   processNumber: '',
-  issuingAgencyId: '',
+  issuingAgency: '',
   issueDate: '',
   expirationDate: '',
   file: null,
