@@ -11,9 +11,13 @@ import {
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { Button } from '../../../components/ui/shadcn/button';
-import type { DocumentFolder } from '../../../features/documents/types';
+import type {
+  CompanyDocument,
+  DocumentFolder,
+} from '../../../features/documents/types';
 import { useDocuments } from '../../../features/documents/useDocuments';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
+import { DeleteDocumentDialog } from './components/DeleteDocumentDialog';
 import {
   DocumentsTable,
   DocumentsTableSkeleton,
@@ -91,6 +95,8 @@ export function CompanyDocumentsPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [documentToDelete, setDocumentToDelete] =
+    useState<CompanyDocument | null>(null);
   const { documents, error, folders, loadDocuments, status } = useDocuments();
 
   useEffect(() => {
@@ -106,6 +112,11 @@ export function CompanyDocumentsPage() {
 
   function reload() {
     if (companyId) void loadDocuments(companyId);
+  }
+
+  function handleDocumentDeleted() {
+    setToastMessage('Documento excluído com sucesso.');
+    reload();
   }
 
   function handleUploaded(count: number) {
@@ -343,6 +354,7 @@ export function CompanyDocumentsPage() {
               <DocumentsTable
                 companyId={companyId}
                 documents={visibleDocuments}
+                onRequestDelete={setDocumentToDelete}
               />
             ) : (
               <div className="rounded-panel flex flex-col items-center gap-3 border border-dashed border-border bg-surface px-6 py-12 text-center">
@@ -387,6 +399,14 @@ export function CompanyDocumentsPage() {
             open={isFolderDialogOpen}
             parentId={selectedFolderId}
             parentName={currentFolder?.name ?? 'Raiz'}
+          />
+          <DeleteDocumentDialog
+            companyId={companyId}
+            document={documentToDelete}
+            onDeleted={handleDocumentDeleted}
+            onOpenChange={(open) => {
+              if (!open) setDocumentToDelete(null);
+            }}
           />
         </>
       ) : null}

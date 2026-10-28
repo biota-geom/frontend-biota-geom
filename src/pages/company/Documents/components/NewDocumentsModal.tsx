@@ -35,7 +35,6 @@ type DocumentDraft = {
   id: number;
   file: File;
   title: string;
-  documentDate: string;
   errors: DocumentDraftErrors;
   status: UploadStatus;
   serverError: string | null;
@@ -120,7 +119,6 @@ export function NewDocumentsModal({
         id: nextDraftId.current++,
         file,
         title: '',
-        documentDate: '',
         errors: {},
         status: 'pending',
         serverError: null,
@@ -133,11 +131,7 @@ export function NewDocumentsModal({
     event.target.value = '';
   }
 
-  function updateDraft(
-    id: number,
-    field: 'title' | 'documentDate',
-    value: string
-  ) {
+  function updateDraft(id: number, field: 'title', value: string) {
     setDrafts((current) =>
       current.map((draft) =>
         draft.id === id
@@ -193,7 +187,6 @@ export function NewDocumentsModal({
         await createDocument(companyId, {
           file: draft.file,
           title: draft.title,
-          documentDate: draft.documentDate,
           folderId,
         });
         successCount += 1;
@@ -349,7 +342,7 @@ export function NewDocumentsModal({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-[minmax(0,1fr)_180px] gap-4 max-[720px]:grid-cols-1">
+                    <div>
                       <div className="flex flex-col gap-2">
                         <Label htmlFor={`document-title-${draft.id}`}>
                           Título
@@ -373,37 +366,6 @@ export function NewDocumentsModal({
                             role="alert"
                           >
                             {draft.errors.title}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor={`document-date-${draft.id}`}>
-                          Data
-                        </Label>
-                        <InputGroup
-                          aria-invalid={Boolean(draft.errors.documentDate)}
-                          variant="field"
-                        >
-                          <Input
-                            id={`document-date-${draft.id}`}
-                            onChange={(event) =>
-                              updateDraft(
-                                draft.id,
-                                'documentDate',
-                                event.target.value
-                              )
-                            }
-                            type="date"
-                            value={draft.documentDate}
-                          />
-                        </InputGroup>
-                        {draft.errors.documentDate ? (
-                          <p
-                            className="m-0 text-xs font-semibold text-red-600"
-                            role="alert"
-                          >
-                            {draft.errors.documentDate}
                           </p>
                         ) : null}
                       </div>
