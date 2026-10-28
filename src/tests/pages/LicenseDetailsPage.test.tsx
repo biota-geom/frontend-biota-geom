@@ -430,6 +430,62 @@ describe('LicenseDetailsPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('drops the previous history while the linked version loads its own', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.getLicenseDetails).mockImplementation(
+      (_customerId, licenseId) =>
+        Promise.resolve(
+          licenseId === 'license-0'
+            ? {
+                ...DETAILS,
+                id: 'license-0',
+                processNumber: 'LP nº 100/2019',
+                status: 'Renovada/Arquivada',
+              }
+            : DETAILS
+        )
+    );
+    vi.mocked(licensesApi.getLicenseHistory).mockImplementation((licenseId) =>
+      licenseId === 'license-1'
+        ? Promise.resolve([
+            {
+              id: 'license-1',
+              processNumber: 'LP nº 482/2024',
+              issueDate: '2024-03-12T00:00:00.000Z',
+              expirationDate: '2026-03-12T00:00:00.000Z',
+              status: 'Regular',
+              isCurrent: true,
+            },
+            {
+              id: 'license-0',
+              processNumber: 'LP nº 100/2019',
+              issueDate: '2019-01-10T00:00:00.000Z',
+              expirationDate: '2024-01-10T00:00:00.000Z',
+              status: 'Renovada/Arquivada',
+              isCurrent: false,
+            },
+          ])
+        : new Promise(() => {})
+    );
+
+    renderDetailsPage();
+
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
+    });
+    await user.click(
+      within(history).getByRole('link', { name: 'LP nº 100/2019' })
+    );
+
+    expect(
+      await screen.findByText('LP nº 100/2019', { selector: 'p' })
+    ).toBeInTheDocument();
+    expect(licensesApi.getLicenseHistory).toHaveBeenLastCalledWith('license-0');
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+  });
+
   it('does not show the version history for a license that was never renewed', async () => {
     vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
       {

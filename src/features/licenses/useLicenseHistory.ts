@@ -17,6 +17,10 @@ export function useLicenseHistory(licenseId: string | undefined) {
     let isCurrent = true;
 
     async function loadHistory() {
+      // The page stays mounted when a history link swaps the licenseId, so
+      // the previous license's chain must not linger while this one loads.
+      setVersions([]);
+
       try {
         const result = await getLicenseHistory(safeLicenseId);
         if (isCurrent) setVersions(result);
