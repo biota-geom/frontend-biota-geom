@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Download, Eye, FileText, Trash2 } from 'lucide-react';
+import { ExternalLink, FileText, Loader2, Trash2 } from 'lucide-react';
 import type { CompanyDocument } from '../../../../features/documents/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { getDocumentAccessUrl } from '../../../../services/api/documentsApi';
-import { openProtectedFile } from '../../../../utils/openProtectedFile';
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
@@ -14,9 +13,6 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
 const COLUMNS = ['Título', 'Data do documento', 'Enviado em', 'Ações'] as const;
 
 const OPEN_ERROR = 'Não foi possível abrir o documento.';
-const POPUP_BLOCKED_ERROR =
-  'Permita a abertura de pop-ups para visualizar o documento.';
-const DOWNLOAD_ERROR = 'Não foi possível baixar o documento.';
 
 const ACTION_BUTTON_CLASS =
   'rounded-control grid size-7 place-items-center border-0 bg-surface-muted p-0 text-text-secondary transition-colors hover:text-primary-strong disabled:cursor-wait disabled:opacity-60';
@@ -38,7 +34,7 @@ function TableHeader() {
         {COLUMNS.map((column, index) => (
           <th
             className={`px-5 py-3 text-left text-xs font-semibold text-text-muted ${
-              index === COLUMNS.length - 1 ? 'w-48' : ''
+              index === COLUMNS.length - 1 ? 'w-32' : ''
             }`}
             key={column}
             scope="col"
@@ -84,9 +80,6 @@ export function DocumentsTable({
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(
     null
   );
-  const [downloadingDocumentId, setDownloadingDocumentId] = useState<
-    string | null
-  >(null);
   const [openError, setOpenError] = useState<string | null>(null);
 
   async function handleOpen(documentId: string) {
@@ -94,42 +87,12 @@ export function DocumentsTable({
     setOpenError(null);
 
     try {
-      const result = await openProtectedFile(() =>
-        getDocumentAccessUrl(companyId, documentId)
-      );
-      if (result === 'popup-blocked') setOpenError(POPUP_BLOCKED_ERROR);
+      const url = await getDocumentAccessUrl(companyId, documentId);
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       setOpenError(error instanceof ApiError ? error.message : OPEN_ERROR);
     } finally {
       setOpeningDocumentId(null);
-    }
-  }
-
-  async function handleDownload(document: CompanyDocument) {
-    setDownloadingDocumentId(document.id);
-    setOpenError(null);
-
-    try {
-      const url = await getDocumentAccessUrl(companyId, document.id);
-      /*
-       * The access URL points at the storage backend, so `download` alone is
-       * ignored cross-origin. Fetching the bytes first and handing the anchor
-       * a blob URL is what makes the browser save the file under its real
-       * name instead of navigating to it.
-       */
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(DOWNLOAD_ERROR);
-
-      const blobUrl = URL.createObjectURL(await response.blob());
-      const anchor = window.document.createElement('a');
-      anchor.href = blobUrl;
-      anchor.download = document.fileName;
-      anchor.click();
-      URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      setOpenError(error instanceof ApiError ? error.message : DOWNLOAD_ERROR);
-    } finally {
-      setDownloadingDocumentId(null);
     }
   }
 
@@ -181,27 +144,26 @@ export function DocumentsTable({
                 <td className="px-5 py-4 whitespace-nowrap text-text-secondary">
                   {formatDateTime(document.createdAt)}
                 </td>
-                <td className="w-48 px-5 py-4 text-left">
+                <td className="w-32 px-5 py-4 text-left">
                   <div className="flex items-center gap-2">
                     <button
-                      aria-label={`Visualizar ${document.title}`}
+                      aria-busy={openingDocumentId === document.id}
+                      aria-label={`Abrir ${document.title}`}
                       className={ACTION_BUTTON_CLASS}
                       disabled={openingDocumentId === document.id}
                       onClick={() => void handleOpen(document.id)}
-                      title="Visualizar"
+                      title="Abrir documento"
                       type="button"
                     >
-                      <Eye aria-hidden="true" size={16} />
-                    </button>
-                    <button
-                      aria-label={`Baixar ${document.title}`}
-                      className={ACTION_BUTTON_CLASS}
-                      disabled={downloadingDocumentId === document.id}
-                      onClick={() => void handleDownload(document)}
-                      title="Baixar"
-                      type="button"
-                    >
-                      <Download aria-hidden="true" size={16} />
+                      {openingDocumentId === document.id ? (
+                        <Loader2
+                          aria-hidden="true"
+                          className="animate-spin"
+                          size={16}
+                        />
+                      ) : (
+                        <ExternalLink aria-hidden="true" size={16} />
+                      )}
                     </button>
                     <button
                       aria-label={`Excluir ${document.title}`}
