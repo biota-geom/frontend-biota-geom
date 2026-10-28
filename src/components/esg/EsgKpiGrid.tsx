@@ -4,10 +4,21 @@ import {
 } from '../../features/esgIndicators/esgIndicatorsFormatting';
 import { formatMonthLabel } from '../../features/esgIndicators/esgIndicatorsValidation';
 import type { EsgIndicatorsSummary } from '../../features/esgIndicators/types';
+import { cn } from '../../utils/cn';
+
+/*
+ * On the Indicators page the grid sits above the charts and keeps its own
+ * bottom margin; inside a Control Panel card the card's gap does the spacing.
+ */
+const GRID_SPACING = {
+  page: 'mb-8',
+  dashboard: '',
+} as const;
 
 type EsgKpiGridProps = {
   /** Null while loading or on error: the grid stays empty until it arrives. */
   summary: EsgIndicatorsSummary | null;
+  variant?: keyof typeof GRID_SPACING;
 };
 
 /*
@@ -15,19 +26,21 @@ type EsgKpiGridProps = {
  * against the month before. Purely presentational so the same grid can be
  * reused by the Indicators page, the Control Panel and the PDF report.
  */
-export function EsgKpiGrid({ summary }: EsgKpiGridProps) {
+export function EsgKpiGrid({ summary, variant = 'page' }: EsgKpiGridProps) {
   if (!summary) return null;
+
+  const spacing = GRID_SPACING[variant];
 
   if (summary.indicators.length === 0) {
     return (
-      <p className="mb-8 text-sm text-text-secondary">
+      <p className={cn('text-sm text-text-secondary', spacing)}>
         Nenhum indicador configurado para esta empresa.
       </p>
     );
   }
 
   return (
-    <section aria-label="Resumo dos indicadores ESG" className="mb-8">
+    <section aria-label="Resumo dos indicadores ESG" className={spacing}>
       {summary.reference_month && (
         <p className="mb-3 text-sm text-text-secondary">
           Referência: {formatMonthLabel(summary.reference_month)}

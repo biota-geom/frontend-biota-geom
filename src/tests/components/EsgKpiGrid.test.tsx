@@ -114,4 +114,29 @@ describe('EsgKpiGrid', () => {
 
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('keeps its bottom margin on the page and drops it inside a card', () => {
+    const { rerender } = render(<EsgKpiGrid summary={SEPTEMBER} />);
+    const grid = () =>
+      screen.getByRole('region', { name: 'Resumo dos indicadores ESG' });
+
+    expect(grid()).toHaveClass('mb-8');
+
+    rerender(<EsgKpiGrid summary={SEPTEMBER} variant="dashboard" />);
+
+    expect(grid()).not.toHaveClass('mb-8');
+  });
+
+  it('drops the margin of the empty message inside a card', () => {
+    render(
+      <EsgKpiGrid
+        summary={{ reference_month: null, indicators: [] }}
+        variant="dashboard"
+      />
+    );
+
+    expect(
+      screen.getByText('Nenhum indicador configurado para esta empresa.')
+    ).not.toHaveClass('mb-8');
+  });
 });
