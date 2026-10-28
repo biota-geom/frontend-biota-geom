@@ -58,8 +58,36 @@ function pdfFile(name: string) {
   return new File(['%PDF-1.4'], name, { type: 'application/pdf' });
 }
 
+const OBJECT_URL = 'blob:document';
+
+/*
+ * jsdom does not implement the object-URL API, and the anchor the component
+ * builds is never attached to the document, so the only way to inspect it is
+ * to capture it as it is created.
+ */
+function spyOnAnchorCreation() {
+  const anchors: HTMLAnchorElement[] = [];
+  const click = vi.fn();
+  const createElement = window.document.createElement.bind(window.document);
+
+  vi.spyOn(window.document, 'createElement').mockImplementation(
+    (tagName: string, options?: ElementCreationOptions) => {
+      const element = createElement(tagName, options);
+      if (tagName === 'a') {
+        element.click = click;
+        anchors.push(element as HTMLAnchorElement);
+      }
+      return element;
+    }
+  );
+
+  return { anchors, click };
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
+  URL.createObjectURL = vi.fn().mockReturnValue(OBJECT_URL);
+  URL.revokeObjectURL = vi.fn();
   vi.mocked(documentsApi.listDocuments).mockResolvedValue(DOCUMENTS);
   vi.mocked(documentsApi.listDocumentFolders).mockResolvedValue([]);
 });
@@ -381,5 +409,111 @@ describe('CompanyDocumentsPage', () => {
       await screen.findByText('Documento não encontrado.')
     ).toBeInTheDocument();
     expect(documentsApi.listDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the API message when opening a document fails', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'open').mockReturnValue({
+      close: vi.fn(),
+      location: { replace: vi.fn() },
+      opener: window,
+    } as unknown as Window);
+    vi.mocked(documentsApi.getDocumentAccessUrl).mockRejectedValue(
+      new ApiError(404, 'Documento não encontrado.')
+    );
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^visualizar /i }))[0]!
+    );
+
+    expect(
+      await screen.findByText('Documento não encontrado.')
+    ).toBeInTheDocument();
+  });
+
+  it('warns when the browser blocks the popup used to view a document', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    vi.mocked(documentsApi.getDocumentAccessUrl).mockResolvedValue(
+      'https://signed.example/document.pdf'
+    );
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^visualizar /i }))[0]!
+    );
+
+    expect(
+      await screen.findByText(
+        'Permita a abertura de pop-ups para visualizar o documento.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('downloads the file bytes and saves them under the original name', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.getDocumentAccessUrl).mockResolvedValue(
+      'https://signed.example/document.pdf'
+    );
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(['%PDF-1.4'])),
+    } as unknown as Response);
+
+    const { anchors, click } = spyOnAnchorCreation();
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^baixar /i }))[0]!
+    );
+
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(documentsApi.getDocumentAccessUrl).toHaveBeenCalledWith(
+      COMPANY_ID,
+      'document-new'
+    );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://signed.example/document.pdf'
+    );
+    // Salva com o nome do arquivo original, não com o do blob.
+    expect(anchors.at(-1)?.download).toBe('laudo.pdf');
+    expect(anchors.at(-1)?.href).toBe(OBJECT_URL);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(OBJECT_URL);
+  });
+
+  it('shows an error when the download request fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.getDocumentAccessUrl).mockResolvedValue(
+      'https://signed.example/document.pdf'
+    );
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+    } as unknown as Response);
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^baixar /i }))[0]!
+    );
+
+    expect(
+      await screen.findByText('Não foi possível baixar o documento.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows the API message when the access URL fails before downloading', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.getDocumentAccessUrl).mockRejectedValue(
+      new ApiError(404, 'Documento não encontrado.')
+    );
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^baixar /i }))[0]!
+    );
+
+    expect(
+      await screen.findByText('Documento não encontrado.')
+    ).toBeInTheDocument();
   });
 });
