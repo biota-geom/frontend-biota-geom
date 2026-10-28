@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, useWatch, type Control } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -60,21 +60,40 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
   disabled = false,
 }: LicenseConditionsTableProps<TForm>) {
   const control = hostControl as unknown as Control<ConditionsFormValues>;
-  const { append, fields, insert, remove } = useFieldArray({
+  const { append, fields, insert, remove, update } = useFieldArray({
     control,
     name: 'conditions',
   });
   const conditions =
     useWatch({ control, name: 'conditions' }) ?? ([] as LicenseConditionRow[]);
-  const [environmentalDescriptors, setEnvironmentalDescriptors] = useState<
-    string[]
-  >([]);
+  const [addedDescriptors, setAddedDescriptors] = useState<string[]>([]);
   const [isDescriptorDialogOpen, setIsDescriptorDialogOpen] = useState(false);
   const [newDescriptor, setNewDescriptor] = useState('');
   const [descriptorError, setDescriptorError] = useState<string | null>(null);
-  const [conditionDescriptor, setConditionDescriptor] = useState<string | null>(
-    null
+  const [conditionDialog, setConditionDialog] =
+    useState<ConditionDialogState | null>(null);
+  /* Remounts the dialog per opening so it starts from its initial values. */
+  const [dialogKey, setDialogKey] = useState(0);
+
+  /*
+   * Groups come from the descriptors added through the dialog plus those of
+   * the conditions already in the form — e.g. the ones suggested by the AI
+   * reading of the PDF — in order of first appearance.
+   */
+  const environmentalDescriptors = Array.from(
+    new Set([
+      ...addedDescriptors,
+      ...conditions.map((condition) => condition.environmentalDescriptor),
+    ])
   );
+  const incompleteCount = conditions.filter(
+    (condition) => !licenseConditionRowSchema.safeParse(condition).success
+  ).length;
+
+  function openConditionDialog(state: ConditionDialogState) {
+    setDialogKey((key) => key + 1);
+    setConditionDialog(state);
+  }
 
   function openDescriptorDialog() {
     setNewDescriptor('');
@@ -101,7 +120,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
       return;
     }
 
-    setEnvironmentalDescriptors((current) => [...current, descriptor]);
+    setAddedDescriptors((current) => [...current, descriptor]);
     setIsDescriptorDialogOpen(false);
   }
 
@@ -119,7 +138,12 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
     if (insertionIndex === -1) append(condition);
     else insert(insertionIndex, condition);
 
-    setConditionDescriptor(null);
+    setConditionDialog(null);
+  }
+
+  function editCondition(index: number, condition: LicenseConditionRow) {
+    update(index, condition);
+    setConditionDialog(null);
   }
 
   return (
@@ -138,6 +162,18 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
           Adicione as condicionantes vinculadas à licença
         </p>
       </div>
+
+      {incompleteCount > 0 ? (
+        <p
+          className="m-0 rounded-sm border border-[#fedf89] bg-[#fffaeb] px-3 py-2 text-[13px] font-semibold text-[#b54708]"
+          role="status"
+        >
+          {incompleteCount === 1
+            ? '1 condicionante está com dados pendentes.'
+            : `${incompleteCount} condicionantes estão com dados pendentes.`}{' '}
+          Use o botão de editar (lápis) para completá-las.
+        </p>
+      ) : null}
 
       {environmentalDescriptors.length > 0 ? (
         <div className="rounded-panel overflow-x-auto border border-border">
@@ -172,7 +208,16 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
                     descriptorIndex={descriptorIndex}
                     disabled={disabled}
                     key={descriptor}
-                    onAddCondition={() => setConditionDescriptor(descriptor)}
+                    onAddCondition={() =>
+                      openConditionDialog({ mode: 'add', descriptor })
+                    }
+                    onEditCondition={(index) =>
+                      openConditionDialog({
+                        mode: 'edit',
+                        index,
+                        initial: conditions[index],
+                      })
+                    }
                     onRemoveCondition={remove}
                   />
                 );
@@ -254,13 +299,18 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
         </DialogContent>
       </Dialog>
 
-      <ConditionDialog
-        descriptor={conditionDescriptor}
-        onAdd={addCondition}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) setConditionDescriptor(null);
-        }}
-      />
+      {conditionDialog ? (
+        <ConditionDialog
+          key={dialogKey}
+          onClose={() => setConditionDialog(null)}
+          onSubmit={(condition) =>
+            conditionDialog.mode === 'add'
+              ? addCondition(condition)
+              : editCondition(conditionDialog.index, condition)
+          }
+          state={conditionDialog}
+        />
+      ) : null}
     </section>
   );
 }
@@ -275,8 +325,14 @@ type EnvironmentalDescriptorRowsProps = {
   descriptorIndex: number;
   disabled: boolean;
   onAddCondition: () => void;
+  onEditCondition: (index: number) => void;
   onRemoveCondition: (index: number) => void;
 };
+
+/* Placeholder for a required value still missing (e.g. not in the PDF). */
+function Pending() {
+  return <span className="font-semibold text-[#b54708]">Preencher</span>;
+}
 
 function EnvironmentalDescriptorRows({
   conditions,
@@ -285,70 +341,111 @@ function EnvironmentalDescriptorRows({
   descriptorIndex,
   disabled,
   onAddCondition,
+  onEditCondition,
   onRemoveCondition,
 }: EnvironmentalDescriptorRowsProps) {
   const descriptorNumber = descriptorIndex + 1;
+  // Conditions read from the PDF may come without a descriptor; they are
+  // grouped here until the user sets one through the edit button.
+  const hasDescriptor = descriptor.trim() !== '';
 
   return (
     <>
       <tr className="border-t border-border bg-slate-100 font-bold text-text-primary">
         <td className="w-[72px] px-3 py-2.5">{descriptorNumber}</td>
         <td className="px-3 py-2.5" colSpan={5}>
-          {descriptor}
+          {hasDescriptor ? (
+            descriptor
+          ) : (
+            <span className="text-[#b54708]">Sem descritor ambiental</span>
+          )}
         </td>
         <td className="px-3 py-2.5 text-right" colSpan={2}>
-          <Button
-            aria-label={`Adicionar condicionante em ${descriptor}`}
-            disabled={disabled}
-            onClick={onAddCondition}
-            type="button"
-            variant="addRow"
-          >
-            <Plus aria-hidden="true" size={15} />
-            Adicionar Condicionante
-          </Button>
+          {hasDescriptor ? (
+            <Button
+              aria-label={`Adicionar condicionante em ${descriptor}`}
+              disabled={disabled}
+              onClick={onAddCondition}
+              type="button"
+              variant="addRow"
+            >
+              <Plus aria-hidden="true" size={15} />
+              Adicionar Condicionante
+            </Button>
+          ) : null}
         </td>
       </tr>
 
       {descriptorConditions.map(({ conditionIndex, field }, itemIndex) => {
         const condition = conditions[conditionIndex];
         const itemNumber = `${descriptorNumber}.${itemIndex + 1}`;
+        const isIncomplete =
+          !licenseConditionRowSchema.safeParse(condition).success;
+        const needsPeriodicity =
+          condition.conditionType === 'PERIODIC' && !condition.periodicity;
 
         return (
-          <tr className="border-t border-border bg-white" key={field.id}>
+          <tr
+            className={`border-t border-border ${isIncomplete ? 'bg-[#fffaeb]' : 'bg-white'}`}
+            data-incomplete={isIncomplete || undefined}
+            key={field.id}
+          >
             <td className="px-3 py-2.5 text-text-secondary">{itemNumber}</td>
             <td className="max-w-[280px] px-3 py-2.5 pl-8 text-text-primary">
               <span className="block truncate" title={condition.description}>
-                {condition.description}
+                {condition.description || <Pending />}
               </span>
             </td>
             <td className="px-3 py-2.5 text-emerald-700">
-              {formatConditionType(condition.conditionType)}
+              {condition.conditionType ? (
+                formatConditionType(condition.conditionType)
+              ) : (
+                <Pending />
+              )}
             </td>
             <td className="px-3 py-2.5 text-text-secondary">
-              {condition.periodicity
-                ? formatConditionPeriodicity(condition.periodicity)
-                : 'N/A'}
+              {needsPeriodicity ? (
+                <Pending />
+              ) : condition.periodicity ? (
+                formatConditionPeriodicity(condition.periodicity)
+              ) : (
+                'N/A'
+              )}
             </td>
             <td className="px-3 py-2.5 text-text-secondary">
-              {formatDeadline(condition.deadline)}
+              {condition.deadline ? (
+                formatDeadline(condition.deadline)
+              ) : (
+                <Pending />
+              )}
             </td>
             <td className="px-3 py-2.5 text-text-primary">
-              {condition.responsibleName}
+              {condition.responsibleName || <Pending />}
             </td>
             <td className="px-3 py-2.5 text-text-secondary">
               {condition.hasDelivery ? 'Sim' : 'Não'}
             </td>
-            <td className="px-2 py-2 text-right">
-              <Button
-                aria-label={`Remover condicionante ${itemNumber}`}
-                disabled={disabled}
-                onClick={() => onRemoveCondition(conditionIndex)}
-                type="button"
-                variant="iconDanger"
-              >
-                <Trash2 aria-hidden="true" size={14} />
-              </Button>
+            <td className="px-2 py-2">
+              <div className="flex items-center justify-end gap-1.5">
+                <Button
+                  aria-label={`Editar condicionante ${itemNumber}`}
+                  disabled={disabled}
+                  onClick={() => onEditCondition(conditionIndex)}
+                  type="button"
+                  variant="iconSoft"
+                >
+                  <Pencil aria-hidden="true" size={14} />
+                </Button>
+                <Button
+                  aria-label={`Remover condicionante ${itemNumber}`}
+                  disabled={disabled}
+                  onClick={() => onRemoveCondition(conditionIndex)}
+                  type="button"
+                  variant="iconDanger"
+                >
+                  <Trash2 aria-hidden="true" size={14} />
+                </Button>
+              </div>
             </td>
           </tr>
         );
@@ -357,27 +454,29 @@ function EnvironmentalDescriptorRows({
   );
 }
 
+type ConditionDialogState =
+  | { mode: 'add'; descriptor: string }
+  | { mode: 'edit'; index: number; initial: LicenseConditionRow };
+
 type ConditionDialogProps = {
-  descriptor: string | null;
-  onAdd: (condition: LicenseConditionRow) => void;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
+  onSubmit: (condition: LicenseConditionRow) => void;
+  state: ConditionDialogState;
 };
 
-function ConditionDialog({
-  descriptor,
-  onAdd,
-  onOpenChange,
-}: ConditionDialogProps) {
-  const [condition, setCondition] = useState<LicenseConditionRow>({
-    ...EMPTY_CONDITION_ROW,
-  });
+/*
+ * Adds a condition to a descriptor group, or edits an existing one — e.g. to
+ * complete what the AI could not read from the PDF. Mounted per opening, so
+ * its local state always starts from the condition being edited.
+ */
+function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
+  const isEdit = state.mode === 'edit';
+  const [condition, setCondition] = useState<LicenseConditionRow>(
+    isEdit
+      ? { ...state.initial }
+      : { ...EMPTY_CONDITION_ROW, environmentalDescriptor: state.descriptor }
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  function close() {
-    setCondition({ ...EMPTY_CONDITION_ROW });
-    setErrors({});
-    onOpenChange(false);
-  }
 
   function updateCondition(patch: Partial<LicenseConditionRow>) {
     setCondition((current) => ({ ...current, ...patch }));
@@ -391,9 +490,7 @@ function ConditionDialog({
   }
 
   function submitCondition() {
-    if (!descriptor) return;
-    const candidate = { ...condition, environmentalDescriptor: descriptor };
-    const result = licenseConditionRowSchema.safeParse(candidate);
+    const result = licenseConditionRowSchema.safeParse(condition);
 
     if (!result.success) {
       const nextErrors: Record<string, string> = {};
@@ -405,25 +502,46 @@ function ConditionDialog({
       return;
     }
 
-    onAdd(result.data);
-    setCondition({ ...EMPTY_CONDITION_ROW });
-    setErrors({});
+    onSubmit(result.data);
   }
 
   return (
-    <Dialog
-      onOpenChange={(open) => !open && close()}
-      open={descriptor !== null}
-    >
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Nova Condicionante</DialogTitle>
+          <DialogTitle>
+            {isEdit ? 'Editar Condicionante' : 'Nova Condicionante'}
+          </DialogTitle>
           <DialogDescription>
-            Adicione uma condicionante ao descritor ambiental “{descriptor}”.
+            {isEdit
+              ? 'Revise e complete os dados da condicionante.'
+              : `Adicione uma condicionante ao descritor ambiental “${state.descriptor}”.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
+          {isEdit ? (
+            <div className="col-span-2 max-[560px]:col-span-1">
+              <DialogField
+                error={errors.environmentalDescriptor}
+                id="new-condition-descriptor"
+                label="Descritor ambiental"
+              >
+                <Input
+                  id="new-condition-descriptor"
+                  maxLength={120}
+                  onChange={(event) =>
+                    updateCondition({
+                      environmentalDescriptor: event.target.value,
+                    })
+                  }
+                  placeholder="Ex: Resíduos sólidos"
+                  value={condition.environmentalDescriptor}
+                />
+              </DialogField>
+            </div>
+          ) : null}
+
           <DialogField
             error={errors.description}
             id="new-condition-description"
@@ -545,7 +663,7 @@ function ConditionDialog({
         </div>
 
         <DialogFooter>
-          <Button onClick={close} type="button" variant="subtle">
+          <Button onClick={onClose} type="button" variant="subtle">
             Cancelar
           </Button>
           <Button
@@ -553,7 +671,7 @@ function ConditionDialog({
             type="button"
             variant="dialogPrimary"
           >
-            Adicionar Condicionante
+            {isEdit ? 'Salvar Alterações' : 'Adicionar Condicionante'}
           </Button>
         </DialogFooter>
       </DialogContent>

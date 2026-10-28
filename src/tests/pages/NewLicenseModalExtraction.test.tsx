@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LicenseExtraction } from '../../features/licenses/types';
@@ -175,7 +181,39 @@ describe('NewLicenseModal — AI pre-fill', () => {
     ).toHaveTextContent('Selecione o órgão');
   });
 
-  it('lists the suggested conditions unselected and saves only the selected ones through the existing routes', async () => {
+  it('adds the suggested conditions to the conditions table, flagging missing data', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.extractLicenseData).mockResolvedValue(EXTRACTION);
+    renderModal();
+
+    await uploadPdf(user);
+
+    // Same table as manual conditions: grouped and numbered by descriptor.
+    expect(await screen.findByText('Resíduos Perigosos')).toBeInTheDocument();
+    expect(screen.getByText('Empreendimento')).toBeInTheDocument();
+    expect(
+      screen.getByText('O transporte deverá ser acompanhado do MTR.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Editar condicionante 1.1' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Remover condicionante 2.1' })
+    ).toBeInTheDocument();
+
+    // No responsible (both) and no deadline (first) in the document.
+    expect(screen.getAllByText('Preencher')).toHaveLength(3);
+    expect(
+      screen.getByText(/2 condicionantes estão com dados pendentes/i)
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /salvar licença/i })
+      ).toBeDisabled()
+    );
+  });
+
+  it('completes a suggestion with the edit button, removes another with the trash and saves through the existing routes', async () => {
     const user = userEvent.setup();
     vi.mocked(licensesApi.extractLicenseData).mockResolvedValue(EXTRACTION);
     vi.mocked(licensesApi.createLicense).mockResolvedValue(CREATED_LICENSE);
@@ -185,41 +223,39 @@ describe('NewLicenseModal — AI pre-fill', () => {
     const { onOpenChange } = renderModal();
 
     await uploadPdf(user);
-
-    const first = await screen.findByRole('checkbox', {
-      name: 'Incluir condicionante sugerida 1',
-    });
-    const second = screen.getByRole('checkbox', {
-      name: 'Incluir condicionante sugerida 2',
-    });
-    expect(first).not.toBeChecked();
-    expect(second).not.toBeChecked();
-    expect(
-      screen.getByText('Apresentar relatório anual de frota.')
-    ).toBeInTheDocument();
-
     await waitFor(() =>
       expect(
         screen.getByRole('combobox', { name: /órgão emissor/i })
       ).toHaveTextContent('FEPAM')
     );
 
-    // Selecting a suggestion makes its missing fields required.
-    await user.click(second);
-    const saveButton = screen.getByRole('button', { name: /salvar licença/i });
-    await waitFor(() => expect(saveButton).toBeDisabled());
+    await user.click(
+      await screen.findByRole('button', { name: 'Remover condicionante 1.1' })
+    );
 
-    expect(screen.getByLabelText('Descrição')).toHaveValue(
+    await user.click(
+      screen.getByRole('button', { name: 'Editar condicionante 1.1' })
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: 'Editar Condicionante',
+    });
+    expect(within(dialog).getByLabelText('Descritor ambiental')).toHaveValue(
+      'Empreendimento'
+    );
+    expect(within(dialog).getByLabelText('Descrição')).toHaveValue(
       'Apresentar relatório anual de frota.'
     );
-    await user.clear(screen.getByLabelText('Descrição'));
-    await user.type(
-      screen.getByLabelText('Descrição'),
-      'Apresentar relatório anual da frota licenciada.'
+    expect(within(dialog).getByLabelText('Prazo')).toHaveValue('2026-12-31');
+    await user.type(within(dialog).getByLabelText('Responsável'), 'Ana Souza');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Salvar Alterações' })
     );
-    await user.type(screen.getByLabelText('Responsável'), 'Ana Souza');
-    await waitFor(() => expect(saveButton).toBeEnabled());
 
+    expect(screen.queryByText('Preencher')).not.toBeInTheDocument();
+    expect(screen.getByText('Ana Souza')).toBeInTheDocument();
+
+    const saveButton = screen.getByRole('button', { name: /salvar licença/i });
+    await waitFor(() => expect(saveButton).toBeEnabled());
     await user.click(saveButton);
 
     await waitFor(() =>
@@ -229,7 +265,7 @@ describe('NewLicenseModal — AI pre-fill', () => {
         [
           {
             environmentalDescriptor: 'Empreendimento',
-            description: 'Apresentar relatório anual da frota licenciada.',
+            description: 'Apresentar relatório anual de frota.',
             conditionType: 'PERIODIC',
             periodicity: 'ANNUAL',
             deadline: '2026-12-31T00:00:00.000Z',
@@ -250,32 +286,80 @@ describe('NewLicenseModal — AI pre-fill', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   }, 20_000);
 
-  it('fills only the empty deadline/responsible of the selected suggestions', async () => {
+  it('keeps the edit dialog open with errors when a required field is still empty', async () => {
     const user = userEvent.setup();
     vi.mocked(licensesApi.extractLicenseData).mockResolvedValue(EXTRACTION);
     renderModal();
 
     await uploadPdf(user);
     await user.click(
-      await screen.findByRole('button', { name: /selecionar todas/i })
+      await screen.findByRole('button', { name: 'Editar condicionante 1.1' })
     );
-
-    fireEvent.change(screen.getByLabelText('Prazo padrão'), {
-      target: { value: '2027-01-31' },
+    const dialog = screen.getByRole('dialog', {
+      name: 'Editar Condicionante',
     });
-    await user.type(screen.getByLabelText('Responsável padrão'), 'Equipe SGA');
     await user.click(
-      screen.getByRole('button', { name: /preencher vazios das selecionadas/i })
+      within(dialog).getByRole('button', { name: 'Salvar Alterações' })
     );
 
-    const deadlines = screen.getAllByLabelText('Prazo');
-    expect(deadlines[0]).toHaveValue('2027-01-31');
-    // The deadline stated in the document is kept.
-    expect(deadlines[1]).toHaveValue('2026-12-31');
-    for (const responsible of screen.getAllByLabelText('Responsável')) {
-      expect(responsible).toHaveValue('Equipe SGA');
-    }
-  }, 20_000);
+    expect(within(dialog).getByText('Informe o prazo.')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Informe o responsável.')
+    ).toBeInTheDocument();
+  });
+
+  it('groups a suggestion without descriptor until the user sets one', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.extractLicenseData).mockResolvedValue({
+      ...EXTRACTION,
+      suggestedConditions: [
+        { ...EXTRACTION.suggestedConditions[1], environmentalDescriptor: null },
+      ],
+    });
+    renderModal();
+
+    await uploadPdf(user);
+    expect(
+      await screen.findByText('Sem descritor ambiental')
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Editar condicionante 1.1' })
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: 'Editar Condicionante',
+    });
+    await user.type(
+      within(dialog).getByLabelText('Descritor ambiental'),
+      'Frota'
+    );
+    await user.type(within(dialog).getByLabelText('Responsável'), 'Ana');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    expect(screen.getByText('Frota')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Sem descritor ambiental')
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not duplicate conditions when the same PDF is selected again', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.extractLicenseData).mockResolvedValue(EXTRACTION);
+    renderModal();
+
+    await uploadPdf(user);
+    await screen.findByText('Resíduos Perigosos');
+    await uploadPdf(user);
+    await waitFor(() =>
+      expect(licensesApi.extractLicenseData).toHaveBeenCalledTimes(2)
+    );
+
+    expect(
+      screen.getAllByText('O transporte deverá ser acompanhado do MTR.')
+    ).toHaveLength(1);
+  });
 
   it('shows the error and keeps manual filling available when the document cannot be read (422)', async () => {
     const user = userEvent.setup();

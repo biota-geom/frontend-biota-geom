@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   matchIssuingAgency,
-  selectedSuggestedConditions,
-  toSuggestedConditionRow,
+  mergeSuggestedConditions,
+  toLicenseConditionRow,
 } from '../../features/licenses/licenseExtraction';
 import type { IssuingAgency } from '../../features/licenses/types';
 
@@ -73,10 +73,10 @@ describe('matchIssuingAgency', () => {
   });
 });
 
-describe('toSuggestedConditionRow', () => {
-  it('maps a suggestion to an unselected, editable row', () => {
+describe('toLicenseConditionRow', () => {
+  it('maps a suggestion to a condition row of the form', () => {
     expect(
-      toSuggestedConditionRow({
+      toLicenseConditionRow({
         environmentalDescriptor: 'Resíduos',
         description: 'Relatório semestral',
         conditionType: 'PERIODIC',
@@ -84,7 +84,6 @@ describe('toSuggestedConditionRow', () => {
         dueDate: '2026-07-10',
       })
     ).toEqual({
-      selected: false,
       environmentalDescriptor: 'Resíduos',
       description: 'Relatório semestral',
       conditionType: 'PERIODIC',
@@ -95,9 +94,9 @@ describe('toSuggestedConditionRow', () => {
     });
   });
 
-  it('leaves missing or unknown values empty for manual filling', () => {
+  it('leaves missing or unknown values empty for the user to complete', () => {
     expect(
-      toSuggestedConditionRow({
+      toLicenseConditionRow({
         environmentalDescriptor: null,
         description: 'Manter licença no local',
         conditionType: 'OTHER',
@@ -109,12 +108,13 @@ describe('toSuggestedConditionRow', () => {
       conditionType: '',
       periodicity: '',
       deadline: '',
+      responsibleName: '',
     });
   });
 
   it('never keeps a periodicity on an informative condition', () => {
     expect(
-      toSuggestedConditionRow({
+      toLicenseConditionRow({
         environmentalDescriptor: null,
         description: 'Informativa',
         conditionType: 'INFORMATIVE',
@@ -125,23 +125,46 @@ describe('toSuggestedConditionRow', () => {
   });
 });
 
-describe('selectedSuggestedConditions', () => {
-  it('returns only the ticked rows, without the selection flag', () => {
-    const base = {
-      environmentalDescriptor: 'Água',
-      description: 'x',
-      conditionType: 'INFORMATIVE',
-      periodicity: '',
-      deadline: '2026-01-01',
-      responsibleName: 'Ana',
-      hasDelivery: false,
-    };
+describe('mergeSuggestedConditions', () => {
+  const suggestion = (description: string) => ({
+    environmentalDescriptor: 'Água',
+    description,
+    conditionType: 'INFORMATIVE',
+    periodicity: null,
+    dueDate: null,
+  });
 
-    expect(
-      selectedSuggestedConditions([
-        { ...base, selected: true, description: 'escolhida' },
-        { ...base, selected: false, description: 'ignorada' },
-      ])
-    ).toEqual([{ ...base, description: 'escolhida' }]);
+  it('appends the suggestions after the conditions already in the form', () => {
+    const existing = toLicenseConditionRow(suggestion('Manual'));
+    const merged = mergeSuggestedConditions(
+      [{ ...existing, responsibleName: 'Ana' }],
+      [suggestion('Nova A'), suggestion('Nova B')]
+    );
+
+    expect(merged.map((row) => row.description)).toEqual([
+      'Manual',
+      'Nova A',
+      'Nova B',
+    ]);
+    expect(merged[0].responsibleName).toBe('Ana');
+  });
+
+  it('skips suggestions already present, ignoring case, accents and spacing', () => {
+    const existing = toLicenseConditionRow(
+      suggestion('Manter o MTR no veículo.')
+    );
+    const merged = mergeSuggestedConditions(
+      [existing],
+      [
+        suggestion('manter o  MTR no veiculo'),
+        suggestion('Nova'),
+        suggestion('Nova'),
+      ]
+    );
+
+    expect(merged.map((row) => row.description)).toEqual([
+      'Manter o MTR no veículo.',
+      'Nova',
+    ]);
   });
 });

@@ -31,8 +31,7 @@ import {
 } from '../../../../features/licenses/createLicenseValidation';
 import {
   matchIssuingAgency,
-  selectedSuggestedConditions,
-  toSuggestedConditionRow,
+  mergeSuggestedConditions,
 } from '../../../../features/licenses/licenseExtraction';
 import {
   LICENSE_TYPE_LABELS,
@@ -49,7 +48,6 @@ import {
   extractLicenseData,
 } from '../../../../services/api/licensesApi';
 import { LicenseConditionsTable } from './LicenseConditionsTable';
-import { SuggestedConditionsList } from './SuggestedConditionsList';
 
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível cadastrar a licença. Tente novamente mais tarde.';
@@ -229,9 +227,9 @@ export function NewLicenseModal({
 
     setExtractedAgency(extractedData.issuingAgency);
     setValue(
-      'suggestedConditions',
-      suggestedConditions.map(toSuggestedConditionRow),
-      { shouldValidate: true }
+      'conditions',
+      mergeSuggestedConditions(getValues('conditions'), suggestedConditions),
+      { shouldDirty: true, shouldValidate: true }
     );
   }
 
@@ -268,10 +266,7 @@ export function NewLicenseModal({
       onCreated?.(license);
     }
 
-    const conditions = [
-      ...values.conditions,
-      ...selectedSuggestedConditions(values.suggestedConditions),
-    ];
+    const { conditions } = values;
 
     if (conditions.length > 0) {
       try {
@@ -433,13 +428,6 @@ export function NewLicenseModal({
               </p>
             ) : null}
           </div>
-
-          <SuggestedConditionsList
-            control={control}
-            disabled={isSubmitting}
-            register={register}
-            setValue={setValue}
-          />
 
           <LicenseConditionsTable control={control} disabled={isSubmitting} />
 

@@ -2,7 +2,6 @@ import {
   CONDITION_PERIODICITIES,
   CONDITION_TYPES,
   type LicenseConditionRow,
-  type SuggestedConditionRow,
 } from './createLicenseValidation';
 import type { IssuingAgency, SuggestedCondition } from './types';
 
@@ -63,16 +62,16 @@ function oneOf<T extends string>(
 }
 
 /**
- * Turns an AI suggestion into an editable, unselected form row. Anything the
- * document did not state stays empty for the user to complete.
+ * Turns an AI suggestion into a condition row of the form. Anything the
+ * document did not state stays empty, so the row is flagged as pending in the
+ * conditions table until the user completes it with the edit button.
  */
-export function toSuggestedConditionRow(
+export function toLicenseConditionRow(
   suggestion: SuggestedCondition
-): SuggestedConditionRow {
+): LicenseConditionRow {
   const conditionType = oneOf(suggestion.conditionType, CONDITION_TYPES);
 
   return {
-    selected: false,
     environmentalDescriptor: suggestion.environmentalDescriptor ?? '',
     description: suggestion.description,
     conditionType,
@@ -86,19 +85,24 @@ export function toSuggestedConditionRow(
   };
 }
 
-/** The ticked suggestions, in the shape the existing conditions batch uses. */
-export function selectedSuggestedConditions(
-  rows: SuggestedConditionRow[]
+/**
+ * Appends the suggestions to the conditions already in the form, skipping
+ * any whose description is already there — re-selecting the same PDF must
+ * not duplicate rows nor replace ones the user has edited.
+ */
+export function mergeSuggestedConditions(
+  current: LicenseConditionRow[],
+  suggestions: SuggestedCondition[]
 ): LicenseConditionRow[] {
-  return rows
-    .filter((row) => row.selected)
-    .map((row) => ({
-      environmentalDescriptor: row.environmentalDescriptor,
-      description: row.description,
-      conditionType: row.conditionType,
-      periodicity: row.periodicity,
-      deadline: row.deadline,
-      responsibleName: row.responsibleName,
-      hasDelivery: row.hasDelivery,
-    }));
+  const known = new Set(current.map((row) => normalize(row.description)));
+  const added: LicenseConditionRow[] = [];
+
+  for (const suggestion of suggestions) {
+    const key = normalize(suggestion.description);
+    if (known.has(key)) continue;
+    known.add(key);
+    added.push(toLicenseConditionRow(suggestion));
+  }
+
+  return [...current, ...added];
 }
