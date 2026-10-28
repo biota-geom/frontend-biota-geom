@@ -16,7 +16,7 @@ const VALID = {
   ...CREATE_LICENSE_DEFAULT_VALUES,
   type: 'LO',
   processNumber: 'LO nº 118/2020',
-  issuingAgencyId: 'agency-1',
+  issuingAgency: 'FEPAM',
   issueDate: '2024-03-12',
   expirationDate: '2026-03-12',
   file: pdf,

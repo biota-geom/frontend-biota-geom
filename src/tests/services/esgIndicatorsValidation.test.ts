@@ -1,132 +1,129 @@
 import { describe, expect, it } from 'vitest';
 import {
-  EMPTY_ESG_FORM_VALUES,
-  esgIndicatorsSchema,
   formatMonthLabel,
   getPreviousMonth,
-  INTEGER_ONLY_MESSAGE,
   INVALID_NUMBER_MESSAGE,
   isValidMonth,
   NEGATIVE_NUMBER_MESSAGE,
-  applyPayload,
+  numericIndicatorField,
   toFormValues,
   toPayload,
 } from '../../features/esgIndicators/esgIndicatorsValidation';
+import type { MonthlyIndicator } from '../../features/esgIndicators/types';
 
-function messagesFor(values: Partial<typeof EMPTY_ESG_FORM_VALUES>) {
-  const result = esgIndicatorsSchema.safeParse({
-    ...EMPTY_ESG_FORM_VALUES,
-    ...values,
-  });
-  if (result.success) return {};
-
-  return Object.fromEntries(
-    result.error.issues.map((issue) => [issue.path[0], issue.message])
-  );
+function validate(value: string): string | null {
+  const result = numericIndicatorField.safeParse(value);
+  if (result.success) return null;
+  return result.error.issues[0]?.message ?? 'error';
 }
 
-describe('esgIndicatorsSchema', () => {
-  it('accepts a month with only some indicators filled in', () => {
-    expect(messagesFor({ water: '1250.5' })).toEqual({});
-    expect(messagesFor({})).toEqual({});
+const WATER: MonthlyIndicator = {
+  indicator_id: 'uuid-ind-1',
+  name: 'Consumo de Água',
+  unit: 'm³',
+  category: 'Ambiental',
+  value: 1250.5,
+};
+
+const WASTE: MonthlyIndicator = {
+  indicator_id: 'uuid-ind-2',
+  name: 'Resíduos Totais',
+  unit: 't',
+  category: 'Ambiental',
+  value: null,
+};
+
+const EMPLOYEES: MonthlyIndicator = {
+  indicator_id: 'uuid-ind-3',
+  name: 'Número de Colaboradores',
+  unit: 'un',
+  category: 'Social',
+  value: 85,
+};
+
+describe('numericIndicatorField', () => {
+  it('accepts blank (not informed)', () => {
+    expect(validate('')).toBeNull();
   });
 
   it('accepts zero and decimal values', () => {
-    expect(messagesFor({ water: '0', waste: '12.3', energy: '53200' })).toEqual(
-      {}
-    );
+    expect(validate('0')).toBeNull();
+    expect(validate('12.3')).toBeNull();
+    expect(validate('53200')).toBeNull();
   });
 
-  it('blocks negative values on every indicator', () => {
-    expect(
-      messagesFor({ water: '-1', waste: '-0.1', employees: '-5', energy: '-2' })
-    ).toEqual({
-      water: NEGATIVE_NUMBER_MESSAGE,
-      waste: NEGATIVE_NUMBER_MESSAGE,
-      employees: NEGATIVE_NUMBER_MESSAGE,
-      energy: NEGATIVE_NUMBER_MESSAGE,
-    });
-  });
-
-  it('only accepts an integer for the number of employees', () => {
-    expect(messagesFor({ employees: '148.5' })).toEqual({
-      employees: INTEGER_ONLY_MESSAGE,
-    });
-    expect(messagesFor({ employees: '148' })).toEqual({});
-    expect(messagesFor({ water: '148.5' })).toEqual({});
+  it('blocks negative values', () => {
+    expect(validate('-1')).toBe(NEGATIVE_NUMBER_MESSAGE);
+    expect(validate('-0.1')).toBe(NEGATIVE_NUMBER_MESSAGE);
   });
 
   it('rejects text that is not a finite number', () => {
-    expect(messagesFor({ water: 'abc', energy: 'Infinity' })).toEqual({
-      water: INVALID_NUMBER_MESSAGE,
-      energy: INVALID_NUMBER_MESSAGE,
-    });
+    expect(validate('abc')).toBe(INVALID_NUMBER_MESSAGE);
+    expect(validate('Infinity')).toBe(INVALID_NUMBER_MESSAGE);
   });
 });
 
 describe('form <-> API mapping', () => {
+  const indicators = [WATER, WASTE, EMPLOYEES];
+
   it('sends only the indicators that were filled in, as numbers', () => {
-    expect(
-      toPayload({ water: '1250.5', waste: '', employees: '148', energy: '' })
-    ).toEqual({ water: 1250.5, employees: 148 });
+    const values = {
+      'uuid-ind-1': '1250.5',
+      'uuid-ind-2': '',
+      'uuid-ind-3': '85',
+    };
+    const payload = toPayload(values, indicators);
+    expect(payload.records).toEqual([
+      { indicator_id: 'uuid-ind-1', value: 1250.5 },
+      { indicator_id: 'uuid-ind-3', value: 85 },
+    ]);
   });
 
   it('keeps zero in the payload instead of treating it as blank', () => {
-    expect(toPayload({ ...EMPTY_ESG_FORM_VALUES, waste: '0' })).toEqual({
-      waste: 0,
-    });
+    // Use indicators where EMPLOYEES has no saved value, so blank means omit.
+    const noSavedEmployees = indicators.map((ind) =>
+      ind.indicator_id === 'uuid-ind-3' ? { ...ind, value: null } : ind
+    );
+    const values = {
+      'uuid-ind-1': '0',
+      'uuid-ind-2': '',
+      'uuid-ind-3': '',
+    };
+    const payload = toPayload(values, noSavedEmployees);
+    expect(payload.records).toEqual([{ indicator_id: 'uuid-ind-1', value: 0 }]);
   });
 
   it('sends null for a blank field that had a saved value, so it is cleared', () => {
-    const saved = { water: 10, waste: null, employees: 3, energy: null };
-
-    expect(
-      toPayload({ water: '', waste: '', employees: '4', energy: '' }, saved)
-    ).toEqual({ water: null, employees: 4 });
+    // WATER has value 1250.5, clearing it should send null
+    const values = {
+      'uuid-ind-1': '', // clearing water
+      'uuid-ind-2': '', // was already null → omit
+      'uuid-ind-3': '100', // updating employees
+    };
+    const payload = toPayload(values, indicators);
+    expect(payload.records).toEqual([
+      { indicator_id: 'uuid-ind-1', value: null },
+      { indicator_id: 'uuid-ind-3', value: 100 },
+    ]);
   });
 
   it('does not send blank fields that were never saved', () => {
-    expect(toPayload(EMPTY_ESG_FORM_VALUES, null)).toEqual({});
-    expect(
-      toPayload(EMPTY_ESG_FORM_VALUES, {
-        water: null,
-        waste: null,
-        employees: null,
-        energy: null,
-      })
-    ).toEqual({});
-  });
-
-  it('keeps zero saved as a value, not as a clear', () => {
-    const saved = { water: 0, waste: null, employees: null, energy: null };
-
-    expect(toPayload({ ...EMPTY_ESG_FORM_VALUES, water: '0' }, saved)).toEqual({
-      water: 0,
-    });
-    expect(toPayload(EMPTY_ESG_FORM_VALUES, saved)).toEqual({ water: null });
-  });
-
-  it('applies a saved payload on top of the previous month values', () => {
-    const saved = { water: 10, waste: 2, employees: null, energy: 5 };
-
-    expect(applyPayload(saved, { water: null, employees: 7 })).toEqual({
-      water: null,
-      waste: 2,
-      employees: 7,
-      energy: 5,
-    });
-    expect(applyPayload(null, { waste: 1 })).toEqual({
-      water: null,
-      waste: 1,
-      employees: null,
-      energy: null,
-    });
+    const noValueIndicators: MonthlyIndicator[] = [
+      { ...WATER, value: null },
+      { ...WASTE, value: null },
+    ];
+    const values = { 'uuid-ind-1': '', 'uuid-ind-2': '' };
+    const payload = toPayload(values, noValueIndicators);
+    expect(payload.records).toEqual([]);
   });
 
   it('turns saved values into form strings, with null as blank', () => {
-    expect(
-      toFormValues({ water: 1250.5, waste: null, employees: 148, energy: 0 })
-    ).toEqual({ water: '1250.5', waste: '', employees: '148', energy: '0' });
+    const result = toFormValues([WATER, WASTE, EMPLOYEES]);
+    expect(result).toEqual({
+      'uuid-ind-1': '1250.5',
+      'uuid-ind-2': '',
+      'uuid-ind-3': '85',
+    });
   });
 });
 
