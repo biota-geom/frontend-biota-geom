@@ -71,6 +71,23 @@ describe('documentsApi', () => {
     expect(formData.get('folder_id')).toBe('folder-1');
   });
 
+  it('omits the document date when it is not informed', async () => {
+    vi.mocked(request).mockResolvedValue(DOCUMENT_WIRE);
+    const file = new File(['document'], 'laudo-ruido.pdf', {
+      type: 'application/pdf',
+    });
+
+    await createDocument('customer-1', {
+      file,
+      title: 'Laudo de Ruído 2026',
+      folderId: null,
+    });
+
+    const [, options] = vi.mocked(request).mock.calls[0]!;
+    const formData = options?.body as FormData;
+    expect(formData.has('document_date')).toBe(false);
+  });
+
   it('lists and creates nested folders', async () => {
     const folderWire = {
       id: 'folder-2',
