@@ -39,10 +39,10 @@ describe('document validation', () => {
     expect(validateDocumentFile(file)).toBe(DOCUMENT_FILE_TOO_LARGE_MESSAGE);
   });
 
-  it('requires title and document date', () => {
-    expect(validateDocumentDraft({ title: ' ', documentDate: '' })).toEqual({
+  it('requires only the title', () => {
+    expect(validateDocumentDraft({ title: ' ' })).toEqual({
       title: 'Informe o título do documento.',
-      documentDate: 'Informe a data do documento.',
     });
+    expect(validateDocumentDraft({ title: 'Relatório' })).toEqual({});
   });
 });

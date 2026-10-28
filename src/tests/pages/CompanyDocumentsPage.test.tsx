@@ -285,13 +285,8 @@ describe('CompanyDocumentsPage', () => {
     ]);
 
     const titleInputs = screen.getAllByLabelText('Título');
-    const dateInputs = screen.getAllByLabelText('Data');
     for (let index = 0; index < 3; index += 1) {
       await user.type(titleInputs[index]!, `Documento ${index + 1}`);
-      await user.type(
-        dateInputs[index]!,
-        `2026-10-${String(index + 1).padStart(2, '0')}`
-      );
     }
 
     await user.click(
@@ -300,6 +295,11 @@ describe('CompanyDocumentsPage', () => {
     await waitFor(() =>
       expect(documentsApi.createDocument).toHaveBeenCalledTimes(1)
     );
+    expect(documentsApi.createDocument).toHaveBeenCalledWith(COMPANY_ID, {
+      file: expect.any(File),
+      title: 'Documento 1',
+      folderId: null,
+    });
 
     resolvers[0]!(DOCUMENTS[1]!);
     await waitFor(() =>
