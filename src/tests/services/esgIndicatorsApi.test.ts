@@ -5,8 +5,12 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { getEsgIndicators, saveEsgIndicators, createCustomerIndicator } =
-  await import('../../services/api/esgIndicatorsApi');
+const {
+  getEsgIndicators,
+  getEsgIndicatorsSummary,
+  saveEsgIndicators,
+  createCustomerIndicator,
+} = await import('../../services/api/esgIndicatorsApi');
 
 const COMPANY_ID = 'customer-1';
 const MONTH = '2026-09';
@@ -162,6 +166,65 @@ describe('esgIndicatorsApi', () => {
         unit: 'L',
         category: 'Ambiental',
         value: null,
+      });
+    });
+  });
+
+  describe('getEsgIndicatorsSummary', () => {
+    const WATER_SUMMARY = {
+      indicator_id: 'uuid-ind-1',
+      name: 'Consumo de Água',
+      unit: 'm³',
+      category: 'Ambiental' as const,
+      current: 1100,
+      previous: 1000,
+      variation_pct: 10,
+    };
+
+    it('asks for the given month and keeps the contract fields', async () => {
+      vi.mocked(request).mockResolvedValue({
+        reference_month: '2026-09',
+        indicators: [WATER_SUMMARY],
+      });
+
+      const summary = await getEsgIndicatorsSummary(COMPANY_ID, MONTH);
+
+      expect(request).toHaveBeenCalledWith(
+        `/api/customers/${COMPANY_ID}/esg-indicators/summary?month=2026-09`
+      );
+      expect(summary).toEqual({
+        reference_month: '2026-09',
+        indicators: [WATER_SUMMARY],
+      });
+    });
+
+    it('leaves the month out to get the latest one', async () => {
+      vi.mocked(request).mockResolvedValue({
+        reference_month: null,
+        indicators: [
+          { ...WATER_SUMMARY, current: undefined, variation_pct: undefined },
+        ],
+      });
+
+      const summary = await getEsgIndicatorsSummary(COMPANY_ID);
+
+      expect(request).toHaveBeenCalledWith(
+        `/api/customers/${COMPANY_ID}/esg-indicators/summary`
+      );
+      expect(summary.reference_month).toBeNull();
+      expect(summary.indicators[0]).toMatchObject({
+        current: null,
+        previous: 1000,
+        variation_pct: null,
+      });
+    });
+
+    it('treats an empty body as an empty summary', async () => {
+      vi.mocked(request).mockResolvedValue(undefined);
+
+      expect(await getEsgIndicatorsSummary(COMPANY_ID)).toEqual({
+        reference_month: null,
+        indicators: [],
       });
     });
   });

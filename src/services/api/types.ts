@@ -349,6 +349,26 @@ export interface CreateCustomerIndicatorWire {
   category: 'Ambiental' | 'Social' | 'Governança';
 }
 
+/** One indicator of `GET /customers/:customerId/esg-indicators/summary`. */
+export interface IndicatorSummaryWire {
+  indicator_id: string;
+  name: string;
+  unit: string;
+  category: 'Ambiental' | 'Social' | 'Governança';
+  current: number | null;
+  previous: number | null;
+  variation_pct: number | null;
+}
+
+/**
+ * `reference_month` is null only when the company has no record at all and no
+ * month was asked for.
+ */
+export interface EsgIndicatorsSummaryWire {
+  reference_month: string | null;
+  indicators: IndicatorSummaryWire[];
+}
+
 export interface ConditionFulfillmentItemWire {
   condition_id: string;
   fulfilled: boolean;

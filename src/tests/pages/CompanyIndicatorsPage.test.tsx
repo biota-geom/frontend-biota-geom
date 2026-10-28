@@ -6,7 +6,10 @@ import { buildCompanyRoutes } from '../../app/router/routes';
 import type { CompanyListItem } from '../../features/companies/types';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { getPreviousMonth } from '../../features/esgIndicators/esgIndicatorsValidation';
-import type { MonthlyIndicator } from '../../features/esgIndicators/types';
+import type {
+  EsgIndicatorsSummary,
+  MonthlyIndicator,
+} from '../../features/esgIndicators/types';
 import { ApiError } from '../../services/api/apiError';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
@@ -21,6 +24,7 @@ vi.mock('../../services/api/customersApi', () => ({
 }));
 vi.mock('../../services/api/esgIndicatorsApi', () => ({
   getEsgIndicators: vi.fn(),
+  getEsgIndicatorsSummary: vi.fn(),
   saveEsgIndicators: vi.fn(),
   createCustomerIndicator: vi.fn(),
 }));
@@ -75,6 +79,21 @@ const SEPTEMBER: MonthlyIndicator[] = [
   },
 ];
 
+// Summary of SEPTEMBER against an August with lower water and more staff.
+const SEPTEMBER_SUMMARY: EsgIndicatorsSummary = {
+  reference_month: '2026-09',
+  indicators: SEPTEMBER.map(({ value, ...indicator }) => ({
+    ...indicator,
+    current: value,
+    previous: null,
+    variation_pct: null,
+  })),
+};
+SEPTEMBER_SUMMARY.indicators[0].previous = 11318.6;
+SEPTEMBER_SUMMARY.indicators[0].variation_pct = 10;
+SEPTEMBER_SUMMARY.indicators[2].previous = 350;
+SEPTEMBER_SUMMARY.indicators[2].variation_pct = -2.3;
+
 function renderIndicatorsPage(
   initialRoute = buildCompanyRoutes.indicators(COMPANY_ID)
 ) {
@@ -96,6 +115,9 @@ describe('CompanyIndicatorsPage', () => {
       COMPANY_IN_CONTEXT,
     ]);
     vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(EMPTY_MONTH);
+    vi.mocked(esgIndicatorsApi.getEsgIndicatorsSummary).mockResolvedValue(
+      SEPTEMBER_SUMMARY
+    );
     vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockResolvedValue([]);
   });
 
@@ -128,34 +150,54 @@ describe('CompanyIndicatorsPage', () => {
     );
   });
 
-  it('renders the KPI summary cards with fallback mock data when there are no loaded indicators', async () => {
+  it('loads the KPIs of the latest month with the change against the month before', async () => {
     renderIndicatorsPage();
 
-    // Mock data has these titles
-    expect(await screen.findByText('Consumo de Água')).toBeInTheDocument();
-    expect(screen.getByText('Resíduos Gerados')).toBeInTheDocument();
-    expect(screen.getByText('Nº de Funcionários')).toBeInTheDocument();
-    expect(screen.getByText('Consumo de Energia')).toBeInTheDocument();
+    expect(
+      await screen.findByLabelText('Consumo de Água: 12.450,5 m³')
+    ).toBeInTheDocument();
+    expect(esgIndicatorsApi.getEsgIndicatorsSummary).toHaveBeenCalledWith(
+      COMPANY_ID,
+      undefined
+    );
+    expect(
+      screen.getByLabelText('Variação de Consumo de Água: ▲ 10,0%')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Variação de Resíduos Gerados: —')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Variação de Nº de Funcionários: ▼ 2,3%')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Referência: setembro de 2026')).toBeVisible();
   });
 
-  it('renders KPI summary cards with loaded dynamic indicators', async () => {
-    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
+  it('says so when the company has no indicator configured', async () => {
+    vi.mocked(esgIndicatorsApi.getEsgIndicatorsSummary).mockResolvedValue({
+      reference_month: null,
+      indicators: [],
+    });
 
     renderIndicatorsPage();
 
-    // Wait for the loaded data first (12.450,5 only exists in SEPTEMBER).
-    // Querying the names before this can grab fallback nodes that are
-    // replaced when the loaded indicators render.
-    // Formatted value appears in the aria-label (unit comes from the indicator).
     expect(
-      await screen.findByLabelText(/Consumo de Água: 12\.450,5 m³/i)
-    ).toBeInTheDocument();
+      await screen.findByText('Nenhum indicador configurado para esta empresa.')
+    ).toBeVisible();
+  });
 
-    // Cards show the dynamic indicator names
-    expect(screen.getByText('Consumo de Água')).toBeInTheDocument();
-    expect(screen.getByText('Resíduos Gerados')).toBeInTheDocument();
-    expect(screen.getByText('Nº de Funcionários')).toBeInTheDocument();
-    expect(screen.getByText('Consumo de Energia')).toBeInTheDocument();
+  it('shows the summary error without breaking the page', async () => {
+    vi.mocked(esgIndicatorsApi.getEsgIndicatorsSummary).mockRejectedValue(
+      new ApiError(500, 'Falha ao carregar o resumo.')
+    );
+
+    renderIndicatorsPage();
+
+    expect(
+      await screen.findByText('Falha ao carregar o resumo.')
+    ).toBeVisible();
+    expect(
+      screen.getByRole('heading', { name: 'Indicadores ESG' })
+    ).toBeInTheDocument();
   });
 
   it('renders the 4 line charts with titles', async () => {
@@ -252,6 +294,31 @@ describe('CompanyIndicatorsPage', () => {
     expect(esgIndicatorsApi.saveEsgIndicators).not.toHaveBeenCalled();
   });
 
+  it('saves a month and moves the KPIs to the saved month', async () => {
+    const user = userEvent.setup();
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue(SEPTEMBER);
+
+    renderIndicatorsPage();
+    await screen.findByText('Consumo de Água');
+    await user.click(screen.getByRole('button', { name: /novo registro/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    const waterInput = within(dialog).getByLabelText(/Consumo de Água/i);
+    await user.clear(waterInput);
+    await user.type(waterInput, '1100');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Registrar Dados' })
+    );
+
+    await waitFor(() =>
+      expect(esgIndicatorsApi.getEsgIndicatorsSummary).toHaveBeenLastCalledWith(
+        COMPANY_ID,
+        getPreviousMonth()
+      )
+    );
+    expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenCalled();
+  });
+
   it('displays API error inside "Novo Registro" modal when PUT fails', async () => {
     const user = userEvent.setup();
     vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockRejectedValue(
@@ -315,9 +382,16 @@ describe('CompanyIndicatorsPage', () => {
     ).toBeInTheDocument();
 
     const before = selectedMonthCalls();
+    const summaryCallsBefore = vi.mocked(
+      esgIndicatorsApi.getEsgIndicatorsSummary
+    ).mock.calls.length;
     await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
 
     await waitFor(() => expect(selectedMonthCalls()).toBe(before + 1));
+    // The KPIs reload too, so the new indicator gets its card.
+    expect(
+      vi.mocked(esgIndicatorsApi.getEsgIndicatorsSummary).mock.calls.length
+    ).toBe(summaryCallsBefore + 1);
   });
 
   it('opens "Gerar Relatório" modal, triggers GET endpoint, and loads new data', async () => {
@@ -352,6 +426,13 @@ describe('CompanyIndicatorsPage', () => {
     expect(
       await screen.findByText('Relatório de agosto de 2026 gerado com sucesso.')
     ).toBeVisible();
+    // The KPIs follow the month of the report.
+    await waitFor(() =>
+      expect(esgIndicatorsApi.getEsgIndicatorsSummary).toHaveBeenLastCalledWith(
+        COMPANY_ID,
+        '2026-08'
+      )
+    );
   });
 
   it('shows error banner when initial load fails and allows retry', async () => {

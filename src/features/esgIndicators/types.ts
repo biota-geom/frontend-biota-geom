@@ -21,3 +21,21 @@ export interface EsgIndicatorRecord {
 export interface EsgIndicatorsPayload {
   records: EsgIndicatorRecord[];
 }
+
+/** One KPI card: the month, the month before and the change in percent. */
+export interface IndicatorSummary {
+  indicator_id: string;
+  name: string;
+  unit: string;
+  category: IndicatorCategory;
+  current: number | null;
+  previous: number | null;
+  /** Null without a previous value, or when the previous value is zero. */
+  variation_pct: number | null;
+}
+
+export interface EsgIndicatorsSummary {
+  /** "YYYY-MM"; null when the company has no record yet. */
+  reference_month: string | null;
+  indicators: IndicatorSummary[];
+}
