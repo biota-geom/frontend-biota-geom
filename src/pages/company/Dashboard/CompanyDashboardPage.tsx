@@ -8,6 +8,8 @@ import type { LicenseDashboard } from '../../../features/licenses/types';
 import { ApiError } from '../../../services/api/apiError';
 import { getLicenseDashboard } from '../../../services/api/licensesApi';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
+import { EsgIndicatorsDashboardCard } from './components/EsgIndicatorsDashboardCard';
+import { LegislationRadarDashboardCard } from './components/LegislationRadarDashboardCard';
 import {
   LicenseDashboardCard,
   LicenseDashboardSkeleton,
@@ -163,6 +165,12 @@ function CompanyDashboardContent({
         {companyId ? (
           <ConditionsSummaryBlock companyId={companyId} key={companyId} />
         ) : null}
+        <div className="col-span-2 max-[900px]:col-span-1">
+          <EsgIndicatorsDashboardCard companyId={company.id} />
+        </div>
+        <div className="col-span-2 max-[900px]:col-span-1">
+          <LegislationRadarDashboardCard />
+        </div>
       </div>
     </PageScaffold>
   );

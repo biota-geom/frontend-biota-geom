@@ -8,6 +8,7 @@ import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { ApiError } from '../../services/api/apiError';
 import { getCompanyById } from '../../services/api/companiesApi';
 import { listCompanies } from '../../services/api/customersApi';
+import { getEsgIndicatorsSummary } from '../../services/api/esgIndicatorsApi';
 import {
   getLicenseDashboard,
   listLicenses,
@@ -27,6 +28,10 @@ vi.mock('../../services/api/companiesApi', () => ({
 
 vi.mock('../../services/api/customersApi', () => ({
   listCompanies: vi.fn(),
+}));
+
+vi.mock('../../services/api/esgIndicatorsApi', () => ({
+  getEsgIndicatorsSummary: vi.fn(),
 }));
 
 vi.mock('../../services/api/licensesApi', () => ({
@@ -92,6 +97,20 @@ beforeEach(() => {
     summary: { total: 0, regular: 0, attention: 0, expired: 0 },
     licenses: [],
   });
+  vi.mocked(getEsgIndicatorsSummary).mockResolvedValue({
+    reference_month: '2026-09',
+    indicators: [
+      {
+        indicator_id: 'ind-1',
+        name: 'Consumo de Água',
+        unit: 'm³',
+        category: 'Ambiental',
+        current: 1100,
+        previous: 1000,
+        variation_pct: 10,
+      },
+    ],
+  });
 });
 
 describe('CompanyDashboardPage', () => {
@@ -137,6 +156,33 @@ describe('CompanyDashboardPage', () => {
       'href',
       '/companies/company-1/licenses/license-1'
     );
+  });
+
+  it('closes the panel with the ESG indicators and the Radar placeholder', async () => {
+    mockedGetCompanyById.mockResolvedValue(company);
+
+    renderWithAuth(<AppRoutes />, {
+      status: 'authenticated',
+      user: MOCK_AUTH_USER,
+      initialRoute: '/companies/company-1/dashboard',
+    });
+
+    expect(
+      await screen.findByLabelText('Consumo de Água: 1.100 m³')
+    ).toBeInTheDocument();
+    expect(getEsgIndicatorsSummary).toHaveBeenCalledWith(
+      'company-1',
+      undefined
+    );
+    expect(
+      screen.getByRole('article', { name: 'Indicadores ESG' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /registrar indicadores/i })
+    ).toHaveAttribute('href', '/companies/company-1/indicators');
+    expect(
+      screen.getByRole('article', { name: 'Radar de Legislação' })
+    ).toHaveTextContent('Em breve');
   });
 
   it('shows an error and allows retrying the dashboard request', async () => {
