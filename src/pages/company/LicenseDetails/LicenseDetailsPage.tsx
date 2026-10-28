@@ -431,7 +431,7 @@ export function LicenseDetailsPage() {
                 Cancelar
               </button>
               <button
-                className="rounded-control bg-brand px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-control bg-primary px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={!isFulfillmentComplete || isSavingFulfillment}
                 onClick={() => void handleSaveFulfillment()}
                 type="button"

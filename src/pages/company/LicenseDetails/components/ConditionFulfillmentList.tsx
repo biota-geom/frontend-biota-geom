@@ -19,7 +19,7 @@ function toggleButtonClass(selected: boolean): string {
     'rounded-control px-3 py-1 text-xs font-semibold transition-colors',
     selected
       ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-400'
-      : 'bg-surface-muted text-text-secondary hover:bg-surface-raised',
+      : 'bg-surface-muted text-text-secondary hover:bg-surface-soft',
   ].join(' ');
 }
 
@@ -28,7 +28,7 @@ function notFulfilledButtonClass(selected: boolean): string {
     'rounded-control px-3 py-1 text-xs font-semibold transition-colors',
     selected
       ? 'bg-rose-100 text-rose-800 ring-1 ring-rose-400'
-      : 'bg-surface-muted text-text-secondary hover:bg-surface-raised',
+      : 'bg-surface-muted text-text-secondary hover:bg-surface-soft',
   ].join(' ');
 }
 
