@@ -1,26 +1,31 @@
 import type {
   License,
+  LicenseDashboard,
   LicenseDetails,
   LicenseDocumentUrl,
   LicensePanelItem,
   LicensesPanel,
   LicenseRenewed,
-  LicenseType,
+  LicenseVersion,
+  RenewalConditionDecision,
 } from '../../features/licenses/types';
 import { request } from './http';
 import type {
   LicenseDocumentUrlWire,
+  LicenseHistoryItemWire,
   LicensePanelItemWire,
   LicenseDetailsWire,
   LicensePanelResponseWire,
+  LicenseDashboardWire,
   LicenseRenewedWire,
   LicenseWire,
+  RenewalConditionWire,
 } from './types';
 
 export interface CreateLicenseInput {
-  type: LicenseType;
+  type: string;
   processNumber: string;
-  issuingAgencyId: string;
+  issuingAgency: string;
   /** `YYYY-MM-DD`, straight from a `<input type="date">`. */
   issueDate: string;
   /** `YYYY-MM-DD`, straight from a `<input type="date">`. */
@@ -33,16 +38,28 @@ export interface RenewLicenseInput {
   issueDate: string;
   expirationDate: string;
   documentFile: File;
+  /** One decision per condition of the previous license; empty when it has none. */
+  conditions: RenewalConditionDecision[];
+}
+
+function toRenewalConditionWire(
+  decision: RenewalConditionDecision
+): RenewalConditionWire {
+  return {
+    condition_id: decision.conditionId,
+    fulfilled: decision.fulfilled,
+    copy_to_new: decision.copyToNew,
+    ...(decision.newDueDate ? { new_due_date: decision.newDueDate } : {}),
+  };
 }
 
 function toLicense(wire: LicenseWire): License {
   return {
     id: wire.id,
     customerId: wire.customer_id,
-    type: wire.type as LicenseType,
+    type: wire.type,
     processNumber: wire.process_number,
-    issuingAgencyId: wire.issuing_agency_id,
-    issuingAgencyName: wire.issuing_agency_name,
+    issuingAgency: wire.issuing_agency,
     issueDate: wire.issue_date,
     expirationDate: wire.expiration_date,
     status: wire.status,
@@ -87,6 +104,23 @@ function toLicenseRenewed(wire: LicenseRenewedWire): LicenseRenewed {
   };
 }
 
+export async function getLicenseHistory(
+  licenseId: string
+): Promise<LicenseVersion[]> {
+  const wire = await request<LicenseHistoryItemWire[]>(
+    `/api/licenses/${licenseId}/history`
+  );
+
+  return wire.map((item) => ({
+    id: item.id,
+    processNumber: item.process_number,
+    issueDate: item.issue_date,
+    expirationDate: item.expiration_date,
+    status: item.status,
+    isCurrent: item.is_current,
+  }));
+}
+
 export async function getLicenseDetails(
   customerId: string,
   licenseId: string
@@ -105,7 +139,7 @@ export async function createLicense(
   const formData = new FormData();
   formData.append('type', input.type);
   formData.append('process_number', input.processNumber);
-  formData.append('issuing_agency_id', input.issuingAgencyId);
+  formData.append('issuing_agency', input.issuingAgency);
   formData.append('issue_date', input.issueDate);
   formData.append('expiration_date', input.expirationDate);
   formData.append('document_file', input.documentFile);
@@ -130,6 +164,11 @@ export async function renewLicense(
   formData.append('issue_date', input.issueDate);
   formData.append('expiration_date', input.expirationDate);
   formData.append('document_file', input.documentFile);
+  // Multipart has no nested fields, so the backend expects a JSON string here.
+  formData.append(
+    'conditions',
+    JSON.stringify(input.conditions.map(toRenewalConditionWire))
+  );
 
   const wire = await request<LicenseRenewedWire>(
     `/api/licenses/${licenseId}/renew`,
@@ -167,6 +206,33 @@ function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {
     status: wire.status,
     documentUrl: wire.document_url,
   };
+}
+
+function toLicenseDashboard(wire: LicenseDashboardWire): LicenseDashboard {
+  return {
+    header: {
+      activeLicenses: wire.header.active_licenses,
+      pendingItems: wire.header.pending_items,
+    },
+    counts: wire.counts,
+    critical: wire.critical.map((item) => ({
+      id: item.id,
+      type: item.type,
+      processNumber: item.process_number,
+      expirationDate: item.expiration_date,
+      status: item.status,
+    })),
+  };
+}
+
+export async function getLicenseDashboard(
+  customerId: string
+): Promise<LicenseDashboard> {
+  const wire = await request<LicenseDashboardWire>(
+    `/api/customers/${customerId}/dashboard/licenses`
+  );
+
+  return toLicenseDashboard(wire);
 }
 
 export async function listLicenses(customerId: string): Promise<LicensesPanel> {

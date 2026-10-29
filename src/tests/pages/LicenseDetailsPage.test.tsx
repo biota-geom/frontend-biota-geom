@@ -14,10 +14,13 @@ import { ApiError } from '../../services/api/apiError';
 
 vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
+  getLicenseHistory: vi.fn(),
   renewLicense: vi.fn(),
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
+  deleteLicenseCondition: vi.fn(),
+  updateLicenseConditionDescriptor: vi.fn(),
 }));
 
 const licensesApi = await import('../../services/api/licensesApi');
@@ -96,9 +99,9 @@ async function openAddConditionsModal(
   user: ReturnType<typeof userEvent.setup>
 ) {
   await user.click(
-    await screen.findByRole('button', { name: 'Adicionar Condicionante' })
+    await screen.findByRole('button', { name: 'Editar Condicionante' })
   );
-  return screen.findByRole('dialog', { name: 'Adicionar Condicionantes' });
+  return screen.findByRole('dialog', { name: 'Editar Condicionantes' });
 }
 
 async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
@@ -159,6 +162,7 @@ describe('LicenseDetailsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(DETAILS);
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([]);
     vi.mocked(licensesApi.renewLicense).mockResolvedValue({
       id: 'license-2',
       previousLicenseId: 'license-1',
@@ -241,7 +245,7 @@ describe('LicenseDetailsPage', () => {
 
     const dialog = await openAddConditionsModal(user);
     const saveButton = within(dialog).getByRole('button', {
-      name: 'Salvar Condicionantes',
+      name: 'Adicionar novas condicionantes',
     });
     expect(saveButton).toBeDisabled();
 
@@ -269,7 +273,7 @@ describe('LicenseDetailsPage', () => {
       await screen.findByText('Condicionante cadastrada com sucesso.')
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('dialog', { name: 'Adicionar Condicionantes' })
+      screen.queryByRole('dialog', { name: 'Editar Condicionantes' })
     ).not.toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
   }, 20_000);
@@ -284,7 +288,9 @@ describe('LicenseDetailsPage', () => {
     const dialog = await openAddConditionsModal(user);
     await fillConditionRow(user);
     await user.click(
-      within(dialog).getByRole('button', { name: 'Salvar Condicionantes' })
+      within(dialog).getByRole('button', {
+        name: 'Adicionar novas condicionantes',
+      })
     );
 
     expect(
@@ -293,10 +299,114 @@ describe('LicenseDetailsPage', () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('dialog', { name: 'Adicionar Condicionantes' })
+      screen.getByRole('dialog', { name: 'Editar Condicionantes' })
     ).toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(1);
   }, 20_000);
+
+  it('lists and deletes an existing condition without closing the editor', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.deleteLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    expect(
+      within(dialog).getByText('Manter registros de estacionamento da frota.')
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Excluir condicionante 1.1',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.deleteLicenseCondition).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        'condition-1-1'
+      )
+    );
+    expect(
+      within(dialog).queryByText('Manter registros de estacionamento da frota.')
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(/excluída com sucesso/i)
+    ).toBeInTheDocument();
+    expect(dialog).toBeInTheDocument();
+    expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
+  });
+
+  it('edits an existing descriptor in every condition from its group', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [
+        ...DETAILS.conditions,
+        {
+          ...DETAILS.conditions[1],
+          id: 'condition-1-2',
+          itemNumber: '1.2',
+          description: 'Revisar os registros da frota.',
+        },
+      ],
+    });
+    vi.mocked(
+      licenseConditionsApi.updateLicenseConditionDescriptor
+    ).mockResolvedValue(undefined);
+    renderDetailsPage();
+
+    await openAddConditionsModal(user);
+    await user.click(
+      screen.getByRole('button', {
+        name: /editar descritor ambiental monitoramento de estacionamento/i,
+      })
+    );
+    const descriptorDialog = await screen.findByRole('dialog', {
+      name: 'Editar Descritor Ambiental',
+    });
+    const descriptorInput = within(descriptorDialog).getByLabelText(
+      'Descritor ambiental'
+    );
+    await user.clear(descriptorInput);
+    await user.type(descriptorInput, 'Gestão da frota');
+    await user.click(
+      within(descriptorDialog).getByRole('button', {
+        name: 'Salvar descritor',
+      })
+    );
+
+    await waitFor(() =>
+      expect(
+        licenseConditionsApi.updateLicenseConditionDescriptor
+      ).toHaveBeenCalledTimes(2)
+    );
+    expect(
+      licenseConditionsApi.updateLicenseConditionDescriptor
+    ).toHaveBeenNthCalledWith(
+      1,
+      'customer-1',
+      'license-1',
+      'condition-1-1',
+      'Gestão da frota'
+    );
+    expect(
+      licenseConditionsApi.updateLicenseConditionDescriptor
+    ).toHaveBeenNthCalledWith(
+      2,
+      'customer-1',
+      'license-1',
+      'condition-1-2',
+      'Gestão da frota'
+    );
+    expect(
+      await screen.findByText(
+        'Descritor ambiental alterado para "Gestão da frota".'
+      )
+    ).toBeInTheDocument();
+  });
 
   it('hides the add action when the license fails to load', async () => {
     vi.mocked(licensesApi.getLicenseDetails).mockRejectedValue(
@@ -308,7 +418,7 @@ describe('LicenseDetailsPage', () => {
       await screen.findByText('Licença não encontrada.')
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Adicionar Condicionante' })
+      screen.queryByRole('button', { name: 'Editar Condicionante' })
     ).not.toBeInTheDocument();
   });
 
@@ -355,6 +465,14 @@ describe('LicenseDetailsPage', () => {
       within(dialog).getByLabelText('PDF da nova licença'),
       new File(['%PDF-1.4'], 'renovada.pdf', { type: 'application/pdf' })
     );
+    await user.click(within(dialog).getByRole('button', { name: 'Próximo' }));
+    await user.click(
+      within(
+        within(dialog).getByRole('group', {
+          name: 'Cumprimento da condicionante 1.1',
+        })
+      ).getByRole('button', { name: 'Cumprida' })
+    );
     await user.click(
       within(dialog).getByRole('button', { name: 'Renovar Licença' })
     );
@@ -366,6 +484,9 @@ describe('LicenseDetailsPage', () => {
           processNumber: 'LO nº 119/2026',
           issueDate: '2026-01-10',
           expirationDate: '2030-01-10',
+          conditions: [
+            { conditionId: 'condition-1-1', fulfilled: true, copyToNew: false },
+          ],
         })
       )
     );
@@ -389,7 +510,217 @@ describe('LicenseDetailsPage', () => {
       screen.queryByRole('button', { name: 'Renovar licença' })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Adicionar Condicionante' })
+      screen.queryByRole('button', { name: 'Editar Condicionante' })
     ).not.toBeInTheDocument();
+  });
+
+  it('lists the previous versions with links to their details', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: true,
+      },
+      {
+        id: 'license-0',
+        processNumber: 'LP nº 100/2019',
+        issueDate: '2019-01-10T00:00:00.000Z',
+        expirationDate: '2024-01-10T00:00:00.000Z',
+        status: 'Renovada/Arquivada',
+        isCurrent: false,
+      },
+    ]);
+
+    renderDetailsPage();
+
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
+    });
+    expect(licensesApi.getLicenseHistory).toHaveBeenCalledWith('license-1');
+    expect(
+      within(history).getByRole('link', { name: 'LP nº 100/2019' })
+    ).toHaveAttribute('href', '/companies/customer-1/licenses/license-0');
+    expect(within(history).getByText('Renovada/Arquivada')).toBeInTheDocument();
+    expect(
+      within(history).queryByText('LP nº 482/2024')
+    ).not.toBeInTheDocument();
+  });
+
+  it('lists the newer versions when viewing an older one', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-2',
+        processNumber: 'LP nº 700/2026',
+        issueDate: '2026-03-12T00:00:00.000Z',
+        expirationDate: '2030-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: false,
+      },
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Renovada/Arquivada',
+        isCurrent: true,
+      },
+    ]);
+
+    renderDetailsPage();
+
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
+    });
+    expect(
+      within(history).getByRole('link', { name: 'LP nº 700/2026' })
+    ).toHaveAttribute('href', '/companies/customer-1/licenses/license-2');
+    expect(
+      within(history).queryByText('LP nº 482/2024')
+    ).not.toBeInTheDocument();
+  });
+
+  it('reloads the license when the renewal says its conditions changed', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.renewLicense).mockRejectedValue(
+      new ApiError(409, 'As condicionantes da licença anterior mudaram.')
+    );
+    renderDetailsPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Renovar licença' })
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Renovar Licença',
+    });
+    await user.type(
+      within(dialog).getByLabelText('Novo número da licença'),
+      'LO nº 119/2026'
+    );
+    await user.type(
+      within(dialog).getByLabelText('Data de Emissão'),
+      '2026-01-10'
+    );
+    await user.type(
+      within(dialog).getByLabelText('Data de Validade'),
+      '2030-01-10'
+    );
+    await user.upload(
+      within(dialog).getByLabelText('PDF da nova licença'),
+      new File(['%PDF-1.4'], 'renovada.pdf', { type: 'application/pdf' })
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Próximo' }));
+    await user.click(
+      within(
+        within(dialog).getByRole('group', {
+          name: 'Cumprimento da condicionante 1.1',
+        })
+      ).getByRole('button', { name: 'Cumprida' })
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Renovar Licença' })
+    );
+
+    expect(
+      await within(dialog).findByText(
+        'As condicionantes da licença anterior mudaram.'
+      )
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2)
+    );
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it('drops the previous history while the linked version loads its own', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.getLicenseDetails).mockImplementation(
+      (_customerId, licenseId) =>
+        Promise.resolve(
+          licenseId === 'license-0'
+            ? {
+                ...DETAILS,
+                id: 'license-0',
+                processNumber: 'LP nº 100/2019',
+                status: 'Renovada/Arquivada',
+              }
+            : DETAILS
+        )
+    );
+    vi.mocked(licensesApi.getLicenseHistory).mockImplementation((licenseId) =>
+      licenseId === 'license-1'
+        ? Promise.resolve([
+            {
+              id: 'license-1',
+              processNumber: 'LP nº 482/2024',
+              issueDate: '2024-03-12T00:00:00.000Z',
+              expirationDate: '2026-03-12T00:00:00.000Z',
+              status: 'Regular',
+              isCurrent: true,
+            },
+            {
+              id: 'license-0',
+              processNumber: 'LP nº 100/2019',
+              issueDate: '2019-01-10T00:00:00.000Z',
+              expirationDate: '2024-01-10T00:00:00.000Z',
+              status: 'Renovada/Arquivada',
+              isCurrent: false,
+            },
+          ])
+        : new Promise(() => {})
+    );
+
+    renderDetailsPage();
+
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
+    });
+    await user.click(
+      within(history).getByRole('link', { name: 'LP nº 100/2019' })
+    );
+
+    expect(
+      await screen.findByText('LP nº 100/2019', { selector: 'p' })
+    ).toBeInTheDocument();
+    expect(licensesApi.getLicenseHistory).toHaveBeenLastCalledWith('license-0');
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show the version history for a license that was never renewed', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: true,
+      },
+    ]);
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('1 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the details usable when the history fails to load', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockRejectedValue(
+      new ApiError(500, 'Erro interno.')
+    );
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('1 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

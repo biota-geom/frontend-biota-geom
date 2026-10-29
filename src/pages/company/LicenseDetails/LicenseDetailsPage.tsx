@@ -11,11 +11,13 @@ import {
   formatLicenseStatus,
 } from '../../../features/licenses/licenseDetailsFormatting';
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
+import { useLicenseHistory } from '../../../features/licenses/useLicenseHistory';
 import type { LicenseConditionDetail } from '../../../features/licenses/types';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
+import { LicenseVersionHistory } from './components/LicenseVersionHistory';
 import { RenewLicenseModal } from './components/RenewLicenseModal';
 
 function formatDate(value: string | null): string {
@@ -121,6 +123,7 @@ export function LicenseDetailsPage() {
     companyId,
     licenseId
   );
+  const { versions } = useLicenseHistory(licenseId);
   const breadcrumbs = useCompanyBreadcrumbs('Detalhes da licença', {
     parent: { label: 'Licenças', to: buildCompanyRoutes.licenses },
   });
@@ -156,6 +159,16 @@ export function LicenseDetailsPage() {
     refetch();
   }
 
+  function handleConditionDeleted(conditionName: string) {
+    setToastMessage(`Condicionante "${conditionName}" excluída com sucesso.`);
+    refetch();
+  }
+
+  function handleDescriptorUpdated(descriptor: string) {
+    setToastMessage(`Descritor ambiental alterado para "${descriptor}".`);
+    refetch();
+  }
+
   function handleRenewed(renewed: { id: string }) {
     if (!companyId) return;
     navigate(buildCompanyRoutes.licenseDetails(companyId, renewed.id));
@@ -176,7 +189,7 @@ export function LicenseDetailsPage() {
                   ]
                 : []),
               {
-                label: 'Adicionar Condicionante',
+                label: 'Editar Condicionante',
                 onClick: () => setIsModalOpen(true),
               },
             ]
@@ -303,14 +316,21 @@ export function LicenseDetailsPage() {
               </table>
             </div>
           </section>
+
+          {companyId ? (
+            <LicenseVersionHistory companyId={companyId} versions={versions} />
+          ) : null}
         </>
       ) : null}
 
       {companyId && licenseId ? (
         <AddLicenseConditionsModal
           companyId={companyId}
+          conditions={details?.conditions ?? []}
           licenseId={licenseId}
           onCreated={handleConditionsCreated}
+          onDeleted={handleConditionDeleted}
+          onDescriptorUpdated={handleDescriptorUpdated}
           onOpenChange={setIsModalOpen}
           open={isModalOpen}
         />
@@ -319,6 +339,7 @@ export function LicenseDetailsPage() {
       {details ? (
         <RenewLicenseModal
           license={details}
+          onConditionsOutdated={refetch}
           onOpenChange={setIsRenewModalOpen}
           onRenewed={handleRenewed}
           open={isRenewModalOpen}

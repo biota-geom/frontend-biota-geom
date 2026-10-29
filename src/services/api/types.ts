@@ -137,8 +137,7 @@ export interface LicenseWire {
   customer_id: string;
   type: string;
   process_number: string;
-  issuing_agency_id: string;
-  issuing_agency_name: string | null;
+  issuing_agency: string;
   issue_date: string;
   expiration_date: string;
   status: string;
@@ -180,6 +179,25 @@ export interface LicenseRenewedWire {
   status: string;
 }
 
+/* One item of the `conditions` JSON field sent with POST /licenses/:id/renew. */
+export interface RenewalConditionWire {
+  condition_id: string;
+  fulfilled: boolean;
+  copy_to_new: boolean;
+  new_due_date?: string;
+}
+
+/* GET /licenses/:licenseId/history, newest version first. */
+export interface LicenseHistoryItemWire {
+  id: string;
+  customer_id: string;
+  process_number: string;
+  issue_date: string;
+  expiration_date: string;
+  status: string;
+  is_current: boolean;
+}
+
 /*
  * GET /customers/:customerId/licenses. Its `licenses[].type`/`status` are
  * already PT-BR display labels ("Licença Prévia (LP)", "Vencida"), unlike
@@ -215,6 +233,31 @@ export interface LicenseDocumentUrlWire {
 export interface LicensePanelResponseWire {
   summary: LicenseSummaryWire;
   licenses: LicensePanelItemWire[];
+}
+
+export interface LicenseDashboardHeaderWire {
+  active_licenses: number;
+  pending_items: number;
+}
+
+export interface LicenseDashboardCriticalItemWire {
+  id: string;
+  type: string;
+  process_number: string;
+  expiration_date: string;
+  status: string;
+}
+
+export interface LicenseDashboardCountsWire {
+  regular: number;
+  attention: number;
+  expired: number;
+}
+
+export interface LicenseDashboardWire {
+  header: LicenseDashboardHeaderWire;
+  counts: LicenseDashboardCountsWire;
+  critical: LicenseDashboardCriticalItemWire[];
 }
 
 export interface DocumentWire {
@@ -297,13 +340,50 @@ export interface CreateLicenseConditionsRequestWire {
 }
 
 /*
- * GET /customers/:customerId/esg-indicators/:month. Not in the issue's
- * contract (which only lists the PUT) — the shape mirrors the PUT body, with
- * null/absent for an indicator that was never informed.
+ * GET /customers/:customerId/esg-indicators/:month — array of all indicators
+ * linked to the company, with the month value (null when not yet reported).
  */
-export interface EsgIndicatorsWire {
-  water?: number | string | null;
-  waste?: number | string | null;
-  employees?: number | string | null;
-  energy?: number | string | null;
+export interface MonthlyIndicatorWire {
+  indicator_id: string;
+  name: string;
+  unit: string;
+  category: 'Ambiental' | 'Social' | 'Governança';
+  value: number | null;
+}
+
+export interface IndicatorRecordWire {
+  indicator_id: string;
+  value: number | null;
+}
+
+/** PUT /customers/:customerId/esg-indicators/:month body */
+export interface SaveEsgIndicatorsWire {
+  records: IndicatorRecordWire[];
+}
+
+/** POST /customers/:customerId/indicators body */
+export interface CreateCustomerIndicatorWire {
+  name: string;
+  unit: string;
+  category: 'Ambiental' | 'Social' | 'Governança';
+}
+
+/** One indicator of `GET /customers/:customerId/esg-indicators/summary`. */
+export interface IndicatorSummaryWire {
+  indicator_id: string;
+  name: string;
+  unit: string;
+  category: 'Ambiental' | 'Social' | 'Governança';
+  current: number | null;
+  previous: number | null;
+  variation_pct: number | null;
+}
+
+/**
+ * `reference_month` is null only when the company has no record at all and no
+ * month was asked for.
+ */
+export interface EsgIndicatorsSummaryWire {
+  reference_month: string | null;
+  indicators: IndicatorSummaryWire[];
 }

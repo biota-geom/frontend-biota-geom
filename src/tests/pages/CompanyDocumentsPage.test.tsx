@@ -11,6 +11,7 @@ import { renderWithAuth } from '../mocks/renderWithAuth';
 vi.mock('../../services/api/documentsApi', () => ({
   createDocument: vi.fn(),
   getDocumentAccessUrl: vi.fn(),
+  deleteDocument: vi.fn(),
   createDocumentFolder: vi.fn(),
   listDocumentFolders: vi.fn(),
   listDocuments: vi.fn(),
@@ -93,26 +94,23 @@ describe('CompanyDocumentsPage', () => {
       'Laudo de Ruído 2026'
     );
     expect(
-      within(table).getAllByRole('button', { name: /abrir arquivo/i })
+      within(table).getAllByRole('button', { name: /^abrir /i })
     ).toHaveLength(2);
+    expect(
+      within(table).queryByRole('button', { name: /^baixar /i })
+    ).not.toBeInTheDocument();
   });
 
   it('requests a protected URL before opening a document', async () => {
     const user = userEvent.setup();
-    const replace = vi.fn();
-    const tab = {
-      close: vi.fn(),
-      location: { replace },
-      opener: window,
-    } as unknown as Window;
-    const open = vi.spyOn(window, 'open').mockReturnValue(tab);
+    const open = vi.spyOn(window, 'open').mockReturnValue({} as Window);
     vi.mocked(documentsApi.getDocumentAccessUrl).mockResolvedValue(
       'https://signed.example/document.pdf'
     );
     renderPage();
 
     const buttons = await screen.findAllByRole('button', {
-      name: /abrir arquivo/i,
+      name: /^abrir /i,
     });
     await user.click(buttons[0]!);
 
@@ -122,7 +120,11 @@ describe('CompanyDocumentsPage', () => {
         'document-new'
       )
     );
-    expect(replace).toHaveBeenCalledWith('https://signed.example/document.pdf');
+    expect(open).toHaveBeenCalledWith(
+      'https://signed.example/document.pdf',
+      '_blank',
+      'noopener,noreferrer'
+    );
     open.mockRestore();
   });
 
@@ -283,13 +285,8 @@ describe('CompanyDocumentsPage', () => {
     ]);
 
     const titleInputs = screen.getAllByLabelText('Título');
-    const dateInputs = screen.getAllByLabelText('Data');
     for (let index = 0; index < 3; index += 1) {
       await user.type(titleInputs[index]!, `Documento ${index + 1}`);
-      await user.type(
-        dateInputs[index]!,
-        `2026-10-${String(index + 1).padStart(2, '0')}`
-      );
     }
 
     await user.click(
@@ -298,6 +295,11 @@ describe('CompanyDocumentsPage', () => {
     await waitFor(() =>
       expect(documentsApi.createDocument).toHaveBeenCalledTimes(1)
     );
+    expect(documentsApi.createDocument).toHaveBeenCalledWith(COMPANY_ID, {
+      file: expect.any(File),
+      title: 'Documento 1',
+      folderId: null,
+    });
 
     resolvers[0]!(DOCUMENTS[1]!);
     await waitFor(() =>
@@ -317,4 +319,89 @@ describe('CompanyDocumentsPage', () => {
       screen.queryByRole('heading', { name: /^enviar documentos$/i })
     ).not.toBeInTheDocument();
   }, 20_000);
+
+  it('asks for confirmation before deleting and keeps the document on cancel', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^excluir /i }))[0]!
+    );
+
+    expect(
+      screen.getByText(
+        'Excluir este documento? Ele deixará de aparecer na lista.'
+      )
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancelar/i }));
+
+    await waitFor(() =>
+      expect(documentsApi.deleteDocument).not.toHaveBeenCalled()
+    );
+  });
+
+  it('deletes the document and reloads the listing after confirmation', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.deleteDocument).mockResolvedValue(undefined);
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^excluir /i }))[0]!
+    );
+    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+
+    await waitFor(() =>
+      expect(documentsApi.deleteDocument).toHaveBeenCalledWith(
+        COMPANY_ID,
+        'document-new'
+      )
+    );
+    // A listagem é recarregada para o contador de arquivos acompanhar.
+    await waitFor(() =>
+      expect(documentsApi.listDocuments).toHaveBeenCalledTimes(2)
+    );
+    expect(
+      await screen.findByText('Documento excluído com sucesso.')
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the dialog open and shows the API message when deletion fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(documentsApi.deleteDocument).mockRejectedValue(
+      new ApiError(404, 'Documento não encontrado.')
+    );
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^excluir /i }))[0]!
+    );
+    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+
+    expect(
+      await screen.findByText('Documento não encontrado.')
+    ).toBeInTheDocument();
+    expect(documentsApi.listDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the API message when opening a document fails', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'open').mockReturnValue({
+      close: vi.fn(),
+      location: { replace: vi.fn() },
+      opener: window,
+    } as unknown as Window);
+    vi.mocked(documentsApi.getDocumentAccessUrl).mockRejectedValue(
+      new ApiError(404, 'Documento não encontrado.')
+    );
+    renderPage();
+
+    await user.click(
+      (await screen.findAllByRole('button', { name: /^abrir /i }))[0]!
+    );
+
+    expect(
+      await screen.findByText('Documento não encontrado.')
+    ).toBeInTheDocument();
+  });
 });

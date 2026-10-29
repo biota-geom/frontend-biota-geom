@@ -1,6 +1,6 @@
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
   Dialog,
@@ -14,27 +14,13 @@ import { Input } from '@/components/ui/shadcn/input';
 import { InputGroup } from '@/components/ui/shadcn/input-group';
 import { Label } from '@/components/ui/shadcn/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/shadcn/select';
-import {
   CREATE_LICENSE_DEFAULT_VALUES,
   createLicenseSchema,
-  LICENSE_TYPES,
   toLicenseConditionBatchItem,
   type CreateLicenseForm,
 } from '../../../../features/licenses/createLicenseValidation';
-import {
-  LICENSE_TYPE_LABELS,
-  type IssuingAgency,
-  type License,
-  type LicenseType,
-} from '../../../../features/licenses/types';
+import type { License } from '../../../../features/licenses/types';
 import { ApiError } from '../../../../services/api/apiError';
-import { listIssuingAgencies } from '../../../../services/api/issuingAgenciesApi';
 import { createLicenseConditions } from '../../../../services/api/licenseConditionsApi';
 import { createLicense } from '../../../../services/api/licensesApi';
 import { LicenseConditionsTable } from './LicenseConditionsTable';
@@ -58,8 +44,6 @@ export function NewLicenseModal({
   onOpenChange,
   open,
 }: NewLicenseModalProps) {
-  const [issuingAgencies, setIssuingAgencies] = useState<IssuingAgency[]>([]);
-  const [isLoadingAgencies, setIsLoadingAgencies] = useState(false);
   /* Set after step 1 succeeds so a retry never creates the license twice. */
   const [createdLicense, setCreatedLicense] = useState<License | null>(null);
 
@@ -76,30 +60,6 @@ export function NewLicenseModal({
     mode: 'onChange',
     resolver: zodResolver(createLicenseSchema),
   });
-
-  useEffect(() => {
-    if (!open) return;
-
-    let isCurrent = true;
-
-    async function loadIssuingAgencies() {
-      setIsLoadingAgencies(true);
-      try {
-        const agencies = await listIssuingAgencies();
-        if (isCurrent) setIssuingAgencies(agencies);
-      } catch {
-        if (isCurrent) setIssuingAgencies([]);
-      } finally {
-        if (isCurrent) setIsLoadingAgencies(false);
-      }
-    }
-
-    void loadIssuingAgencies();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [open]);
 
   function closeAndReset() {
     reset(CREATE_LICENSE_DEFAULT_VALUES);
@@ -129,9 +89,9 @@ export function NewLicenseModal({
     if (!license) {
       try {
         license = await createLicense(companyId, {
-          type: values.type as LicenseType,
+          type: values.type,
           processNumber: values.processNumber,
-          issuingAgencyId: values.issuingAgencyId,
+          issuingAgency: values.issuingAgency,
           issueDate: values.issueDate,
           expirationDate: values.expirationDate,
           // the schema guarantees a non-null PDF here
@@ -188,24 +148,14 @@ export function NewLicenseModal({
         >
           <div className="flex flex-col gap-2">
             <Label htmlFor="license-type">Tipo de Licença</Label>
-            <Controller
-              control={control}
-              name="type"
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger className="w-full" id="license-type">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LICENSE_TYPES.map((licenseType) => (
-                      <SelectItem key={licenseType} value={licenseType}>
-                        {LICENSE_TYPE_LABELS[licenseType]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+            <InputGroup variant="field">
+              <Input
+                {...register('type')}
+                id="license-type"
+                maxLength={50}
+                placeholder="Ex: LO, LP, LI, LAO"
+              />
+            </InputGroup>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -221,34 +171,14 @@ export function NewLicenseModal({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="issuing-agency">Órgão Emissor</Label>
-            <Controller
-              control={control}
-              name="issuingAgencyId"
-              render={({ field }) => (
-                <Select
-                  disabled={isLoadingAgencies}
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
-                  <SelectTrigger className="w-full" id="issuing-agency">
-                    <SelectValue
-                      placeholder={
-                        isLoadingAgencies
-                          ? 'Carregando...'
-                          : 'Selecione o órgão'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {issuingAgencies.map((agency) => (
-                      <SelectItem key={agency.id} value={agency.id}>
-                        {agency.acronym ?? agency.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+            <InputGroup variant="field">
+              <Input
+                {...register('issuingAgency')}
+                id="issuing-agency"
+                maxLength={150}
+                placeholder="Ex: FEPAM"
+              />
+            </InputGroup>
           </div>
 
           <div aria-hidden="true" className="max-[560px]:hidden" />

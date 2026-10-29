@@ -5,22 +5,48 @@ import { GenerateReportModal } from '../../pages/company/Indicators/components/G
 import { NewEsgIndicatorModal } from '../../pages/company/Indicators/components/NewEsgIndicatorModal';
 import { ApiError } from '../../services/api/apiError';
 import * as esgIndicatorsApi from '../../services/api/esgIndicatorsApi';
+import type { MonthlyIndicator } from '../../features/esgIndicators/types';
 
 vi.mock('../../services/api/esgIndicatorsApi', () => ({
   getEsgIndicators: vi.fn(),
   saveEsgIndicators: vi.fn(),
+  createCustomerIndicator: vi.fn(),
 }));
 
 const COMPANY_ID = 'customer-1';
 const MONTH = '2026-09';
 
+const SAVED_INDICATORS: MonthlyIndicator[] = [
+  {
+    indicator_id: 'uuid-ind-1',
+    name: 'Consumo de Água',
+    unit: 'm³',
+    category: 'Ambiental',
+    value: 1250.5,
+  },
+  {
+    indicator_id: 'uuid-ind-2',
+    name: 'Resíduos Totais',
+    unit: 't',
+    category: 'Ambiental',
+    value: null,
+  },
+];
+
 describe('NewEsgIndicatorModal', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockResolvedValue(undefined);
+    vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockResolvedValue([]);
+    vi.mocked(esgIndicatorsApi.createCustomerIndicator).mockResolvedValue({
+      indicator_id: 'uuid-new',
+      name: 'Geração de Efluentes',
+      unit: 'm³',
+      category: 'Ambiental',
+      value: null,
+    });
   });
 
-  it('renders with default fields and pre-fills value if savedIndicators is provided', () => {
+  it('renders heading and month input', () => {
     render(
       <NewEsgIndicatorModal
         companyId={COMPANY_ID}
@@ -28,12 +54,7 @@ describe('NewEsgIndicatorModal', () => {
         onOpenChange={vi.fn()}
         onSaved={vi.fn()}
         open={true}
-        savedIndicators={{
-          water: 1250.5,
-          waste: null,
-          employees: null,
-          energy: null,
-        }}
+        savedIndicators={SAVED_INDICATORS}
       />
     );
 
@@ -41,11 +62,9 @@ describe('NewEsgIndicatorModal', () => {
       screen.getByRole('heading', { name: 'Novo Registro de Indicador' })
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Mês de Referência')).toHaveValue(MONTH);
-    expect(screen.getByLabelText('Valor Medido')).toHaveValue(1250.5);
   });
 
-  it('allows switching to "Todos os Indicadores" and validates integer for employees', async () => {
-    const user = userEvent.setup();
+  it('renders dynamic indicator fields from savedIndicators', () => {
     render(
       <NewEsgIndicatorModal
         companyId={COMPANY_ID}
@@ -53,30 +72,15 @@ describe('NewEsgIndicatorModal', () => {
         onOpenChange={vi.fn()}
         onSaved={vi.fn()}
         open={true}
+        savedIndicators={SAVED_INDICATORS}
       />
     );
 
-    // Open select dropdown and choose "Todos os Indicadores"
-    const selectTrigger = screen.getByLabelText('Indicador');
-    await user.click(selectTrigger);
-
-    const allOption = await screen.findByRole('option', {
-      name: 'Todos os Indicadores',
-    });
-    await user.click(allOption);
-
-    // Now all 4 inputs are visible
-    const empInput = screen.getByLabelText(/Nº de Funcionários/i);
-    expect(empInput).toBeInTheDocument();
-
-    await user.type(empInput, '148.5');
-    await user.click(screen.getByRole('button', { name: 'Registrar Dados' }));
-
-    expect(await screen.findByText(/Informe um número inteiro/i)).toBeVisible();
-    expect(esgIndicatorsApi.saveEsgIndicators).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/Consumo de Água/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Resíduos Totais/i)).toBeInTheDocument();
   });
 
-  it('submits all indicators when in bulk mode', async () => {
+  it('submits filled indicators with the records payload', async () => {
     const user = userEvent.setup();
     const onSaved = vi.fn();
     const onOpenChange = vi.fn();
@@ -88,20 +92,11 @@ describe('NewEsgIndicatorModal', () => {
         onOpenChange={onOpenChange}
         onSaved={onSaved}
         open={true}
+        savedIndicators={SAVED_INDICATORS}
       />
     );
 
-    const selectTrigger = screen.getByLabelText('Indicador');
-    await user.click(selectTrigger);
-
-    const allOption = await screen.findByRole('option', {
-      name: 'Todos os Indicadores',
-    });
-    await user.click(allOption);
-
-    await user.type(screen.getByLabelText(/Consumo de Água/i), '1200');
-    await user.type(screen.getByLabelText(/Resíduos Gerados/i), '45.5');
-    await user.type(screen.getByLabelText(/Nº de Funcionários/i), '50');
+    await user.type(screen.getByLabelText(/Resíduos Totais/i), '45.5');
 
     await user.click(screen.getByRole('button', { name: 'Registrar Dados' }));
 
@@ -109,27 +104,136 @@ describe('NewEsgIndicatorModal', () => {
       expect(esgIndicatorsApi.saveEsgIndicators).toHaveBeenCalledWith(
         COMPANY_ID,
         MONTH,
-        {
-          water: 1200,
-          waste: 45.5,
-          employees: 50,
-        }
+        expect.objectContaining({
+          records: expect.arrayContaining([
+            { indicator_id: 'uuid-ind-2', value: 45.5 },
+          ]),
+        })
       )
     );
-    expect(onSaved).toHaveBeenCalledWith(MONTH, undefined);
+    expect(onSaved).toHaveBeenCalledWith(MONTH);
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('blocks negative values without calling PUT', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <NewEsgIndicatorModal
+        companyId={COMPANY_ID}
+        initialMonth={MONTH}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+        open={true}
+        savedIndicators={SAVED_INDICATORS}
+      />
+    );
+
+    const waterInput = screen.getByLabelText(/Consumo de Água/i);
+    await user.clear(waterInput);
+    await user.type(waterInput, '-10');
+
+    await user.click(screen.getByRole('button', { name: 'Registrar Dados' }));
+
+    expect(
+      await screen.findByText('O valor não pode ser negativo.')
+    ).toBeVisible();
+    expect(esgIndicatorsApi.saveEsgIndicators).not.toHaveBeenCalled();
+  });
+
+  it('shows "+ Novo Indicador" button and opens creation sub-form', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <NewEsgIndicatorModal
+        companyId={COMPANY_ID}
+        initialMonth={MONTH}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+        open={true}
+        savedIndicators={SAVED_INDICATORS}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: '+ Novo Indicador' }));
+
+    expect(screen.getByLabelText('Nome')).toBeInTheDocument();
+    expect(screen.getByLabelText('Unidade')).toBeInTheDocument();
+    expect(screen.getByLabelText('Categoria do indicador')).toBeInTheDocument();
+  });
+
+  it('creates a new indicator inline and adds it to the form', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <NewEsgIndicatorModal
+        companyId={COMPANY_ID}
+        initialMonth={MONTH}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+        open={true}
+        savedIndicators={SAVED_INDICATORS}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: '+ Novo Indicador' }));
+
+    await user.type(screen.getByLabelText('Nome'), 'Geração de Efluentes');
+    await user.type(screen.getByLabelText('Unidade'), 'm³');
+
+    await user.click(screen.getByRole('button', { name: 'Criar Indicador' }));
+
+    await waitFor(() =>
+      expect(esgIndicatorsApi.createCustomerIndicator).toHaveBeenCalledWith(
+        COMPANY_ID,
+        { name: 'Geração de Efluentes', unit: 'm³', category: 'Ambiental' }
+      )
+    );
+
+    // New field appears in the form
+    expect(
+      await screen.findByLabelText(/Geração de Efluentes/i)
+    ).toBeInTheDocument();
+  });
+
+  it('displays API error inside modal when PUT fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(esgIndicatorsApi.saveEsgIndicators).mockRejectedValue(
+      new ApiError(400, 'Erro retornado pela API.')
+    );
+
+    render(
+      <NewEsgIndicatorModal
+        companyId={COMPANY_ID}
+        initialMonth={MONTH}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+        open={true}
+        savedIndicators={SAVED_INDICATORS}
+      />
+    );
+
+    const waterInput = screen.getByLabelText(/Consumo de Água/i);
+    await user.type(waterInput, '500');
+
+    await user.click(screen.getByRole('button', { name: 'Registrar Dados' }));
+
+    expect(await screen.findByText('Erro retornado pela API.')).toBeVisible();
   });
 });
 
 describe('GenerateReportModal', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue({
-      water: 1000,
-      waste: 20,
-      employees: 30,
-      energy: 4000,
-    });
+    vi.mocked(esgIndicatorsApi.getEsgIndicators).mockResolvedValue([
+      {
+        indicator_id: 'uuid-ind-1',
+        name: 'Consumo de Água',
+        unit: 'm³',
+        category: 'Ambiental',
+        value: 1000,
+      },
+    ]);
   });
 
   it('renders month input and calls getEsgIndicators on submit', async () => {
@@ -162,12 +266,12 @@ describe('GenerateReportModal', () => {
         MONTH
       )
     );
-    expect(onGenerated).toHaveBeenCalledWith(MONTH, {
-      water: 1000,
-      waste: 20,
-      employees: 30,
-      energy: 4000,
-    });
+    expect(onGenerated).toHaveBeenCalledWith(
+      MONTH,
+      expect.arrayContaining([
+        expect.objectContaining({ indicator_id: 'uuid-ind-1', value: 1000 }),
+      ])
+    );
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 

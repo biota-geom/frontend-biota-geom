@@ -1,11 +1,3 @@
-export type LicenseType = 'LP' | 'LI' | 'LO';
-
-export const LICENSE_TYPE_LABELS: Record<LicenseType, string> = {
-  LP: 'LP - Licença Prévia',
-  LI: 'LI - Licença de Instalação',
-  LO: 'LO - Licença de Operação',
-};
-
 export interface IssuingAgency {
   id: string;
   name: string;
@@ -15,10 +7,9 @@ export interface IssuingAgency {
 export interface License {
   id: string;
   customerId: string;
-  type: LicenseType;
+  type: string;
   processNumber: string;
-  issuingAgencyId: string;
-  issuingAgencyName: string | null;
+  issuingAgency: string;
   issueDate: string;
   expirationDate: string;
   status: string;
@@ -60,6 +51,16 @@ export interface LicenseRenewed {
   status: string;
 }
 
+export interface LicenseVersion {
+  id: string;
+  processNumber: string;
+  issueDate: string;
+  expirationDate: string;
+  status: string;
+  /** True for the license that was requested; the others are previous versions. */
+  isCurrent: boolean;
+}
+
 export interface LicenseSummary {
   total: number;
   regular: number;
@@ -95,4 +96,38 @@ export interface LicenseDocumentUrl {
 export interface LicensesPanel {
   summary: LicenseSummary;
   licenses: LicensePanelItem[];
+}
+
+/** What the renewal decides for each condition of the previous license. */
+export interface RenewalConditionDecision {
+  conditionId: string;
+  fulfilled: boolean;
+  copyToNew: boolean;
+  /** `YYYY-MM-DD`; only present when `copyToNew` is true. */
+  newDueDate?: string;
+}
+
+export interface LicenseDashboardHeader {
+  activeLicenses: number;
+  pendingItems: number;
+}
+
+export interface LicenseDashboardCounts {
+  regular: number;
+  attention: number;
+  expired: number;
+}
+
+export interface LicenseDashboardCriticalItem {
+  id: string;
+  type: string;
+  processNumber: string;
+  expirationDate: string;
+  status: string;
+}
+
+export interface LicenseDashboard {
+  header: LicenseDashboardHeader;
+  counts: LicenseDashboardCounts;
+  critical: LicenseDashboardCriticalItem[];
 }

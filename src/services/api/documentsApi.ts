@@ -12,8 +12,8 @@ import type {
 export interface CreateDocumentInput {
   file: File;
   title: string;
-  /** Date-only value in `YYYY-MM-DD` format. */
-  documentDate: string;
+  /** Optional date-only value in `YYYY-MM-DD` format. */
+  documentDate?: string;
   folderId: string | null;
 }
 
@@ -59,7 +59,9 @@ export async function createDocument(
   const formData = new FormData();
   formData.append('file', input.file);
   formData.append('title', input.title.trim());
-  formData.append('document_date', input.documentDate);
+  if (input.documentDate) {
+    formData.append('document_date', input.documentDate);
+  }
   if (input.folderId) formData.append('folder_id', input.folderId);
 
   const wire = await request<DocumentWire>(
@@ -107,4 +109,13 @@ export async function getDocumentAccessUrl(
   );
 
   return wire.document_url;
+}
+
+export async function deleteDocument(
+  customerId: string,
+  documentId: string
+): Promise<void> {
+  await request<void>(`/api/customers/${customerId}/documents/${documentId}`, {
+    method: 'DELETE',
+  });
 }

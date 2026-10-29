@@ -161,8 +161,23 @@ export async function deleteLicenseCondition(
   licenseId: string,
   conditionId: string
 ): Promise<void> {
-  await request<void>(
+  await request<unknown>(
     `/api/customers/${customerId}/licenses/${licenseId}/conditions/${conditionId}`,
     { method: 'DELETE' }
+  );
+}
+
+export async function updateLicenseConditionDescriptor(
+  customerId: string,
+  licenseId: string,
+  conditionId: string,
+  environmentalDescriptor: string
+): Promise<void> {
+  await request<unknown>(
+    `/api/customers/${customerId}/licenses/${licenseId}/conditions/${conditionId}`,
+    {
+      method: 'PUT',
+      body: { environmental_descriptor: environmentalDescriptor },
+    }
   );
 }

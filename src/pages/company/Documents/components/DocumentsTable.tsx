@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { ExternalLink, FileText, Loader2, Trash2 } from 'lucide-react';
 import type { CompanyDocument } from '../../../../features/documents/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { getDocumentAccessUrl } from '../../../../services/api/documentsApi';
-import { openProtectedFile } from '../../../../utils/openProtectedFile';
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
@@ -14,8 +13,9 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
 const COLUMNS = ['Título', 'Data do documento', 'Enviado em', 'Ações'] as const;
 
 const OPEN_ERROR = 'Não foi possível abrir o documento.';
-const POPUP_BLOCKED_ERROR =
-  'Permita a abertura de pop-ups para visualizar o documento.';
+
+const ACTION_BUTTON_CLASS =
+  'rounded-control grid size-7 place-items-center border-0 bg-surface-muted p-0 text-text-secondary transition-colors hover:text-primary-strong disabled:cursor-wait disabled:opacity-60';
 
 function formatDate(dateOnly: string): string {
   const date = new Date(`${dateOnly.slice(0, 10)}T00:00:00.000Z`);
@@ -34,7 +34,7 @@ function TableHeader() {
         {COLUMNS.map((column, index) => (
           <th
             className={`px-5 py-3 text-left text-xs font-semibold text-text-muted ${
-              index === COLUMNS.length - 1 ? 'w-48' : ''
+              index === COLUMNS.length - 1 ? 'w-32' : ''
             }`}
             key={column}
             scope="col"
@@ -71,9 +71,11 @@ export function DocumentsTableSkeleton() {
 export function DocumentsTable({
   companyId,
   documents,
+  onRequestDelete,
 }: {
   companyId: string;
   documents: CompanyDocument[];
+  onRequestDelete: (document: CompanyDocument) => void;
 }) {
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(
     null
@@ -85,10 +87,8 @@ export function DocumentsTable({
     setOpenError(null);
 
     try {
-      const result = await openProtectedFile(() =>
-        getDocumentAccessUrl(companyId, documentId)
-      );
-      if (result === 'popup-blocked') setOpenError(POPUP_BLOCKED_ERROR);
+      const url = await getDocumentAccessUrl(companyId, documentId);
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       setOpenError(error instanceof ApiError ? error.message : OPEN_ERROR);
     } finally {
@@ -144,18 +144,37 @@ export function DocumentsTable({
                 <td className="px-5 py-4 whitespace-nowrap text-text-secondary">
                   {formatDateTime(document.createdAt)}
                 </td>
-                <td className="w-48 px-5 py-4 text-left">
-                  <button
-                    className="inline-flex items-center gap-2 whitespace-nowrap border-0 bg-transparent p-0 text-sm font-extrabold text-primary-strong hover:underline hover:underline-offset-[3px] disabled:cursor-wait disabled:opacity-60"
-                    disabled={openingDocumentId === document.id}
-                    onClick={() => void handleOpen(document.id)}
-                    type="button"
-                  >
-                    <FileText aria-hidden="true" size={16} />
-                    {openingDocumentId === document.id
-                      ? 'Abrindo...'
-                      : 'Abrir arquivo'}
-                  </button>
+                <td className="w-32 px-5 py-4 text-left">
+                  <div className="flex items-center gap-2">
+                    <button
+                      aria-busy={openingDocumentId === document.id}
+                      aria-label={`Abrir ${document.title}`}
+                      className={ACTION_BUTTON_CLASS}
+                      disabled={openingDocumentId === document.id}
+                      onClick={() => void handleOpen(document.id)}
+                      title="Abrir documento"
+                      type="button"
+                    >
+                      {openingDocumentId === document.id ? (
+                        <Loader2
+                          aria-hidden="true"
+                          className="animate-spin"
+                          size={16}
+                        />
+                      ) : (
+                        <ExternalLink aria-hidden="true" size={16} />
+                      )}
+                    </button>
+                    <button
+                      aria-label={`Excluir ${document.title}`}
+                      className="rounded-control grid size-7 place-items-center border-0 bg-red-100 p-0 text-red-500 transition-colors hover:text-red-700"
+                      onClick={() => onRequestDelete(document)}
+                      title="Excluir"
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

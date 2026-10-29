@@ -18,7 +18,6 @@ const ALLOWED_MIME_TYPES = [
 
 export type DocumentDraftValues = {
   title: string;
-  documentDate: string;
 };
 
 export type DocumentDraftErrors = Partial<
@@ -48,9 +47,5 @@ export function validateDocumentDraft(
   if (!values.title.trim()) {
     errors.title = 'Informe o título do documento.';
   }
-  if (!values.documentDate) {
-    errors.documentDate = 'Informe a data do documento.';
-  }
-
   return errors;
 }
