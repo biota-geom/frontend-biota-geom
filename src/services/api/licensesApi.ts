@@ -6,16 +6,20 @@ import type {
   LicensePanelItem,
   LicensesPanel,
   LicenseRenewed,
+  LicenseVersion,
+  RenewalConditionDecision,
 } from '../../features/licenses/types';
 import { request } from './http';
 import type {
   LicenseDocumentUrlWire,
+  LicenseHistoryItemWire,
   LicensePanelItemWire,
   LicenseDetailsWire,
   LicensePanelResponseWire,
   LicenseDashboardWire,
   LicenseRenewedWire,
   LicenseWire,
+  RenewalConditionWire,
 } from './types';
 
 export interface CreateLicenseInput {
@@ -34,6 +38,19 @@ export interface RenewLicenseInput {
   issueDate: string;
   expirationDate: string;
   documentFile: File;
+  /** One decision per condition of the previous license; empty when it has none. */
+  conditions: RenewalConditionDecision[];
+}
+
+function toRenewalConditionWire(
+  decision: RenewalConditionDecision
+): RenewalConditionWire {
+  return {
+    condition_id: decision.conditionId,
+    fulfilled: decision.fulfilled,
+    copy_to_new: decision.copyToNew,
+    ...(decision.newDueDate ? { new_due_date: decision.newDueDate } : {}),
+  };
 }
 
 function toLicense(wire: LicenseWire): License {
@@ -87,6 +104,23 @@ function toLicenseRenewed(wire: LicenseRenewedWire): LicenseRenewed {
   };
 }
 
+export async function getLicenseHistory(
+  licenseId: string
+): Promise<LicenseVersion[]> {
+  const wire = await request<LicenseHistoryItemWire[]>(
+    `/api/licenses/${licenseId}/history`
+  );
+
+  return wire.map((item) => ({
+    id: item.id,
+    processNumber: item.process_number,
+    issueDate: item.issue_date,
+    expirationDate: item.expiration_date,
+    status: item.status,
+    isCurrent: item.is_current,
+  }));
+}
+
 export async function getLicenseDetails(
   customerId: string,
   licenseId: string
@@ -130,6 +164,11 @@ export async function renewLicense(
   formData.append('issue_date', input.issueDate);
   formData.append('expiration_date', input.expirationDate);
   formData.append('document_file', input.documentFile);
+  // Multipart has no nested fields, so the backend expects a JSON string here.
+  formData.append(
+    'conditions',
+    JSON.stringify(input.conditions.map(toRenewalConditionWire))
+  );
 
   const wire = await request<LicenseRenewedWire>(
     `/api/licenses/${licenseId}/renew`,

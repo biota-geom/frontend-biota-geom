@@ -12,9 +12,7 @@ import type {
   LicenseConditionWire,
   LicenseConditionsComplianceWire,
   LicenseConditionsResponseWire,
-  SaveConditionsFulfillmentRequestWire,
 } from './types';
-import type { ConditionFulfillmentItem } from '../../features/licenses/types';
 
 export interface LicenseConditionBatchItemInput {
   environmentalDescriptor: string;
@@ -155,24 +153,6 @@ export async function createLicenseConditions(
       method: 'POST',
       body,
     }
-  );
-}
-
-export async function saveConditionsFulfillment(
-  customerId: string,
-  licenseId: string,
-  items: ConditionFulfillmentItem[]
-): Promise<void> {
-  const body: SaveConditionsFulfillmentRequestWire = {
-    items: items.map((item) => ({
-      condition_id: item.conditionId,
-      fulfilled: item.fulfilled,
-    })),
-  };
-
-  await request<unknown>(
-    `/api/customers/${customerId}/licenses/${licenseId}/conditions/fulfillment`,
-    { method: 'PATCH', body }
   );
 }
 

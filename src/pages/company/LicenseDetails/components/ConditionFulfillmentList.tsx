@@ -1,17 +1,21 @@
-import { useState } from 'react';
-import type {
-  ConditionFulfillmentRow,
-  LicenseConditionDetail,
-} from '../../../../features/licenses/types';
+import type { ReactNode } from 'react';
+import {
+  getActionableConditions,
+  type ActionableCondition,
+} from '../../../../features/licenses/actionableConditions';
+import type { LicenseConditionDetail } from '../../../../features/licenses/types';
 
 interface Props {
   conditions: LicenseConditionDetail[];
   /**
-   * Called whenever any selection changes.
-   * `isComplete` is true when every row has been answered.
-   * The parent uses this to enable/disable the "Save" button.
+   * Answer per condition id; a missing entry is not answered yet. Owned by
+   * the parent, so a reloaded `conditions` list keeps the answers that still
+   * apply and shows new conditions unanswered.
    */
-  onChange: (rows: ConditionFulfillmentRow[], isComplete: boolean) => void;
+  selections: Partial<Record<string, boolean>>;
+  onSelect: (conditionId: string, fulfilled: boolean) => void;
+  /** Extra controls rendered under a row, e.g. the renewal's copy option. */
+  renderRowAddon?: (condition: ActionableCondition) => ReactNode;
 }
 
 function toggleButtonClass(selected: boolean): string {
@@ -32,39 +36,13 @@ function notFulfilledButtonClass(selected: boolean): string {
   ].join(' ');
 }
 
-export function ConditionFulfillmentList({ conditions, onChange }: Props) {
-  /*
-   * Environmental descriptor rows (isEnvironmentalDescriptor === true) have
-   * id === null and represent section headers, not actionable conditions.
-   * We filter them out so only real conditions (with a stable string id) are
-   * listed here.
-   */
-  const actionableConditions = conditions.filter(
-    (c): c is LicenseConditionDetail & { id: string } =>
-      !c.isEnvironmentalDescriptor && c.id !== null
-  );
-
-  const [selections, setSelections] = useState<
-    Record<string, boolean | undefined>
-  >(() =>
-    Object.fromEntries(actionableConditions.map((c) => [c.id, undefined]))
-  );
-
-  function handleSelect(conditionId: string, fulfilled: boolean) {
-    const next = { ...selections, [conditionId]: fulfilled };
-    setSelections(next);
-
-    const rows: ConditionFulfillmentRow[] = actionableConditions.map((c) => ({
-      conditionId: c.id,
-      itemNumber: c.itemNumber,
-      description: c.description,
-      conditionType: c.conditionType,
-      fulfilled: next[c.id],
-    }));
-
-    const isComplete = rows.every((r) => r.fulfilled !== undefined);
-    onChange(rows, isComplete);
-  }
+export function ConditionFulfillmentList({
+  conditions,
+  selections,
+  onSelect,
+  renderRowAddon,
+}: Props) {
+  const actionableConditions = getActionableConditions(conditions);
 
   if (actionableConditions.length === 0) {
     return (
@@ -79,51 +57,52 @@ export function ConditionFulfillmentList({ conditions, onChange }: Props) {
       {actionableConditions.map((condition) => {
         const selected = selections[condition.id];
         const itemLabel = condition.itemNumber ?? '—';
+        const addon = renderRowAddon?.(condition);
 
         return (
-          <div
-            className="flex items-start justify-between gap-4 px-4 py-3 max-[560px]:flex-col"
-            key={condition.id}
-            role="listitem"
-          >
-            {/* Condition info */}
-            <div className="min-w-0 flex-1">
-              <span className="mr-2 font-mono text-[11px] font-bold text-text-muted">
-                {itemLabel}
-              </span>
-              <span className="text-xs text-text-primary">
-                {condition.description ?? '—'}
-              </span>
-              {condition.conditionType ? (
-                <span className="ml-2 text-[11px] text-text-muted">
-                  ({condition.conditionType})
+          <div className="px-4 py-3" key={condition.id} role="listitem">
+            <div className="flex items-start justify-between gap-4 max-[560px]:flex-col">
+              {/* Condition info */}
+              <div className="min-w-0 flex-1">
+                <span className="mr-2 font-mono text-[11px] font-bold text-text-muted">
+                  {itemLabel}
                 </span>
-              ) : null}
+                <span className="text-xs text-text-primary">
+                  {condition.description ?? '—'}
+                </span>
+                {condition.conditionType ? (
+                  <span className="ml-2 text-[11px] text-text-muted">
+                    ({condition.conditionType})
+                  </span>
+                ) : null}
+              </div>
+
+              {/* Toggle buttons */}
+              <div
+                aria-label={`Cumprimento da condicionante ${itemLabel}`}
+                className="flex shrink-0 gap-2"
+                role="group"
+              >
+                <button
+                  aria-pressed={selected === true}
+                  className={toggleButtonClass(selected === true)}
+                  onClick={() => onSelect(condition.id, true)}
+                  type="button"
+                >
+                  Cumprida
+                </button>
+                <button
+                  aria-pressed={selected === false}
+                  className={notFulfilledButtonClass(selected === false)}
+                  onClick={() => onSelect(condition.id, false)}
+                  type="button"
+                >
+                  Não cumprida
+                </button>
+              </div>
             </div>
 
-            {/* Toggle buttons */}
-            <div
-              aria-label={`Cumprimento da condicionante ${itemLabel}`}
-              className="flex shrink-0 gap-2"
-              role="group"
-            >
-              <button
-                aria-pressed={selected === true}
-                className={toggleButtonClass(selected === true)}
-                onClick={() => handleSelect(condition.id, true)}
-                type="button"
-              >
-                Cumprida
-              </button>
-              <button
-                aria-pressed={selected === false}
-                className={notFulfilledButtonClass(selected === false)}
-                onClick={() => handleSelect(condition.id, false)}
-                type="button"
-              >
-                Não cumprida
-              </button>
-            </div>
+            {addon ? <div className="mt-2">{addon}</div> : null}
           </div>
         );
       })}
