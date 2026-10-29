@@ -65,7 +65,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
   title = 'Condicionantes',
 }: LicenseConditionsTableProps<TForm>) {
   const control = hostControl as unknown as Control<ConditionsFormValues>;
-  const { append, fields, insert, remove, update } = useFieldArray({
+  const { append, fields, insert, remove, replace, update } = useFieldArray({
     control,
     name: 'conditions',
   });
@@ -79,6 +79,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
     useState<ConditionDialogState | null>(null);
   /* Remounts the dialog per opening so it starts from its initial values. */
   const [dialogKey, setDialogKey] = useState(0);
+  const [isBulkFillOpen, setIsBulkFillOpen] = useState(false);
 
   /*
    * Groups come from the descriptors added through the dialog plus those of
@@ -94,6 +95,26 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
   const incompleteCount = conditions.filter(
     (condition) => !licenseConditionRowSchema.safeParse(condition).success
   ).length;
+  // A PDF never states who is responsible for a condition, and rarely its
+  // deadline, so every suggested row starts without them.
+  const unassignedCount = conditions.filter(isUnassigned).length;
+
+  /*
+   * Fills the responsible and the deadline only where they are still empty,
+   * so a value the user already set on a row is never replaced.
+   */
+  function fillUnassigned({ deadline, responsibleName }: BulkAssignment) {
+    replace(
+      conditions.map((condition) => ({
+        ...condition,
+        responsibleName: condition.responsibleName.trim()
+          ? condition.responsibleName
+          : responsibleName,
+        deadline: condition.deadline || deadline,
+      }))
+    );
+    setIsBulkFillOpen(false);
+  }
 
   function openConditionDialog(state: ConditionDialogState) {
     setDialogKey((key) => key + 1);
@@ -182,15 +203,27 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
       </div>
 
       {incompleteCount > 0 ? (
-        <p
-          className="m-0 rounded-sm border border-[#fedf89] bg-[#fffaeb] px-3 py-2 text-[13px] font-semibold text-[#b54708]"
-          role="status"
-        >
-          {incompleteCount === 1
-            ? '1 condicionante está com dados pendentes.'
-            : `${incompleteCount} condicionantes estão com dados pendentes.`}{' '}
-          Use o botão de editar (lápis) para completá-las.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-[#fedf89] bg-[#fffaeb] px-3 py-2">
+          <p
+            className="m-0 text-[13px] font-semibold text-[#b54708]"
+            role="status"
+          >
+            {incompleteCount === 1
+              ? '1 condicionante está com dados pendentes.'
+              : `${incompleteCount} condicionantes estão com dados pendentes.`}{' '}
+            Use o botão de editar (lápis) para completá-las.
+          </p>
+          {unassignedCount > 0 ? (
+            <Button
+              disabled={disabled}
+              onClick={() => setIsBulkFillOpen(true)}
+              type="button"
+              variant="addRow"
+            >
+              Preencher em lote
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       {environmentalDescriptors.length > 0 ? (
@@ -332,8 +365,20 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
           state={conditionDialog}
         />
       ) : null}
+
+      {isBulkFillOpen ? (
+        <BulkFillDialog
+          onClose={() => setIsBulkFillOpen(false)}
+          onSubmit={fillUnassigned}
+          unassignedCount={unassignedCount}
+        />
+      ) : null}
     </section>
   );
+}
+
+function isUnassigned(condition: LicenseConditionRow) {
+  return !condition.responsibleName.trim() || !condition.deadline;
 }
 
 type EnvironmentalDescriptorRowsProps = {
@@ -722,6 +767,98 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
             variant="dialogPrimary"
           >
             {isEdit ? 'Salvar Alterações' : 'Adicionar Condicionante'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type BulkAssignment = Pick<LicenseConditionRow, 'deadline' | 'responsibleName'>;
+
+type BulkFillDialogProps = {
+  onClose: () => void;
+  onSubmit: (assignment: BulkAssignment) => void;
+  unassignedCount: number;
+};
+
+/*
+ * Sets the responsible and the deadline of every condition still missing
+ * them in one go — after an AI reading every row lacks both. Either field may
+ * be left blank to fill only the other one.
+ */
+function BulkFillDialog({
+  onClose,
+  onSubmit,
+  unassignedCount,
+}: BulkFillDialogProps) {
+  const [responsibleName, setResponsibleName] = useState('');
+  const [deadline, setDeadline] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  function submit() {
+    const name = responsibleName.trim();
+
+    if (!name && !deadline) {
+      setError('Informe o responsável, o prazo ou ambos.');
+      return;
+    }
+
+    onSubmit({ responsibleName: name, deadline });
+  }
+
+  return (
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
+      <DialogContent className="gap-5 p-6 sm:max-w-lg">
+        <DialogHeader className="gap-1.5 border-b border-border pb-5">
+          <DialogTitle className="text-lg font-bold text-text-primary">
+            Preencher em lote
+          </DialogTitle>
+          <DialogDescription className="text-xs text-text-secondary">
+            {unassignedCount === 1
+              ? 'Aplica o responsável e o prazo à condicionante que ainda não tem esses dados.'
+              : `Aplica o responsável e o prazo às ${unassignedCount} condicionantes que ainda não têm esses dados.`}{' '}
+            O que já foi preenchido não é alterado.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 max-[560px]:grid-cols-1">
+          <DialogField id="bulk-fill-responsible" label="Responsável">
+            <Input
+              id="bulk-fill-responsible"
+              maxLength={150}
+              onChange={(event) => {
+                setResponsibleName(event.target.value);
+                setError(null);
+              }}
+              placeholder="Nome do responsável"
+              value={responsibleName}
+            />
+          </DialogField>
+
+          <DialogField id="bulk-fill-deadline" label="Prazo">
+            <Input
+              id="bulk-fill-deadline"
+              onChange={(event) => {
+                setDeadline(event.target.value);
+                setError(null);
+              }}
+              type="date"
+              value={deadline}
+            />
+          </DialogField>
+
+          <div className="col-span-2 max-[560px]:col-span-1">
+            <FieldError message={error ?? undefined} />
+          </div>
+        </div>
+
+        <DialogFooter className="mx-0 mb-0 rounded-none border-t border-border bg-transparent px-0 pt-5 pb-0">
+          <Button onClick={onClose} type="button" variant="subtle">
+            Cancelar
+          </Button>
+          <Button onClick={submit} type="button" variant="dialogPrimary">
+            Aplicar às pendentes
           </Button>
         </DialogFooter>
       </DialogContent>

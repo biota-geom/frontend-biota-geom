@@ -344,6 +344,77 @@ describe('NewLicenseModal — AI pre-fill', () => {
     ).toHaveLength(1);
   });
 
+  it('keeps an obligation the license repeats under another item number', async () => {
+    const user = userEvent.setup();
+    const [mtr] = EXTRACTION.suggestedConditions;
+    vi.mocked(licensesApi.extractLicenseData).mockResolvedValue({
+      ...EXTRACTION,
+      suggestedConditions: [...EXTRACTION.suggestedConditions, mtr],
+    });
+    renderModal();
+
+    await uploadPdf(user);
+    await screen.findByText('Resíduos Perigosos');
+
+    expect(
+      screen.getAllByText('O transporte deverá ser acompanhado do MTR.')
+    ).toHaveLength(2);
+  });
+
+  it('fills the responsible and the deadline of every pending suggestion at once, keeping what was already set', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.extractLicenseData).mockResolvedValue(EXTRACTION);
+    renderModal();
+
+    await uploadPdf(user);
+    await user.click(
+      await screen.findByRole('button', { name: 'Preencher em lote' })
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Preencher em lote' });
+    expect(
+      within(dialog).getByText(/às 2 condicionantes que ainda não têm/i)
+    ).toBeInTheDocument();
+    await user.type(
+      within(dialog).getByLabelText('Responsável'),
+      'Equipe Ambiental'
+    );
+    await user.type(within(dialog).getByLabelText('Prazo'), '2027-01-31');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Aplicar às pendentes' })
+    );
+
+    expect(screen.getAllByText('Equipe Ambiental')).toHaveLength(2);
+    expect(screen.getByText('31/01/2027')).toBeInTheDocument();
+    // The deadline read from the PDF is not replaced.
+    expect(screen.getByText('31/12/2026')).toBeInTheDocument();
+    expect(screen.queryByText(/dados pendentes/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Preencher em lote' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('asks for a responsible or a deadline before filling in bulk', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.extractLicenseData).mockResolvedValue(EXTRACTION);
+    renderModal();
+
+    await uploadPdf(user);
+    await user.click(
+      await screen.findByRole('button', { name: 'Preencher em lote' })
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Preencher em lote' });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Aplicar às pendentes' })
+    );
+
+    expect(
+      within(dialog).getByText('Informe o responsável, o prazo ou ambos.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 condicionantes estão com dados pendentes/i)
+    ).toBeInTheDocument();
+  });
+
   it('shows the error and keeps manual filling available when the document cannot be read (422)', async () => {
     const user = userEvent.setup();
     vi.mocked(licensesApi.extractLicenseData).mockRejectedValue(
