@@ -6,7 +6,9 @@ import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { useCompanyContext } from '../../../features/companies/useCompanyContext';
 import type { LicenseDashboard } from '../../../features/licenses/types';
 import { ApiError } from '../../../services/api/apiError';
+import { downloadCompanyReport } from '../../../services/api/companiesApi';
 import { getLicenseDashboard } from '../../../services/api/licensesApi';
+import { saveBlobAs } from '../../../utils/saveBlobAs';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { EsgIndicatorsDashboardCard } from './components/EsgIndicatorsDashboardCard';
 import { LegislationRadarDashboardCard } from './components/LegislationRadarDashboardCard';
@@ -17,6 +19,9 @@ import {
 
 const DASHBOARD_ERROR_MESSAGE =
   'Não foi possível carregar o resumo de licenças.';
+
+const REPORT_ERROR_MESSAGE = 'Não foi possível gerar o relatório.';
+const REPORT_FALLBACK_FILE_NAME = 'relatorio.pdf';
 
 type DashboardRequestResult =
   | {
@@ -70,6 +75,26 @@ function CompanyDashboardContent({
 }: CompanyDashboardContentProps) {
   const [result, setResult] = useState<DashboardRequestResult | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isExportingReport, setIsExportingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  async function handleExportReport() {
+    if (!companyId) return;
+
+    setIsExportingReport(true);
+    setReportError(null);
+
+    try {
+      const file = await downloadCompanyReport(companyId);
+      saveBlobAs(file.blob, file.fileName ?? REPORT_FALLBACK_FILE_NAME);
+    } catch (error) {
+      setReportError(
+        error instanceof ApiError ? error.message : REPORT_ERROR_MESSAGE
+      );
+    } finally {
+      setIsExportingReport(false);
+    }
+  }
 
   useEffect(() => {
     if (!company) return;
@@ -115,6 +140,16 @@ function CompanyDashboardContent({
 
   return (
     <PageScaffold
+      actions={[
+        {
+          icon: 'none',
+          label: isExportingReport
+            ? 'Gerando relatório...'
+            : 'Exportar relatório (PDF)',
+          onClick: () => void handleExportReport(),
+          disabled: isExportingReport || !companyId,
+        },
+      ]}
       breadcrumbs={breadcrumbs}
       headerAside={
         dashboard ? (
@@ -137,6 +172,15 @@ function CompanyDashboardContent({
       subtitle={`Monitoramento de conformidade ambiental • ${company?.name}`}
       title="Painel de controle"
     >
+      {reportError ? (
+        <p
+          className="rounded-panel mb-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+          role="alert"
+        >
+          {reportError}
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-2 items-stretch gap-4 max-[900px]:grid-cols-1">
         <div>
           {error ? (

@@ -6,7 +6,10 @@ import type { CompanyListItem } from '../../features/companies/types';
 import { useCompanies } from '../../features/companies/useCompanies';
 import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { ApiError } from '../../services/api/apiError';
-import { getCompanyById } from '../../services/api/companiesApi';
+import {
+  downloadCompanyReport,
+  getCompanyById,
+} from '../../services/api/companiesApi';
 import { listCompanies } from '../../services/api/customersApi';
 import { getEsgIndicatorsSummary } from '../../services/api/esgIndicatorsApi';
 import {
@@ -18,12 +21,18 @@ import {
   listLicenseConditions,
 } from '../../services/api/licenseConditionsApi';
 import { useLicensesPanel } from '../../features/licenses/useLicensesPanel';
+import { saveBlobAs } from '../../utils/saveBlobAs';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
 vi.mock('../../services/api/companiesApi', () => ({
   getCompanyById: vi.fn(),
   createCompany: vi.fn(),
   linkCompanyEsgMetrics: vi.fn(),
+  downloadCompanyReport: vi.fn(),
+}));
+
+vi.mock('../../utils/saveBlobAs', () => ({
+  saveBlobAs: vi.fn(),
 }));
 
 vi.mock('../../services/api/customersApi', () => ({
@@ -259,5 +268,105 @@ describe('CompanyDashboardPage', () => {
       screen.getByRole('link', { name: /voltar para empresas/i })
     ).toHaveAttribute('href', '/admin/companies');
     expect(useCompanyContext.getState().company).toBeNull();
+  });
+
+  async function renderDashboardWithReportButton() {
+    mockedGetCompanyById.mockResolvedValue(company);
+
+    renderWithAuth(<AppRoutes />, {
+      status: 'authenticated',
+      user: MOCK_AUTH_USER,
+      initialRoute: '/companies/company-1/dashboard',
+    });
+
+    return screen.findByRole('button', {
+      name: 'Exportar relatório (PDF)',
+    });
+  }
+
+  it('exports the report and saves it under the name the API sends', async () => {
+    const user = userEvent.setup();
+    const blob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+    vi.mocked(downloadCompanyReport).mockResolvedValue({
+      blob,
+      fileName: 'relatorio-usina-2026-10-28.pdf',
+    });
+
+    await user.click(await renderDashboardWithReportButton());
+
+    await waitFor(() =>
+      expect(downloadCompanyReport).toHaveBeenCalledWith('company-1')
+    );
+    expect(saveBlobAs).toHaveBeenCalledWith(
+      blob,
+      'relatorio-usina-2026-10-28.pdf'
+    );
+  });
+
+  it('falls back to a generic name when the API sends none', async () => {
+    const user = userEvent.setup();
+    const blob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+    vi.mocked(downloadCompanyReport).mockResolvedValue({
+      blob,
+      fileName: null,
+    });
+
+    await user.click(await renderDashboardWithReportButton());
+
+    await waitFor(() =>
+      expect(saveBlobAs).toHaveBeenCalledWith(blob, 'relatorio.pdf')
+    );
+  });
+
+  it('disables the button and announces progress while generating', async () => {
+    const user = userEvent.setup();
+    let release: (value: {
+      blob: Blob;
+      fileName: string | null;
+    }) => void = () => undefined;
+    vi.mocked(downloadCompanyReport).mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      })
+    );
+
+    const button = await renderDashboardWithReportButton();
+    await user.click(button);
+
+    const generating = await screen.findByRole('button', {
+      name: 'Gerando relatório...',
+    });
+    expect(generating).toBeDisabled();
+
+    release({ blob: new Blob(['x']), fileName: null });
+
+    expect(
+      await screen.findByRole('button', { name: 'Exportar relatório (PDF)' })
+    ).toBeEnabled();
+  });
+
+  it('shows the API message when the report cannot be generated', async () => {
+    const user = userEvent.setup();
+    vi.mocked(downloadCompanyReport).mockRejectedValue(
+      new ApiError(404, 'Empresa não encontrada.')
+    );
+
+    await user.click(await renderDashboardWithReportButton());
+
+    expect(
+      await screen.findByText('Empresa não encontrada.')
+    ).toBeInTheDocument();
+    expect(saveBlobAs).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a generic message on an unexpected failure', async () => {
+    const user = userEvent.setup();
+    vi.mocked(downloadCompanyReport).mockRejectedValue(new Error('boom'));
+
+    await user.click(await renderDashboardWithReportButton());
+
+    expect(
+      await screen.findByText('Não foi possível gerar o relatório.')
+    ).toBeInTheDocument();
   });
 });
