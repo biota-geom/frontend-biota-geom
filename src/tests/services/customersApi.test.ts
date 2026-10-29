@@ -5,10 +5,18 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { listCompanies, toCompanyStatus } =
+const { deleteCompany, listCompanies, toCompanyStatus } =
   await import('../../services/api/customersApi');
 
 describe('customersApi', () => {
+  it('deleteCompany() sends DELETE to the customer endpoint', async () => {
+    await deleteCompany('customer-1');
+
+    expect(request).toHaveBeenCalledWith('/api/customers/customer-1', {
+      method: 'DELETE',
+    });
+  });
+
   it('listCompanies() fetches /customers and maps it to the domain shape', async () => {
     vi.mocked(request).mockResolvedValue([
       {

@@ -28,19 +28,20 @@ export function DeleteCompanyDialog({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  if (!company) return null;
+  const selectedCompany = company;
+
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) setError(null);
     onOpenChange(nextOpen);
   }
 
   async function handleConfirm() {
-    if (!company) return;
-
     setError(null);
     setIsSubmitting(true);
 
     try {
-      await deleteCompany(company.id);
+      await deleteCompany(selectedCompany.id);
       onDeleted();
       handleOpenChange(false);
     } catch (caughtError) {
@@ -53,7 +54,7 @@ export function DeleteCompanyDialog({
   }
 
   return (
-    <Dialog onOpenChange={handleOpenChange} open={company !== null}>
+    <Dialog onOpenChange={handleOpenChange} open>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Excluir empresa</DialogTitle>
@@ -63,9 +64,9 @@ export function DeleteCompanyDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {company ? (
-          <p className="m-0 font-semibold text-text-primary">{company.name}</p>
-        ) : null}
+        <p className="m-0 font-semibold text-text-primary">
+          {selectedCompany.name}
+        </p>
 
         {error ? (
           <p className="m-0 text-sm text-red-600" role="alert">

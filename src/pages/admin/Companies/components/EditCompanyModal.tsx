@@ -90,6 +90,9 @@ export function EditCompanyModal({
     };
   }, [company]);
 
+  if (!company) return null;
+  const selectedCompany = company;
+
   function handleOpenChange(open: boolean) {
     if (!open && isSubmitting) return;
     if (!open) {
@@ -115,13 +118,13 @@ export function EditCompanyModal({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!company || isLoading || loadError) return;
+    if (isLoading || loadError) return;
 
     setSubmitError(null);
     setIsSubmitting(true);
 
     try {
-      await updateCompany(company.id, {
+      await updateCompany(selectedCompany.id, {
         name: form.name.trim(),
         sector_id: form.sector_id,
         responsible_name: form.responsible_name.trim(),
@@ -147,7 +150,7 @@ export function EditCompanyModal({
   }
 
   return (
-    <Dialog onOpenChange={handleOpenChange} open={company !== null}>
+    <Dialog onOpenChange={handleOpenChange} open>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar empresa</DialogTitle>
