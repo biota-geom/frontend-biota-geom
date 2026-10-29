@@ -43,7 +43,8 @@ describe('ConditionFulfillmentList', () => {
     render(
       <ConditionFulfillmentList
         conditions={[CONDITION_A, CONDITION_B]}
-        onChange={vi.fn()}
+        onSelect={vi.fn()}
+        selections={{}}
       />
     );
 
@@ -62,7 +63,11 @@ describe('ConditionFulfillmentList', () => {
 
   it('starts with no selection — all aria-pressed are false', () => {
     render(
-      <ConditionFulfillmentList conditions={[CONDITION_A]} onChange={vi.fn()} />
+      <ConditionFulfillmentList
+        conditions={[CONDITION_A]}
+        onSelect={vi.fn()}
+        selections={{}}
+      />
     );
 
     const buttons = screen.getAllByRole('button');
@@ -71,106 +76,84 @@ describe('ConditionFulfillmentList', () => {
     });
   });
 
-  it('calls onChange with isComplete=false when only some rows are answered', async () => {
+  it('reports the answer chosen for a condition', async () => {
     const user = userEvent.setup();
-    const onChange = vi.fn();
+    const onSelect = vi.fn();
 
     render(
       <ConditionFulfillmentList
         conditions={[CONDITION_A, CONDITION_B]}
-        onChange={onChange}
-      />
-    );
-
-    // Answer only the first condition
-    const groupA = screen.getByRole('group', { name: /1\.1/i });
-    await user.click(within(groupA).getByRole('button', { name: 'Cumprida' }));
-
-    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1];
-    expect(lastCall[1]).toBe(false); // isComplete
-  });
-
-  it('calls onChange with isComplete=true when all rows are answered', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-
-    render(
-      <ConditionFulfillmentList
-        conditions={[CONDITION_A, CONDITION_B]}
-        onChange={onChange}
+        onSelect={onSelect}
+        selections={{}}
       />
     );
 
     const groupA = screen.getByRole('group', { name: /1\.1/i });
     const groupB = screen.getByRole('group', { name: /1\.2/i });
-
     await user.click(within(groupA).getByRole('button', { name: 'Cumprida' }));
     await user.click(
       within(groupB).getByRole('button', { name: 'Não cumprida' })
     );
 
-    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1];
-    expect(lastCall[1]).toBe(true); // isComplete
-
-    const rows = lastCall[0] as {
-      conditionId: string;
-      fulfilled: boolean | undefined;
-    }[];
-    expect(rows).toEqual([
-      {
-        conditionId: 'cond-a',
-        itemNumber: '1.1',
-        description: 'Manter registro de estacionamento.',
-        conditionType: 'Informativo',
-        fulfilled: true,
-      },
-      {
-        conditionId: 'cond-b',
-        itemNumber: '1.2',
-        description: 'Apresentar relatório trimestral.',
-        conditionType: 'Periódico',
-        fulfilled: false,
-      },
+    expect(onSelect.mock.calls).toEqual([
+      ['cond-a', true],
+      ['cond-b', false],
     ]);
   });
 
-  it('overwrites selection when the user clicks the other button', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-
+  it('shows the answers it is given as pressed buttons', () => {
     render(
       <ConditionFulfillmentList
-        conditions={[CONDITION_A]}
-        onChange={onChange}
+        conditions={[CONDITION_A, CONDITION_B]}
+        onSelect={vi.fn()}
+        selections={{ 'cond-a': false }}
       />
     );
 
-    const group = screen.getByRole('group', { name: /1\.1/i });
-    await user.click(within(group).getByRole('button', { name: 'Cumprida' }));
-    await user.click(
-      within(group).getByRole('button', { name: 'Não cumprida' })
-    );
+    const groupA = screen.getByRole('group', { name: /1\.1/i });
+    expect(
+      within(groupA).getByRole('button', { name: 'Cumprida' })
+    ).toHaveAttribute('aria-pressed', 'false');
+    expect(
+      within(groupA).getByRole('button', { name: 'Não cumprida' })
+    ).toHaveAttribute('aria-pressed', 'true');
 
-    // Last call should have fulfilled: false
-    const lastRows = onChange.mock.calls[onChange.mock.calls.length - 1][0] as {
-      fulfilled: boolean | undefined;
-    }[];
-    expect(lastRows[0].fulfilled).toBe(false);
-
-    // "Não cumprida" must be pressed, "Cumprida" must not
-    const cumpridaBtn = within(group).getByRole('button', { name: 'Cumprida' });
-    const naoCumpridaBtn = within(group).getByRole('button', {
-      name: 'Não cumprida',
-    });
-    expect(cumpridaBtn).toHaveAttribute('aria-pressed', 'false');
-    expect(naoCumpridaBtn).toHaveAttribute('aria-pressed', 'true');
+    const groupB = screen.getByRole('group', { name: /1\.2/i });
+    within(groupB)
+      .getAllByRole('button')
+      .forEach((button) => {
+        expect(button).toHaveAttribute('aria-pressed', 'false');
+      });
   });
 
   it('shows an empty state message when conditions array is empty', () => {
-    render(<ConditionFulfillmentList conditions={[]} onChange={vi.fn()} />);
+    render(
+      <ConditionFulfillmentList
+        conditions={[]}
+        onSelect={vi.fn()}
+        selections={{}}
+      />
+    );
 
     expect(
       screen.getByText('Nenhuma condicionante cadastrada para esta licença.')
     ).toBeInTheDocument();
+  });
+
+  it('renders the row addon under each condition', () => {
+    render(
+      <ConditionFulfillmentList
+        conditions={[CONDITION_A, CONDITION_B]}
+        onSelect={vi.fn()}
+        renderRowAddon={(condition) => (
+          <span>Extra de {condition.itemNumber}</span>
+        )}
+        selections={{}}
+      />
+    );
+
+    const [rowA, rowB] = screen.getAllByRole('listitem');
+    expect(within(rowA!).getByText('Extra de 1.1')).toBeInTheDocument();
+    expect(within(rowB!).getByText('Extra de 1.2')).toBeInTheDocument();
   });
 });

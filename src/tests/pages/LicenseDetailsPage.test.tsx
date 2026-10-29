@@ -14,11 +14,11 @@ import { ApiError } from '../../services/api/apiError';
 
 vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
+  getLicenseHistory: vi.fn(),
   renewLicense: vi.fn(),
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
-  saveConditionsFulfillment: vi.fn(),
   deleteLicenseCondition: vi.fn(),
   updateLicenseConditionDescriptor: vi.fn(),
 }));
@@ -162,6 +162,7 @@ describe('LicenseDetailsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(DETAILS);
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([]);
     vi.mocked(licensesApi.renewLicense).mockResolvedValue({
       id: 'license-2',
       previousLicenseId: 'license-1',
@@ -464,6 +465,14 @@ describe('LicenseDetailsPage', () => {
       within(dialog).getByLabelText('PDF da nova licença'),
       new File(['%PDF-1.4'], 'renovada.pdf', { type: 'application/pdf' })
     );
+    await user.click(within(dialog).getByRole('button', { name: 'Próximo' }));
+    await user.click(
+      within(
+        within(dialog).getByRole('group', {
+          name: 'Cumprimento da condicionante 1.1',
+        })
+      ).getByRole('button', { name: 'Cumprida' })
+    );
     await user.click(
       within(dialog).getByRole('button', { name: 'Renovar Licença' })
     );
@@ -475,6 +484,9 @@ describe('LicenseDetailsPage', () => {
           processNumber: 'LO nº 119/2026',
           issueDate: '2026-01-10',
           expirationDate: '2030-01-10',
+          conditions: [
+            { conditionId: 'condition-1-1', fulfilled: true, copyToNew: false },
+          ],
         })
       )
     );
@@ -502,157 +514,213 @@ describe('LicenseDetailsPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  describe('Registrar Cumprimento modal', () => {
-    const FULFILLMENT_DETAILS: LicenseDetails = {
-      ...DETAILS,
-      conditions: [
-        {
-          id: 'condition-group-1',
-          itemNumber: '1',
-          isEnvironmentalDescriptor: false,
-          environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
-          name: 'Controle de entrada',
-          description: 'Manter controle de entrada.',
-          conditionType: 'Informativo',
-          periodicity: 'NA',
-          deadline: null,
-          status: 'Atendida',
-          completionDate: '2024-03-12T00:00:00.000Z',
-          responsibleName: 'Lucas Silva',
-          hasDelivery: true,
-          isViolated: false,
-        },
-        {
-          id: 'condition-1-1',
-          itemNumber: '1.1',
-          isEnvironmentalDescriptor: false,
-          environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
-          name: 'Controle da frota',
-          description: 'Manter registros de estacionamento da frota.',
-          conditionType: 'Informativo',
-          periodicity: 'NA',
-          deadline: null,
-          status: 'Atendida',
-          completionDate: '2024-03-12T00:00:00.000Z',
-          responsibleName: 'Lucas Silva',
-          hasDelivery: true,
-          isViolated: false,
-        },
-      ],
-    };
+  it('lists the previous versions with links to their details', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: true,
+      },
+      {
+        id: 'license-0',
+        processNumber: 'LP nº 100/2019',
+        issueDate: '2019-01-10T00:00:00.000Z',
+        expirationDate: '2024-01-10T00:00:00.000Z',
+        status: 'Renovada/Arquivada',
+        isCurrent: false,
+      },
+    ]);
 
-    beforeEach(() => {
-      vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(
-        FULFILLMENT_DETAILS
-      );
+    renderDetailsPage();
+
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
     });
+    expect(licensesApi.getLicenseHistory).toHaveBeenCalledWith('license-1');
+    expect(
+      within(history).getByRole('link', { name: 'LP nº 100/2019' })
+    ).toHaveAttribute('href', '/companies/customer-1/licenses/license-0');
+    expect(within(history).getByText('Renovada/Arquivada')).toBeInTheDocument();
+    expect(
+      within(history).queryByText('LP nº 482/2024')
+    ).not.toBeInTheDocument();
+  });
 
-    async function openFulfillmentModal(
-      user: ReturnType<typeof userEvent.setup>
-    ) {
-      await user.click(
-        await screen.findByRole('button', { name: 'Registrar Cumprimento' })
-      );
-      return screen.findByRole('dialog', {
-        name: 'Registrar cumprimento das condicionantes',
-      });
-    }
+  it('lists the newer versions when viewing an older one', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-2',
+        processNumber: 'LP nº 700/2026',
+        issueDate: '2026-03-12T00:00:00.000Z',
+        expirationDate: '2030-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: false,
+      },
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Renovada/Arquivada',
+        isCurrent: true,
+      },
+    ]);
 
-    it('opens the fulfillment modal when clicking the button', async () => {
-      const user = userEvent.setup();
-      renderDetailsPage();
+    renderDetailsPage();
 
-      const dialog = await openFulfillmentModal(user);
-      expect(dialog).toBeInTheDocument();
-      expect(
-        within(dialog).getByText('Registrar Cumprimento das Condicionantes')
-      ).toBeInTheDocument();
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
     });
+    expect(
+      within(history).getByRole('link', { name: 'LP nº 700/2026' })
+    ).toHaveAttribute('href', '/companies/customer-1/licenses/license-2');
+    expect(
+      within(history).queryByText('LP nº 482/2024')
+    ).not.toBeInTheDocument();
+  });
 
-    it('Salvar button is disabled until all conditions are answered', async () => {
-      const user = userEvent.setup();
-      renderDetailsPage();
+  it('reloads the license when the renewal says its conditions changed', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.renewLicense).mockRejectedValue(
+      new ApiError(409, 'As condicionantes da licença anterior mudaram.')
+    );
+    renderDetailsPage();
 
-      const dialog = await openFulfillmentModal(user);
-      const saveBtn = within(dialog).getByRole('button', { name: 'Salvar' });
-      expect(saveBtn).toBeDisabled();
-
-      // Answer only the first condition
-      const groups = within(dialog).getAllByRole('group');
-      await user.click(
-        within(groups[0]).getByRole('button', { name: 'Cumprida' })
-      );
-      expect(saveBtn).toBeDisabled();
-
-      // Answer the second condition
-      await user.click(
-        within(groups[1]).getByRole('button', { name: 'Não cumprida' })
-      );
-      expect(saveBtn).not.toBeDisabled();
+    await user.click(
+      await screen.findByRole('button', { name: 'Renovar licença' })
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Renovar Licença',
     });
+    await user.type(
+      within(dialog).getByLabelText('Novo número da licença'),
+      'LO nº 119/2026'
+    );
+    await user.type(
+      within(dialog).getByLabelText('Data de Emissão'),
+      '2026-01-10'
+    );
+    await user.type(
+      within(dialog).getByLabelText('Data de Validade'),
+      '2030-01-10'
+    );
+    await user.upload(
+      within(dialog).getByLabelText('PDF da nova licença'),
+      new File(['%PDF-1.4'], 'renovada.pdf', { type: 'application/pdf' })
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Próximo' }));
+    await user.click(
+      within(
+        within(dialog).getByRole('group', {
+          name: 'Cumprimento da condicionante 1.1',
+        })
+      ).getByRole('button', { name: 'Cumprida' })
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Renovar Licença' })
+    );
 
-    it('calls saveConditionsFulfillment with the correct payload and shows toast', async () => {
-      const user = userEvent.setup();
-      vi.mocked(
-        licenseConditionsApi.saveConditionsFulfillment
-      ).mockResolvedValue(undefined);
-      renderDetailsPage();
+    expect(
+      await within(dialog).findByText(
+        'As condicionantes da licença anterior mudaram.'
+      )
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2)
+    );
+    expect(dialog).toBeInTheDocument();
+  });
 
-      const dialog = await openFulfillmentModal(user);
-      const groups = within(dialog).getAllByRole('group');
-
-      await user.click(
-        within(groups[0]).getByRole('button', { name: 'Cumprida' })
-      );
-      await user.click(
-        within(groups[1]).getByRole('button', { name: 'Não cumprida' })
-      );
-
-      await user.click(within(dialog).getByRole('button', { name: 'Salvar' }));
-
-      await waitFor(() =>
-        expect(
-          licenseConditionsApi.saveConditionsFulfillment
-        ).toHaveBeenCalledWith('customer-1', 'license-1', [
-          { conditionId: 'condition-group-1', fulfilled: true },
-          { conditionId: 'condition-1-1', fulfilled: false },
-        ])
-      );
-
-      expect(
-        await screen.findByText(
-          'Cumprimento das condicionantes registrado com sucesso.'
+  it('drops the previous history while the linked version loads its own', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.getLicenseDetails).mockImplementation(
+      (_customerId, licenseId) =>
+        Promise.resolve(
+          licenseId === 'license-0'
+            ? {
+                ...DETAILS,
+                id: 'license-0',
+                processNumber: 'LP nº 100/2019',
+                status: 'Renovada/Arquivada',
+              }
+            : DETAILS
         )
-      ).toBeInTheDocument();
+    );
+    vi.mocked(licensesApi.getLicenseHistory).mockImplementation((licenseId) =>
+      licenseId === 'license-1'
+        ? Promise.resolve([
+            {
+              id: 'license-1',
+              processNumber: 'LP nº 482/2024',
+              issueDate: '2024-03-12T00:00:00.000Z',
+              expirationDate: '2026-03-12T00:00:00.000Z',
+              status: 'Regular',
+              isCurrent: true,
+            },
+            {
+              id: 'license-0',
+              processNumber: 'LP nº 100/2019',
+              issueDate: '2019-01-10T00:00:00.000Z',
+              expirationDate: '2024-01-10T00:00:00.000Z',
+              status: 'Renovada/Arquivada',
+              isCurrent: false,
+            },
+          ])
+        : new Promise(() => {})
+    );
 
-      // Modal should be closed
-      expect(
-        screen.queryByRole('dialog', {
-          name: 'Registrar cumprimento das condicionantes',
-        })
-      ).not.toBeInTheDocument();
+    renderDetailsPage();
 
-      // Page should have refetched
-      expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
     });
+    await user.click(
+      within(history).getByRole('link', { name: 'LP nº 100/2019' })
+    );
 
-    it('closes the modal without saving when Cancel is clicked', async () => {
-      const user = userEvent.setup();
-      renderDetailsPage();
+    expect(
+      await screen.findByText('LP nº 100/2019', { selector: 'p' })
+    ).toBeInTheDocument();
+    expect(licensesApi.getLicenseHistory).toHaveBeenLastCalledWith('license-0');
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+  });
 
-      const dialog = await openFulfillmentModal(user);
-      await user.click(
-        within(dialog).getByRole('button', { name: 'Cancelar' })
-      );
+  it('does not show the version history for a license that was never renewed', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: true,
+      },
+    ]);
 
-      expect(
-        screen.queryByRole('dialog', {
-          name: 'Registrar cumprimento das condicionantes',
-        })
-      ).not.toBeInTheDocument();
-      expect(
-        licenseConditionsApi.saveConditionsFulfillment
-      ).not.toHaveBeenCalled();
-    });
+    renderDetailsPage();
+
+    expect(await screen.findByText('1 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the details usable when the history fails to load', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockRejectedValue(
+      new ApiError(500, 'Erro interno.')
+    );
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('1 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Histórico de versões' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

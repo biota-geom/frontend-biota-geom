@@ -3,12 +3,14 @@ import type { CreateCompanyRequest } from '../../features/companies/createCompan
 
 vi.mock('../../services/api/http', () => ({
   request: vi.fn(),
+  requestFile: vi.fn(),
 }));
 
-const { request } = await import('../../services/api/http');
+const { request, requestFile } = await import('../../services/api/http');
 const { ApiError } = await import('../../services/api/apiError');
 const {
   createCompany,
+  downloadCompanyReport,
   getCompanyById,
   linkCompanyEsgMetrics,
   listCompanyEsgMetrics,
@@ -170,6 +172,16 @@ describe('companiesApi', () => {
     ]);
     expect(request).toHaveBeenCalledWith(
       '/api/customers/customer-9/esg-metrics'
+    );
+  });
+
+  it('downloads the executive report from the customer-scoped route', async () => {
+    const file = { blob: new Blob(['%PDF']), fileName: 'relatorio.pdf' };
+    vi.mocked(requestFile).mockResolvedValue(file);
+
+    await expect(downloadCompanyReport('company-1')).resolves.toBe(file);
+    expect(requestFile).toHaveBeenCalledWith(
+      '/api/customers/company-1/report.pdf'
     );
   });
 });

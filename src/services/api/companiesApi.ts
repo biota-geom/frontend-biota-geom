@@ -4,7 +4,7 @@ import type {
 } from '../../features/companies/createCompany.types';
 import type { Company, EsgIndicator } from '../../features/companies/types';
 import { toCompanyStatus } from './customersApi';
-import { request } from './http';
+import { request, requestFile, type DownloadedFile } from './http';
 import type {
   CustomerCreatedWire,
   CustomerDetailWire,
@@ -83,4 +83,10 @@ export async function listCompanyEsgMetrics(
     name: metric.name,
     unit: metric.unit,
   }));
+}
+
+export async function downloadCompanyReport(
+  companyId: string
+): Promise<DownloadedFile> {
+  return requestFile(`/api/customers/${companyId}/report.pdf`);
 }

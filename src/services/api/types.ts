@@ -204,6 +204,25 @@ export interface LicenseRenewedWire {
   status: string;
 }
 
+/* One item of the `conditions` JSON field sent with POST /licenses/:id/renew. */
+export interface RenewalConditionWire {
+  condition_id: string;
+  fulfilled: boolean;
+  copy_to_new: boolean;
+  new_due_date?: string;
+}
+
+/* GET /licenses/:licenseId/history, newest version first. */
+export interface LicenseHistoryItemWire {
+  id: string;
+  customer_id: string;
+  process_number: string;
+  issue_date: string;
+  expiration_date: string;
+  status: string;
+  is_current: boolean;
+}
+
 /*
  * GET /customers/:customerId/licenses. Its `licenses[].type`/`status` are
  * already PT-BR display labels ("Licença Prévia (LP)", "Vencida"), unlike
@@ -392,13 +411,4 @@ export interface IndicatorSummaryWire {
 export interface EsgIndicatorsSummaryWire {
   reference_month: string | null;
   indicators: IndicatorSummaryWire[];
-}
-
-export interface ConditionFulfillmentItemWire {
-  condition_id: string;
-  fulfilled: boolean;
-}
-
-export interface SaveConditionsFulfillmentRequestWire {
-  items: ConditionFulfillmentItemWire[];
 }

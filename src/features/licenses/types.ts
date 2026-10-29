@@ -51,6 +51,16 @@ export interface LicenseRenewed {
   status: string;
 }
 
+export interface LicenseVersion {
+  id: string;
+  processNumber: string;
+  issueDate: string;
+  expirationDate: string;
+  status: string;
+  /** True for the license that was requested; the others are previous versions. */
+  isCurrent: boolean;
+}
+
 export interface LicenseSummary {
   total: number;
   regular: number;
@@ -118,21 +128,13 @@ export interface LicenseExtraction {
   suggestedConditions: SuggestedCondition[];
 }
 
-export interface ConditionFulfillmentItem {
+/** What the renewal decides for each condition of the previous license. */
+export interface RenewalConditionDecision {
   conditionId: string;
   fulfilled: boolean;
-}
-
-/**
- * One row in the ConditionFulfillmentList component.
- * `fulfilled` is `undefined` when the user hasn't answered yet.
- */
-export interface ConditionFulfillmentRow {
-  conditionId: string;
-  itemNumber: string | null;
-  description: string | null;
-  conditionType: string | null;
-  fulfilled: boolean | undefined;
+  copyToNew: boolean;
+  /** `YYYY-MM-DD`; only present when `copyToNew` is true. */
+  newDueDate?: string;
 }
 
 export interface LicenseDashboardHeader {
