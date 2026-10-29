@@ -225,7 +225,7 @@ describe('NewLicenseModal — AI pre-fill', () => {
     expect(within(dialog).getByLabelText('Descritor ambiental')).toHaveValue(
       'Empreendimento'
     );
-    expect(within(dialog).getByLabelText('Descrição')).toHaveValue(
+    expect(within(dialog).getByLabelText(/^Descrição/)).toHaveValue(
       'Apresentar relatório anual de frota.'
     );
     expect(within(dialog).getByLabelText('Prazo')).toHaveValue('2026-12-31');

@@ -137,7 +137,7 @@ async function fillConditionRow(
     })
   );
   const dialog = screen.getByRole('dialog', { name: 'Nova Condicionante' });
-  await user.type(within(dialog).getByLabelText('Descrição'), description);
+  await user.type(within(dialog).getByLabelText(/^Descrição/), description);
   await user.click(within(dialog).getByRole('combobox', { name: 'Tipo' }));
   await user.click(await screen.findByRole('option', { name: 'Periódico' }));
   await user.click(

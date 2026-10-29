@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, useWatch, type Control } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/shadcn/select';
+import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
   CONDITION_PERIODICITIES,
   CONDITION_TYPES,
@@ -544,19 +545,19 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-h-[92vh] gap-5 overflow-y-auto p-6 sm:max-w-3xl">
+        <DialogHeader className="gap-1.5 border-b border-border pb-5">
+          <DialogTitle className="text-lg font-bold text-text-primary">
             {isEdit ? 'Editar Condicionante' : 'Nova Condicionante'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs text-text-secondary">
             {isEdit
               ? 'Revise e complete os dados da condicionante.'
               : `Adicione uma condicionante ao descritor ambiental “${state.descriptor}”.`}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 max-[560px]:grid-cols-1">
           {isEdit ? (
             <div className="col-span-2 max-[560px]:col-span-1">
               <DialogField
@@ -579,12 +580,13 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
             </div>
           ) : null}
 
-          <DialogField
-            error={errors.description}
-            id="new-condition-description"
-            label="Descrição"
-          >
-            <Input
+          <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
+            <Label className={FIELD_LABEL} htmlFor="new-condition-description">
+              Descrição *
+            </Label>
+            <Textarea
+              aria-invalid={Boolean(errors.description)}
+              className="min-h-[120px] text-[15px]"
               id="new-condition-description"
               maxLength={500}
               onChange={(event) =>
@@ -593,10 +595,13 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
               placeholder="Descreva a condicionante"
               value={condition.description}
             />
-          </DialogField>
+            <FieldError message={errors.description} />
+          </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="new-condition-type">Tipo</Label>
+            <Label className={FIELD_LABEL} htmlFor="new-condition-type">
+              Tipo
+            </Label>
             <Select
               onValueChange={(value) =>
                 updateCondition({
@@ -608,7 +613,7 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
             >
               <SelectTrigger
                 aria-invalid={Boolean(errors.conditionType)}
-                className="w-full"
+                className={SELECT_TRIGGER}
                 id="new-condition-type"
               >
                 <SelectValue placeholder="Selecione o tipo" />
@@ -625,7 +630,9 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="new-condition-periodicity">Periodicidade</Label>
+            <Label className={FIELD_LABEL} htmlFor="new-condition-periodicity">
+              Periodicidade
+            </Label>
             <Select
               disabled={condition.conditionType !== 'PERIODIC'}
               onValueChange={(value) => updateCondition({ periodicity: value })}
@@ -633,7 +640,7 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
             >
               <SelectTrigger
                 aria-invalid={Boolean(errors.periodicity)}
-                className="w-full"
+                className={SELECT_TRIGGER}
                 id="new-condition-periodicity"
               >
                 <SelectValue
@@ -686,20 +693,26 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
             />
           </DialogField>
 
-          <label className="flex items-center gap-2 self-end pb-2 text-sm font-semibold text-text-primary">
+          <label className="col-span-2 flex w-fit cursor-pointer items-center gap-2.5 text-[15px] text-text-primary max-[560px]:col-span-1">
             <input
               checked={condition.hasDelivery}
-              className="h-4 w-4 accent-emerald-600"
+              className="peer sr-only"
               onChange={(event) =>
                 updateCondition({ hasDelivery: event.target.checked })
               }
               type="checkbox"
             />
+            <span
+              aria-hidden="true"
+              className="flex size-5 items-center justify-center rounded-full border-2 border-border text-white transition-colors peer-checked:border-text-primary peer-checked:bg-text-primary peer-focus-visible:ring-3 peer-focus-visible:ring-focus/30 [&>svg]:opacity-0 peer-checked:[&>svg]:opacity-100"
+            >
+              <Check size={12} strokeWidth={3.5} />
+            </span>
             Possui entrega?
           </label>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mx-0 mb-0 rounded-none border-t border-border bg-transparent px-0 pt-5 pb-0">
           <Button onClick={onClose} type="button" variant="subtle">
             Cancelar
           </Button>
@@ -716,6 +729,12 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
   );
 }
 
+/* Field label of the condition dialog: lighter than the default form label. */
+const FIELD_LABEL = 'font-normal text-sm text-text-secondary';
+/* Matches the 42px `field` input shell next to it. */
+const SELECT_TRIGGER =
+  'w-full rounded-control border-border bg-surface px-3 text-[15px] text-text-primary shadow-control data-[size=default]:h-[42px]';
+
 function DialogField({
   children,
   error,
@@ -729,7 +748,9 @@ function DialogField({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label className={FIELD_LABEL} htmlFor={id}>
+        {label}
+      </Label>
       <InputGroup aria-invalid={Boolean(error)} variant="field">
         {children}
       </InputGroup>
