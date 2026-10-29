@@ -144,6 +144,12 @@
     min-height: 100svh;
   }
 
+  a[href],
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
   /* Tailwind v4 defaults `border-color` to currentColor; shadcn components
      assume the themed border instead. */
   * {

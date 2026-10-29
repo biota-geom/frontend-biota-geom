@@ -36,3 +36,7 @@ export async function listCompanies(): Promise<CompanyListItem[]> {
   const wire = await request<CustomerWire[]>('/api/customers');
   return wire.map(toCompanyListItem);
 }
+
+export async function deleteCompany(companyId: string): Promise<void> {
+  await request<void>(`/api/customers/${companyId}`, { method: 'DELETE' });
+}

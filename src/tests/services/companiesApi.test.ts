@@ -12,8 +12,10 @@ const {
   createCompany,
   downloadCompanyReport,
   getCompanyById,
+  getCompanyForEdit,
   linkCompanyEsgMetrics,
   listCompanyEsgMetrics,
+  updateCompany,
 } = await import('../../services/api/companiesApi');
 
 const CREATE_REQUEST: CreateCompanyRequest = {
@@ -98,6 +100,47 @@ describe('companiesApi', () => {
       status: 'active',
       segment: '',
       location: '',
+    });
+  });
+
+  it('maps the editable company details from the customer endpoint', async () => {
+    vi.mocked(request).mockResolvedValue({
+      id: 'company-4',
+      name: 'Unidade Editável',
+      document: '12345678000199',
+      document_type: 'CNPJ',
+      status: 'active',
+      responsible_name: 'Ana Silva',
+      responsible_email: 'ana@empresa.com',
+      sector_id: 'sector-4',
+      sector: { id: 'sector-4', name: 'Agronegócio' },
+      address: { city: 'Canoas', state: 'RS' },
+    });
+
+    await expect(getCompanyForEdit('company-4')).resolves.toEqual({
+      name: 'Unidade Editável',
+      sectorId: 'sector-4',
+      responsibleName: 'Ana Silva',
+      responsibleEmail: 'ana@empresa.com',
+      city: 'Canoas',
+      state: 'RS',
+    });
+  });
+
+  it('updates a company using the existing PUT contract', async () => {
+    const input = {
+      name: 'Unidade Atualizada',
+      sector_id: 'sector-4',
+      responsible_name: 'Ana Silva',
+      responsible_email: 'ana@empresa.com',
+      address: { city: 'Canoas', state: 'RS' },
+    };
+
+    await updateCompany('company-4', input);
+
+    expect(request).toHaveBeenCalledWith('/api/customers/company-4', {
+      method: 'PUT',
+      body: input,
     });
   });
 

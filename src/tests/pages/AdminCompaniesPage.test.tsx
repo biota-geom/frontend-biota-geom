@@ -35,7 +35,9 @@ vi.mock('../../services/api/sectorsApi', () => ({
 vi.mock('../../services/api/companiesApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/api/companiesApi')>()),
   createCompany: vi.fn(),
+  getCompanyForEdit: vi.fn(),
   linkCompanyEsgMetrics: vi.fn(),
+  updateCompany: vi.fn(),
 }));
 
 const customersApi = await import('../../services/api/customersApi');
@@ -190,6 +192,51 @@ describe('AdminCompaniesPage', () => {
     expect(
       screen.queryByRole('link', { name: /configurações/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('edits a company and reloads the listing after saving', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    vi.mocked(companiesApi.getCompanyForEdit).mockResolvedValue({
+      name: COMPANIES[0].name,
+      sectorId: 'sector-siderurgia',
+      responsibleName: 'Maria Silva',
+      responsibleEmail: 'maria@empresa.com',
+      city: 'Porto Alegre',
+      state: 'RS',
+    });
+    vi.mocked(companiesApi.updateCompany).mockResolvedValue(undefined);
+    const user = setupUser();
+    renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Editar ${COMPANIES[0].name}`,
+      })
+    );
+    expect(
+      await screen.findByRole('dialog', { name: /editar empresa/i })
+    ).toBeInTheDocument();
+
+    const nameInput = screen.getByLabelText(/nome da empresa/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Unidade Atualizada');
+    await user.click(
+      screen.getByRole('button', { name: /salvar alterações/i })
+    );
+
+    await waitFor(() => {
+      expect(companiesApi.updateCompany).toHaveBeenCalledWith('customer-1', {
+        name: 'Unidade Atualizada',
+        sector_id: 'sector-siderurgia',
+        responsible_name: 'Maria Silva',
+        responsible_email: 'maria@empresa.com',
+        address: { city: 'Porto Alegre', state: 'RS' },
+      });
+      expect(
+        screen.queryByRole('dialog', { name: /editar empresa/i })
+      ).not.toBeInTheDocument();
+    });
+    expect(customersApi.listCompanies).toHaveBeenCalledTimes(2);
   });
 
   it("shows each company's license total and last update date on its card", async () => {
