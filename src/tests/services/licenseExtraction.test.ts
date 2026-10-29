@@ -85,16 +85,36 @@ describe('mergeSuggestedConditions', () => {
     );
     const merged = mergeSuggestedConditions(
       [existing],
-      [
-        suggestion('manter o  MTR no veiculo'),
-        suggestion('Nova'),
-        suggestion('Nova'),
-      ]
+      [suggestion('manter o  MTR no veiculo'), suggestion('Nova')]
     );
 
     expect(merged.map((row) => row.description)).toEqual([
       'Manter o MTR no veículo.',
       'Nova',
     ]);
+  });
+
+  it('keeps an obligation the license repeats under another item number', () => {
+    const merged = mergeSuggestedConditions(
+      [],
+      [
+        suggestion('Portar o MTR'),
+        suggestion('Outra'),
+        suggestion('Portar o MTR'),
+      ]
+    );
+
+    expect(merged.map((row) => row.description)).toEqual([
+      'Portar o MTR',
+      'Outra',
+      'Portar o MTR',
+    ]);
+  });
+
+  it('does not duplicate rows when the same reading is merged again', () => {
+    const reading = [suggestion('Portar o MTR'), suggestion('Portar o MTR')];
+    const first = mergeSuggestedConditions([], reading);
+
+    expect(mergeSuggestedConditions(first, reading)).toHaveLength(2);
   });
 });

@@ -49,22 +49,20 @@ export function toLicenseConditionRow(
 
 /**
  * Appends the suggestions to the conditions already in the form, skipping
- * any whose description is already there — re-selecting the same PDF must
- * not duplicate rows nor replace ones the user has edited.
+ * any whose description was already there before this reading — re-selecting
+ * the same PDF must not duplicate rows nor replace ones the user has edited.
+ *
+ * Repeats inside one reading are kept: licenses often state the same
+ * obligation under different item numbers, and each one is a condition.
  */
 export function mergeSuggestedConditions(
   current: LicenseConditionRow[],
   suggestions: SuggestedCondition[]
 ): LicenseConditionRow[] {
   const known = new Set(current.map((row) => normalize(row.description)));
-  const added: LicenseConditionRow[] = [];
-
-  for (const suggestion of suggestions) {
-    const key = normalize(suggestion.description);
-    if (known.has(key)) continue;
-    known.add(key);
-    added.push(toLicenseConditionRow(suggestion));
-  }
+  const added = suggestions
+    .filter((suggestion) => !known.has(normalize(suggestion.description)))
+    .map(toLicenseConditionRow);
 
   return [...current, ...added];
 }
