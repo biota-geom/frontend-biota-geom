@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, useWatch, type Control } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/shadcn/select';
+import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
   CONDITION_PERIODICITIES,
   CONDITION_TYPES,
@@ -64,21 +65,61 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
   title = 'Condicionantes',
 }: LicenseConditionsTableProps<TForm>) {
   const control = hostControl as unknown as Control<ConditionsFormValues>;
-  const { append, fields, insert, remove } = useFieldArray({
+  const { append, fields, insert, remove, replace, update } = useFieldArray({
     control,
     name: 'conditions',
   });
   const conditions =
     useWatch({ control, name: 'conditions' }) ?? ([] as LicenseConditionRow[]);
-  const [environmentalDescriptors, setEnvironmentalDescriptors] = useState<
-    string[]
-  >([]);
+  const [addedDescriptors, setAddedDescriptors] = useState<string[]>([]);
   const [isDescriptorDialogOpen, setIsDescriptorDialogOpen] = useState(false);
   const [newDescriptor, setNewDescriptor] = useState('');
   const [descriptorError, setDescriptorError] = useState<string | null>(null);
-  const [conditionDescriptor, setConditionDescriptor] = useState<string | null>(
-    null
+  const [conditionDialog, setConditionDialog] =
+    useState<ConditionDialogState | null>(null);
+  /* Remounts the dialog per opening so it starts from its initial values. */
+  const [dialogKey, setDialogKey] = useState(0);
+  const [isBulkFillOpen, setIsBulkFillOpen] = useState(false);
+
+  /*
+   * Groups come from the descriptors added through the dialog plus those of
+   * the conditions already in the form — e.g. the ones suggested by the AI
+   * reading of the PDF — in order of first appearance.
+   */
+  const environmentalDescriptors = Array.from(
+    new Set([
+      ...addedDescriptors,
+      ...conditions.map((condition) => condition.environmentalDescriptor),
+    ])
   );
+  const incompleteCount = conditions.filter(
+    (condition) => !licenseConditionRowSchema.safeParse(condition).success
+  ).length;
+  // A PDF never states who is responsible for a condition, and rarely its
+  // deadline, so every suggested row starts without them.
+  const unassignedCount = conditions.filter(isUnassigned).length;
+
+  /*
+   * Fills the responsible and the deadline only where they are still empty,
+   * so a value the user already set on a row is never replaced.
+   */
+  function fillUnassigned({ deadline, responsibleName }: BulkAssignment) {
+    replace(
+      conditions.map((condition) => ({
+        ...condition,
+        responsibleName: condition.responsibleName.trim()
+          ? condition.responsibleName
+          : responsibleName,
+        deadline: condition.deadline || deadline,
+      }))
+    );
+    setIsBulkFillOpen(false);
+  }
+
+  function openConditionDialog(state: ConditionDialogState) {
+    setDialogKey((key) => key + 1);
+    setConditionDialog(state);
+  }
 
   function openDescriptorDialog() {
     setNewDescriptor('');
@@ -105,7 +146,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
       return;
     }
 
-    setEnvironmentalDescriptors((current) => [...current, descriptor]);
+    setAddedDescriptors((current) => [...current, descriptor]);
     setIsDescriptorDialogOpen(false);
   }
 
@@ -123,7 +164,12 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
     if (insertionIndex === -1) append(condition);
     else insert(insertionIndex, condition);
 
-    setConditionDescriptor(null);
+    setConditionDialog(null);
+  }
+
+  function editCondition(index: number, condition: LicenseConditionRow) {
+    update(index, condition);
+    setConditionDialog(null);
   }
 
   function removeEnvironmentalDescriptor(descriptor: string) {
@@ -136,7 +182,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
     );
 
     if (conditionIndexes.length > 0) remove(conditionIndexes);
-    setEnvironmentalDescriptors((current) =>
+    setAddedDescriptors((current) =>
       current.filter((item) => item !== descriptor)
     );
   }
@@ -155,6 +201,30 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
         </h3>
         <p className="m-0 text-[13px] text-text-secondary">{description}</p>
       </div>
+
+      {incompleteCount > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-[#fedf89] bg-[#fffaeb] px-3 py-2">
+          <p
+            className="m-0 text-[13px] font-semibold text-[#b54708]"
+            role="status"
+          >
+            {incompleteCount === 1
+              ? '1 condicionante está com dados pendentes.'
+              : `${incompleteCount} condicionantes estão com dados pendentes.`}{' '}
+            Use o botão de editar (lápis) para completá-las.
+          </p>
+          {unassignedCount > 0 ? (
+            <Button
+              disabled={disabled}
+              onClick={() => setIsBulkFillOpen(true)}
+              type="button"
+              variant="addRow"
+            >
+              Preencher em lote
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {environmentalDescriptors.length > 0 ? (
         <div className="rounded-panel overflow-x-auto border border-border">
@@ -189,7 +259,16 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
                     descriptorIndex={descriptorIndex}
                     disabled={disabled}
                     key={descriptor}
-                    onAddCondition={() => setConditionDescriptor(descriptor)}
+                    onAddCondition={() =>
+                      openConditionDialog({ mode: 'add', descriptor })
+                    }
+                    onEditCondition={(index) =>
+                      openConditionDialog({
+                        mode: 'edit',
+                        index,
+                        initial: conditions[index],
+                      })
+                    }
                     onRemoveCondition={remove}
                     onRemoveDescriptor={() =>
                       removeEnvironmentalDescriptor(descriptor)
@@ -274,15 +353,32 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
         </DialogContent>
       </Dialog>
 
-      <ConditionDialog
-        descriptor={conditionDescriptor}
-        onAdd={addCondition}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) setConditionDescriptor(null);
-        }}
-      />
+      {conditionDialog ? (
+        <ConditionDialog
+          key={dialogKey}
+          onClose={() => setConditionDialog(null)}
+          onSubmit={(condition) =>
+            conditionDialog.mode === 'add'
+              ? addCondition(condition)
+              : editCondition(conditionDialog.index, condition)
+          }
+          state={conditionDialog}
+        />
+      ) : null}
+
+      {isBulkFillOpen ? (
+        <BulkFillDialog
+          onClose={() => setIsBulkFillOpen(false)}
+          onSubmit={fillUnassigned}
+          unassignedCount={unassignedCount}
+        />
+      ) : null}
     </section>
   );
+}
+
+function isUnassigned(condition: LicenseConditionRow) {
+  return !condition.responsibleName.trim() || !condition.deadline;
 }
 
 type EnvironmentalDescriptorRowsProps = {
@@ -295,9 +391,15 @@ type EnvironmentalDescriptorRowsProps = {
   descriptorIndex: number;
   disabled: boolean;
   onAddCondition: () => void;
+  onEditCondition: (index: number) => void;
   onRemoveCondition: (index: number) => void;
   onRemoveDescriptor: () => void;
 };
+
+/* Placeholder for a required value still missing (e.g. not in the PDF). */
+function Pending() {
+  return <span className="font-semibold text-[#b54708]">Preencher</span>;
+}
 
 function EnvironmentalDescriptorRows({
   conditions,
@@ -306,35 +408,48 @@ function EnvironmentalDescriptorRows({
   descriptorIndex,
   disabled,
   onAddCondition,
+  onEditCondition,
   onRemoveCondition,
   onRemoveDescriptor,
 }: EnvironmentalDescriptorRowsProps) {
   const descriptorNumber = descriptorIndex + 1;
+  // Conditions read from the PDF may come without a descriptor; they are
+  // grouped here until the user sets one through the edit button.
+  const hasDescriptor = descriptor.trim() !== '';
+  const descriptorRemovalLabel = hasDescriptor
+    ? `Remover descritor ambiental ${descriptor}`
+    : 'Remover condicionantes sem descritor ambiental';
 
   return (
     <>
       <tr className="border-t border-border bg-slate-100 font-bold text-text-primary">
         <td className="w-[72px] px-3 py-2.5">{descriptorNumber}</td>
         <td className="px-3 py-2.5" colSpan={5}>
-          {descriptor}
+          {hasDescriptor ? (
+            descriptor
+          ) : (
+            <span className="text-[#b54708]">Sem descritor ambiental</span>
+          )}
         </td>
         <td className="px-3 py-2.5" colSpan={2}>
           <div className="flex items-center justify-end gap-2">
+            {hasDescriptor ? (
+              <Button
+                aria-label={`Adicionar condicionante em ${descriptor}`}
+                disabled={disabled}
+                onClick={onAddCondition}
+                type="button"
+                variant="addRow"
+              >
+                <Plus aria-hidden="true" size={15} />
+                Adicionar Condicionante
+              </Button>
+            ) : null}
             <Button
-              aria-label={`Adicionar condicionante em ${descriptor}`}
-              disabled={disabled}
-              onClick={onAddCondition}
-              type="button"
-              variant="addRow"
-            >
-              <Plus aria-hidden="true" size={15} />
-              Adicionar Condicionante
-            </Button>
-            <Button
-              aria-label={`Remover descritor ambiental ${descriptor}`}
+              aria-label={descriptorRemovalLabel}
               disabled={disabled}
               onClick={onRemoveDescriptor}
-              title={`Remover descritor ambiental ${descriptor}`}
+              title={descriptorRemovalLabel}
               type="button"
               variant="iconDanger"
             >
@@ -347,42 +462,73 @@ function EnvironmentalDescriptorRows({
       {descriptorConditions.map(({ conditionIndex, field }, itemIndex) => {
         const condition = conditions[conditionIndex];
         const itemNumber = `${descriptorNumber}.${itemIndex + 1}`;
+        const isIncomplete =
+          !licenseConditionRowSchema.safeParse(condition).success;
+        const needsPeriodicity =
+          condition.conditionType === 'PERIODIC' && !condition.periodicity;
 
         return (
-          <tr className="border-t border-border bg-white" key={field.id}>
+          <tr
+            className={`border-t border-border ${isIncomplete ? 'bg-[#fffaeb]' : 'bg-white'}`}
+            data-incomplete={isIncomplete || undefined}
+            key={field.id}
+          >
             <td className="px-3 py-2.5 text-text-secondary">{itemNumber}</td>
             <td className="max-w-[280px] px-3 py-2.5 pl-8 text-text-primary">
               <span className="block truncate" title={condition.description}>
-                {condition.description}
+                {condition.description || <Pending />}
               </span>
             </td>
             <td className="px-3 py-2.5 text-emerald-700">
-              {formatConditionType(condition.conditionType)}
+              {condition.conditionType ? (
+                formatConditionType(condition.conditionType)
+              ) : (
+                <Pending />
+              )}
             </td>
             <td className="px-3 py-2.5 text-text-secondary">
-              {condition.periodicity
-                ? formatConditionPeriodicity(condition.periodicity)
-                : 'N/A'}
+              {needsPeriodicity ? (
+                <Pending />
+              ) : condition.periodicity ? (
+                formatConditionPeriodicity(condition.periodicity)
+              ) : (
+                'N/A'
+              )}
             </td>
             <td className="px-3 py-2.5 text-text-secondary">
-              {formatDeadline(condition.deadline)}
+              {condition.deadline ? (
+                formatDeadline(condition.deadline)
+              ) : (
+                <Pending />
+              )}
             </td>
             <td className="px-3 py-2.5 text-text-primary">
-              {condition.responsibleName}
+              {condition.responsibleName || <Pending />}
             </td>
             <td className="px-3 py-2.5 text-text-secondary">
               {condition.hasDelivery ? 'Sim' : 'Não'}
             </td>
-            <td className="px-2 py-2 text-right">
-              <Button
-                aria-label={`Remover condicionante ${itemNumber}`}
-                disabled={disabled}
-                onClick={() => onRemoveCondition(conditionIndex)}
-                type="button"
-                variant="iconDanger"
-              >
-                <Trash2 aria-hidden="true" size={14} />
-              </Button>
+            <td className="px-2 py-2">
+              <div className="flex items-center justify-end gap-1.5">
+                <Button
+                  aria-label={`Editar condicionante ${itemNumber}`}
+                  disabled={disabled}
+                  onClick={() => onEditCondition(conditionIndex)}
+                  type="button"
+                  variant="iconSoft"
+                >
+                  <Pencil aria-hidden="true" size={14} />
+                </Button>
+                <Button
+                  aria-label={`Remover condicionante ${itemNumber}`}
+                  disabled={disabled}
+                  onClick={() => onRemoveCondition(conditionIndex)}
+                  type="button"
+                  variant="iconDanger"
+                >
+                  <Trash2 aria-hidden="true" size={14} />
+                </Button>
+              </div>
             </td>
           </tr>
         );
@@ -391,27 +537,29 @@ function EnvironmentalDescriptorRows({
   );
 }
 
+type ConditionDialogState =
+  | { mode: 'add'; descriptor: string }
+  | { mode: 'edit'; index: number; initial: LicenseConditionRow };
+
 type ConditionDialogProps = {
-  descriptor: string | null;
-  onAdd: (condition: LicenseConditionRow) => void;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
+  onSubmit: (condition: LicenseConditionRow) => void;
+  state: ConditionDialogState;
 };
 
-function ConditionDialog({
-  descriptor,
-  onAdd,
-  onOpenChange,
-}: ConditionDialogProps) {
-  const [condition, setCondition] = useState<LicenseConditionRow>({
-    ...EMPTY_CONDITION_ROW,
-  });
+/*
+ * Adds a condition to a descriptor group, or edits an existing one — e.g. to
+ * complete what the AI could not read from the PDF. Mounted per opening, so
+ * its local state always starts from the condition being edited.
+ */
+function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
+  const isEdit = state.mode === 'edit';
+  const [condition, setCondition] = useState<LicenseConditionRow>(
+    isEdit
+      ? { ...state.initial }
+      : { ...EMPTY_CONDITION_ROW, environmentalDescriptor: state.descriptor }
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  function close() {
-    setCondition({ ...EMPTY_CONDITION_ROW });
-    setErrors({});
-    onOpenChange(false);
-  }
 
   function updateCondition(patch: Partial<LicenseConditionRow>) {
     setCondition((current) => ({ ...current, ...patch }));
@@ -425,9 +573,7 @@ function ConditionDialog({
   }
 
   function submitCondition() {
-    if (!descriptor) return;
-    const candidate = { ...condition, environmentalDescriptor: descriptor };
-    const result = licenseConditionRowSchema.safeParse(candidate);
+    const result = licenseConditionRowSchema.safeParse(condition);
 
     if (!result.success) {
       const nextErrors: Record<string, string> = {};
@@ -439,31 +585,53 @@ function ConditionDialog({
       return;
     }
 
-    onAdd(result.data);
-    setCondition({ ...EMPTY_CONDITION_ROW });
-    setErrors({});
+    onSubmit(result.data);
   }
 
   return (
-    <Dialog
-      onOpenChange={(open) => !open && close()}
-      open={descriptor !== null}
-    >
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Nova Condicionante</DialogTitle>
-          <DialogDescription>
-            Adicione uma condicionante ao descritor ambiental “{descriptor}”.
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
+      <DialogContent className="max-h-[92vh] gap-5 overflow-y-auto p-6 sm:max-w-3xl">
+        <DialogHeader className="gap-1.5 border-b border-border pb-5">
+          <DialogTitle className="text-lg font-bold text-text-primary">
+            {isEdit ? 'Editar Condicionante' : 'Nova Condicionante'}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-text-secondary">
+            {isEdit
+              ? 'Revise e complete os dados da condicionante.'
+              : `Adicione uma condicionante ao descritor ambiental “${state.descriptor}”.`}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
-          <DialogField
-            error={errors.description}
-            id="new-condition-description"
-            label="Descrição"
-          >
-            <Input
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 max-[560px]:grid-cols-1">
+          {isEdit ? (
+            <div className="col-span-2 max-[560px]:col-span-1">
+              <DialogField
+                error={errors.environmentalDescriptor}
+                id="new-condition-descriptor"
+                label="Descritor ambiental"
+              >
+                <Input
+                  id="new-condition-descriptor"
+                  maxLength={120}
+                  onChange={(event) =>
+                    updateCondition({
+                      environmentalDescriptor: event.target.value,
+                    })
+                  }
+                  placeholder="Ex: Resíduos sólidos"
+                  value={condition.environmentalDescriptor}
+                />
+              </DialogField>
+            </div>
+          ) : null}
+
+          <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
+            <Label className={FIELD_LABEL} htmlFor="new-condition-description">
+              Descrição *
+            </Label>
+            <Textarea
+              aria-invalid={Boolean(errors.description)}
+              className="min-h-[120px] text-[15px]"
               id="new-condition-description"
               maxLength={500}
               onChange={(event) =>
@@ -472,10 +640,13 @@ function ConditionDialog({
               placeholder="Descreva a condicionante"
               value={condition.description}
             />
-          </DialogField>
+            <FieldError message={errors.description} />
+          </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="new-condition-type">Tipo</Label>
+            <Label className={FIELD_LABEL} htmlFor="new-condition-type">
+              Tipo
+            </Label>
             <Select
               onValueChange={(value) =>
                 updateCondition({
@@ -487,7 +658,7 @@ function ConditionDialog({
             >
               <SelectTrigger
                 aria-invalid={Boolean(errors.conditionType)}
-                className="w-full"
+                className={SELECT_TRIGGER}
                 id="new-condition-type"
               >
                 <SelectValue placeholder="Selecione o tipo" />
@@ -504,7 +675,9 @@ function ConditionDialog({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="new-condition-periodicity">Periodicidade</Label>
+            <Label className={FIELD_LABEL} htmlFor="new-condition-periodicity">
+              Periodicidade
+            </Label>
             <Select
               disabled={condition.conditionType !== 'PERIODIC'}
               onValueChange={(value) => updateCondition({ periodicity: value })}
@@ -512,7 +685,7 @@ function ConditionDialog({
             >
               <SelectTrigger
                 aria-invalid={Boolean(errors.periodicity)}
-                className="w-full"
+                className={SELECT_TRIGGER}
                 id="new-condition-periodicity"
               >
                 <SelectValue
@@ -565,21 +738,27 @@ function ConditionDialog({
             />
           </DialogField>
 
-          <label className="flex items-center gap-2 self-end pb-2 text-sm font-semibold text-text-primary">
+          <label className="col-span-2 flex w-fit cursor-pointer items-center gap-2.5 text-[15px] text-text-primary max-[560px]:col-span-1">
             <input
               checked={condition.hasDelivery}
-              className="h-4 w-4 accent-emerald-600"
+              className="peer sr-only"
               onChange={(event) =>
                 updateCondition({ hasDelivery: event.target.checked })
               }
               type="checkbox"
             />
+            <span
+              aria-hidden="true"
+              className="flex size-5 items-center justify-center rounded-full border-2 border-border text-white transition-colors peer-checked:border-text-primary peer-checked:bg-text-primary peer-focus-visible:ring-3 peer-focus-visible:ring-focus/30 [&>svg]:opacity-0 peer-checked:[&>svg]:opacity-100"
+            >
+              <Check size={12} strokeWidth={3.5} />
+            </span>
             Possui entrega?
           </label>
         </div>
 
-        <DialogFooter>
-          <Button onClick={close} type="button" variant="subtle">
+        <DialogFooter className="mx-0 mb-0 rounded-none border-t border-border bg-transparent px-0 pt-5 pb-0">
+          <Button onClick={onClose} type="button" variant="subtle">
             Cancelar
           </Button>
           <Button
@@ -587,13 +766,111 @@ function ConditionDialog({
             type="button"
             variant="dialogPrimary"
           >
-            Adicionar Condicionante
+            {isEdit ? 'Salvar Alterações' : 'Adicionar Condicionante'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+type BulkAssignment = Pick<LicenseConditionRow, 'deadline' | 'responsibleName'>;
+
+type BulkFillDialogProps = {
+  onClose: () => void;
+  onSubmit: (assignment: BulkAssignment) => void;
+  unassignedCount: number;
+};
+
+/*
+ * Sets the responsible and the deadline of every condition still missing
+ * them in one go — after an AI reading every row lacks both. Either field may
+ * be left blank to fill only the other one.
+ */
+function BulkFillDialog({
+  onClose,
+  onSubmit,
+  unassignedCount,
+}: BulkFillDialogProps) {
+  const [responsibleName, setResponsibleName] = useState('');
+  const [deadline, setDeadline] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  function submit() {
+    const name = responsibleName.trim();
+
+    if (!name && !deadline) {
+      setError('Informe o responsável, o prazo ou ambos.');
+      return;
+    }
+
+    onSubmit({ responsibleName: name, deadline });
+  }
+
+  return (
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
+      <DialogContent className="gap-5 p-6 sm:max-w-lg">
+        <DialogHeader className="gap-1.5 border-b border-border pb-5">
+          <DialogTitle className="text-lg font-bold text-text-primary">
+            Preencher em lote
+          </DialogTitle>
+          <DialogDescription className="text-xs text-text-secondary">
+            {unassignedCount === 1
+              ? 'Aplica o responsável e o prazo à condicionante que ainda não tem esses dados.'
+              : `Aplica o responsável e o prazo às ${unassignedCount} condicionantes que ainda não têm esses dados.`}{' '}
+            O que já foi preenchido não é alterado.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 max-[560px]:grid-cols-1">
+          <DialogField id="bulk-fill-responsible" label="Responsável">
+            <Input
+              id="bulk-fill-responsible"
+              maxLength={150}
+              onChange={(event) => {
+                setResponsibleName(event.target.value);
+                setError(null);
+              }}
+              placeholder="Nome do responsável"
+              value={responsibleName}
+            />
+          </DialogField>
+
+          <DialogField id="bulk-fill-deadline" label="Prazo">
+            <Input
+              id="bulk-fill-deadline"
+              onChange={(event) => {
+                setDeadline(event.target.value);
+                setError(null);
+              }}
+              type="date"
+              value={deadline}
+            />
+          </DialogField>
+
+          <div className="col-span-2 max-[560px]:col-span-1">
+            <FieldError message={error ?? undefined} />
+          </div>
+        </div>
+
+        <DialogFooter className="mx-0 mb-0 rounded-none border-t border-border bg-transparent px-0 pt-5 pb-0">
+          <Button onClick={onClose} type="button" variant="subtle">
+            Cancelar
+          </Button>
+          <Button onClick={submit} type="button" variant="dialogPrimary">
+            Aplicar às pendentes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* Field label of the condition dialog: lighter than the default form label. */
+const FIELD_LABEL = 'font-normal text-sm text-text-secondary';
+/* Matches the 42px `field` input shell next to it. */
+const SELECT_TRIGGER =
+  'w-full rounded-control border-border bg-surface px-3 text-[15px] text-text-primary shadow-control data-[size=default]:h-[42px]';
 
 function DialogField({
   children,
@@ -608,7 +885,9 @@ function DialogField({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label className={FIELD_LABEL} htmlFor={id}>
+        {label}
+      </Label>
       <InputGroup aria-invalid={Boolean(error)} variant="field">
         {children}
       </InputGroup>

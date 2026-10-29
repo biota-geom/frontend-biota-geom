@@ -10,6 +10,7 @@ import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
 vi.mock('../../services/api/licensesApi', () => ({
   createLicense: vi.fn(),
+  extractLicenseData: vi.fn(),
   getLicenseDocumentUrl: vi.fn(),
   listLicenses: vi.fn(),
 }));
@@ -136,7 +137,7 @@ async function fillConditionRow(
     })
   );
   const dialog = screen.getByRole('dialog', { name: 'Nova Condicionante' });
-  await user.type(within(dialog).getByLabelText('Descrição'), description);
+  await user.type(within(dialog).getByLabelText(/^Descrição/), description);
   await user.click(within(dialog).getByRole('combobox', { name: 'Tipo' }));
   await user.click(await screen.findByRole('option', { name: 'Periódico' }));
   await user.click(
@@ -185,6 +186,11 @@ describe('CompanyLicensesPage', () => {
       COMPANY_IN_CONTEXT,
     ]);
     vi.mocked(licensesApi.listLicenses).mockResolvedValue(LICENSES_PANEL);
+    // AI pre-fill is covered in NewLicenseModalExtraction.test.tsx; here the
+    // reading never finishes so the manual flow is exercised on its own.
+    vi.mocked(licensesApi.extractLicenseData).mockReturnValue(
+      new Promise(() => {})
+    );
   });
 
   it('opens the "Nova Licença" modal with free-text type and issuing agency fields', async () => {

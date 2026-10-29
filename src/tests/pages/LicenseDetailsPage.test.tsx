@@ -127,7 +127,7 @@ async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
     name: 'Nova Condicionante',
   });
   await user.type(
-    within(conditionDialog).getByLabelText('Descrição'),
+    within(conditionDialog).getByLabelText(/^Descrição/),
     'Monitoramento hidroquímico'
   );
   await user.click(
