@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   LicenseConditionDetail,
   LicenseDetails,
@@ -65,23 +65,33 @@ const LICENSE_WITH_CONDITIONS: LicenseDetails = {
 function renderModal(
   overrides: Partial<{
     license: LicenseDetails;
+    onConditionsOutdated: () => void;
     onOpenChange: (open: boolean) => void;
     onRenewed: (license: { id: string }) => void;
   }> = {}
 ) {
+  const onConditionsOutdated = overrides.onConditionsOutdated ?? vi.fn();
   const onOpenChange = overrides.onOpenChange ?? vi.fn();
   const onRenewed = overrides.onRenewed ?? vi.fn();
-
-  render(
+  const modal = (license: LicenseDetails) => (
     <RenewLicenseModal
-      license={overrides.license ?? LICENSE}
+      license={license}
+      onConditionsOutdated={onConditionsOutdated}
       onOpenChange={onOpenChange}
       onRenewed={onRenewed}
       open
     />
   );
 
-  return { onOpenChange, onRenewed };
+  const { rerender } = render(modal(overrides.license ?? LICENSE));
+
+  return {
+    onConditionsOutdated,
+    onOpenChange,
+    onRenewed,
+    // The page passes a reloaded license after onConditionsOutdated.
+    reload: (license: LicenseDetails) => rerender(modal(license)),
+  };
 }
 
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
@@ -152,12 +162,19 @@ async function markToCopy(
 
 describe('RenewLicenseModal', () => {
   beforeEach(() => {
+    // Only Date: userEvent still needs real timers.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 5, 15, 12));
     vi.clearAllMocks();
     vi.mocked(licensesApi.renewLicense).mockResolvedValue({
       id: 'license-2',
       previousLicenseId: 'license-1',
       status: 'Regular',
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('shows the current license type and a fallback when there is no issuing agency', async () => {
@@ -215,6 +232,22 @@ describe('RenewLicenseModal', () => {
     expect(
       await within(dialog).findByText('Licença já renovada/arquivada.')
     ).toBeInTheDocument();
+  });
+
+  it('only asks for a reload when the conditions are outdated', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.renewLicense).mockRejectedValue(
+      new ApiError(400, 'Licença já renovada/arquivada.')
+    );
+    const { onConditionsOutdated } = renderModal();
+
+    const dialog = await fillRequiredFields(user);
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Renovar Licença' })
+    );
+
+    await within(dialog).findByText('Licença já renovada/arquivada.');
+    expect(onConditionsOutdated).not.toHaveBeenCalled();
   });
 
   it('validates the date range before calling the API', async () => {
@@ -433,6 +466,114 @@ describe('RenewLicenseModal', () => {
           })
         ).getByRole('button', { name: 'Cumprida' })
       ).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('limits the new due date to tomorrow through the new expiration date', async () => {
+      const user = userEvent.setup();
+      renderModal({ license: LICENSE_WITH_CONDITIONS });
+
+      const dialog = await goToConditionsStep(user);
+      await user.click(
+        within(dialog).getByRole('checkbox', {
+          name: 'Copiar para a nova licença (condicionante 1.1)',
+        })
+      );
+
+      const dueDate = within(dialog).getByLabelText(
+        'Novo vencimento (condicionante 1.1)'
+      );
+      expect(dueDate).toHaveAttribute('min', '2026-06-16');
+      expect(dueDate).toHaveAttribute('max', '2030-01-10');
+    });
+
+    it.each([
+      ['today', '2026-06-15'],
+      ['after the new expiration date', '2030-01-11'],
+    ])(
+      'rejects a new due date set %s before calling the API',
+      async (_case, dueDate) => {
+        const user = userEvent.setup();
+        renderModal({ license: LICENSE_WITH_CONDITIONS });
+
+        const dialog = await goToConditionsStep(user);
+        await markFulfillment(user, dialog, '1.1', 'Cumprida');
+        await markFulfillment(user, dialog, '1.2', 'Cumprida');
+        await markFulfillment(user, dialog, '1.3', 'Cumprida');
+        await markToCopy(user, dialog, '1.2', dueDate);
+        await user.click(
+          within(dialog).getByRole('button', { name: 'Renovar Licença' })
+        );
+
+        expect(
+          await within(dialog).findByText(
+            'O novo vencimento das condicionantes copiadas deve ser uma data futura e não pode passar da validade da nova licença.'
+          )
+        ).toBeInTheDocument();
+        expect(licensesApi.renewLicense).not.toHaveBeenCalled();
+      }
+    );
+
+    it('reloads outdated conditions and keeps the answers that still apply', async () => {
+      const user = userEvent.setup();
+      vi.mocked(licensesApi.renewLicense).mockRejectedValueOnce(
+        new ApiError(
+          409,
+          'As condicionantes da licença anterior mudaram desde que a renovação foi aberta. Revise a lista atualizada e tente novamente.'
+        )
+      );
+      const { onConditionsOutdated, reload } = renderModal({
+        license: LICENSE_WITH_CONDITIONS,
+      });
+
+      const dialog = await goToConditionsStep(user);
+      await markFulfillment(user, dialog, '1.1', 'Cumprida');
+      await markFulfillment(user, dialog, '1.2', 'Não cumprida');
+      await markFulfillment(user, dialog, '1.3', 'Cumprida');
+      await markToCopy(user, dialog, '1.2', '2027-11-01');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Renovar Licença' })
+      );
+
+      expect(
+        await within(dialog).findByText(/mudaram desde que a renovação/)
+      ).toBeInTheDocument();
+      expect(onConditionsOutdated).toHaveBeenCalledTimes(1);
+
+      // Elsewhere, 1.2 was deleted and a new condition was added.
+      const [descriptor, first, , third] = LICENSE_WITH_CONDITIONS.conditions;
+      reload({
+        ...LICENSE_WITH_CONDITIONS,
+        conditions: [
+          descriptor!,
+          first!,
+          { ...third!, itemNumber: '1.2' },
+          condition('condition-4', '1.3', 'Novo relatório.'),
+        ],
+      });
+
+      const renewButton = within(dialog).getByRole('button', {
+        name: 'Renovar Licença',
+      });
+      expect(renewButton).toBeDisabled();
+      await markFulfillment(user, dialog, '1.3', 'Não cumprida');
+      await user.click(renewButton);
+
+      await waitFor(() =>
+        expect(licensesApi.renewLicense).toHaveBeenLastCalledWith(
+          'license-1',
+          expect.objectContaining({
+            conditions: [
+              { conditionId: 'condition-1', fulfilled: true, copyToNew: false },
+              { conditionId: 'condition-3', fulfilled: true, copyToNew: false },
+              {
+                conditionId: 'condition-4',
+                fulfilled: false,
+                copyToNew: false,
+              },
+            ],
+          })
+        )
+      );
     });
   });
 });

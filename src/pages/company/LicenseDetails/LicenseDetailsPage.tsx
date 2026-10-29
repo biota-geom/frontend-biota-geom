@@ -339,6 +339,7 @@ export function LicenseDetailsPage() {
       {details ? (
         <RenewLicenseModal
           license={details}
+          onConditionsOutdated={refetch}
           onOpenChange={setIsRenewModalOpen}
           onRenewed={handleRenewed}
           open={isRenewModalOpen}

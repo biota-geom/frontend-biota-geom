@@ -15,16 +15,17 @@ function formatDate(value: string): string {
 }
 
 /*
- * Read-only list of the previous versions of a renewed license, newest
- * first. Renders nothing for a license that was never renewed.
+ * Read-only list of the other versions in the license's renewal chain,
+ * newest first: the renewals that replaced it and the versions it replaced.
+ * Renders nothing for a license that was never renewed.
  */
 export function LicenseVersionHistory({
   companyId,
   versions,
 }: LicenseVersionHistoryProps) {
-  const previousVersions = versions.filter((version) => !version.isCurrent);
+  const otherVersions = versions.filter((version) => !version.isCurrent);
 
-  if (previousVersions.length === 0) return null;
+  if (otherVersions.length === 0) return null;
 
   return (
     <section
@@ -35,7 +36,7 @@ export function LicenseVersionHistory({
         Histórico de versões
       </h2>
       <ul className="m-0 list-none divide-y divide-border p-0">
-        {previousVersions.map((version) => (
+        {otherVersions.map((version) => (
           <li
             className="flex items-center justify-between gap-4 px-4 py-3 text-xs max-[640px]:flex-col max-[640px]:items-start"
             key={version.id}

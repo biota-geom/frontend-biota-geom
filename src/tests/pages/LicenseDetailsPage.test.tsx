@@ -549,6 +549,91 @@ describe('LicenseDetailsPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('lists the newer versions when viewing an older one', async () => {
+    vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([
+      {
+        id: 'license-2',
+        processNumber: 'LP nº 700/2026',
+        issueDate: '2026-03-12T00:00:00.000Z',
+        expirationDate: '2030-03-12T00:00:00.000Z',
+        status: 'Regular',
+        isCurrent: false,
+      },
+      {
+        id: 'license-1',
+        processNumber: 'LP nº 482/2024',
+        issueDate: '2024-03-12T00:00:00.000Z',
+        expirationDate: '2026-03-12T00:00:00.000Z',
+        status: 'Renovada/Arquivada',
+        isCurrent: true,
+      },
+    ]);
+
+    renderDetailsPage();
+
+    const history = await screen.findByRole('region', {
+      name: 'Histórico de versões',
+    });
+    expect(
+      within(history).getByRole('link', { name: 'LP nº 700/2026' })
+    ).toHaveAttribute('href', '/companies/customer-1/licenses/license-2');
+    expect(
+      within(history).queryByText('LP nº 482/2024')
+    ).not.toBeInTheDocument();
+  });
+
+  it('reloads the license when the renewal says its conditions changed', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.renewLicense).mockRejectedValue(
+      new ApiError(409, 'As condicionantes da licença anterior mudaram.')
+    );
+    renderDetailsPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Renovar licença' })
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Renovar Licença',
+    });
+    await user.type(
+      within(dialog).getByLabelText('Novo número da licença'),
+      'LO nº 119/2026'
+    );
+    await user.type(
+      within(dialog).getByLabelText('Data de Emissão'),
+      '2026-01-10'
+    );
+    await user.type(
+      within(dialog).getByLabelText('Data de Validade'),
+      '2030-01-10'
+    );
+    await user.upload(
+      within(dialog).getByLabelText('PDF da nova licença'),
+      new File(['%PDF-1.4'], 'renovada.pdf', { type: 'application/pdf' })
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Próximo' }));
+    await user.click(
+      within(
+        within(dialog).getByRole('group', {
+          name: 'Cumprimento da condicionante 1.1',
+        })
+      ).getByRole('button', { name: 'Cumprida' })
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Renovar Licença' })
+    );
+
+    expect(
+      await within(dialog).findByText(
+        'As condicionantes da licença anterior mudaram.'
+      )
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2)
+    );
+    expect(dialog).toBeInTheDocument();
+  });
+
   it('drops the previous history while the linked version loads its own', async () => {
     const user = userEvent.setup();
     vi.mocked(licensesApi.getLicenseDetails).mockImplementation(

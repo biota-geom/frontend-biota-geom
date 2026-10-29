@@ -387,12 +387,3 @@ export interface EsgIndicatorsSummaryWire {
   reference_month: string | null;
   indicators: IndicatorSummaryWire[];
 }
-
-export interface ConditionFulfillmentItemWire {
-  condition_id: string;
-  fulfilled: boolean;
-}
-
-export interface SaveConditionsFulfillmentRequestWire {
-  items: ConditionFulfillmentItemWire[];
-}

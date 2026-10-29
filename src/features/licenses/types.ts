@@ -98,28 +98,13 @@ export interface LicensesPanel {
   licenses: LicensePanelItem[];
 }
 
-export interface ConditionFulfillmentItem {
+/** What the renewal decides for each condition of the previous license. */
+export interface RenewalConditionDecision {
   conditionId: string;
   fulfilled: boolean;
-}
-
-/** What the renewal decides for each condition of the previous license. */
-export interface RenewalConditionDecision extends ConditionFulfillmentItem {
   copyToNew: boolean;
   /** `YYYY-MM-DD`; only present when `copyToNew` is true. */
   newDueDate?: string;
-}
-
-/**
- * One row in the ConditionFulfillmentList component.
- * `fulfilled` is `undefined` when the user hasn't answered yet.
- */
-export interface ConditionFulfillmentRow {
-  conditionId: string;
-  itemNumber: string | null;
-  description: string | null;
-  conditionType: string | null;
-  fulfilled: boolean | undefined;
 }
 
 export interface LicenseDashboardHeader {

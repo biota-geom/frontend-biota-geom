@@ -16,7 +16,6 @@ import {
   type ActionableCondition,
 } from '../../../../features/licenses/actionableConditions';
 import type {
-  ConditionFulfillmentRow,
   LicenseDetails,
   LicenseRenewed,
   RenewalConditionDecision,
@@ -27,15 +26,29 @@ import { ConditionFulfillmentList } from './ConditionFulfillmentList';
 
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível renovar a licença. Tente novamente mais tarde.';
+const INVALID_COPY_DUE_DATE_MESSAGE =
+  'O novo vencimento das condicionantes copiadas deve ser uma data futura e não pode passar da validade da nova licença.';
 
 type RenewLicenseModalProps = {
   license: LicenseDetails;
+  /** Reloads `license`: its conditions changed since the modal was opened. */
+  onConditionsOutdated: () => void;
   onOpenChange: (open: boolean) => void;
   onRenewed: (license: LicenseRenewed) => void;
   open: boolean;
 };
 
 type CopyChoice = { copy: boolean; dueDate: string };
+
+/* `YYYY-MM-DD` of the local day `days` from today, as date inputs use. */
+function localDateInputValue(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${date.getFullYear()}-${month}-${day}`;
+}
 
 function emptyForm() {
   return {
@@ -48,16 +61,16 @@ function emptyForm() {
 
 export function RenewLicenseModal({
   license,
+  onConditionsOutdated,
   onOpenChange,
   onRenewed,
   open,
 }: RenewLicenseModalProps) {
   const [form, setForm] = useState(emptyForm);
   const [step, setStep] = useState<1 | 2>(1);
-  const [fulfillmentRows, setFulfillmentRows] = useState<
-    ConditionFulfillmentRow[]
-  >([]);
-  const [isFulfillmentComplete, setIsFulfillmentComplete] = useState(false);
+  const [fulfillment, setFulfillment] = useState<
+    Partial<Record<string, boolean>>
+  >({});
   const [copyChoices, setCopyChoices] = useState<
     Partial<Record<string, CopyChoice>>
   >({});
@@ -65,9 +78,16 @@ export function RenewLicenseModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Step 2 only exists when the previous license has conditions to decide on.
+  // Everything below is derived from the current list, so answers about a
+  // condition that was removed meanwhile are simply ignored.
   const previousConditions = getActionableConditions(license.conditions);
   const hasConditionsStep = previousConditions.length > 0;
   const isLastStep = !hasConditionsStep || step === 2;
+  const copiedConditions = previousConditions.filter(
+    (condition) => copyChoices[condition.id]?.copy
+  );
+  // Tomorrow, so the backend's "not before today (UTC)" rule always holds.
+  const minCopyDueDate = localDateInputValue(1);
 
   const isLicenseDataComplete =
     form.processNumber.trim().length > 0 &&
@@ -75,11 +95,14 @@ export function RenewLicenseModal({
     form.expirationDate.length > 0 &&
     Boolean(form.file);
 
+  const isFulfillmentComplete = previousConditions.every(
+    (condition) => fulfillment[condition.id] !== undefined
+  );
   const isConditionsStepComplete =
     !hasConditionsStep ||
     (isFulfillmentComplete &&
-      Object.values(copyChoices).every(
-        (choice) => !choice?.copy || choice.dueDate.length > 0
+      copiedConditions.every(
+        (condition) => (copyChoices[condition.id]?.dueDate ?? '').length > 0
       ));
 
   const canSubmit =
@@ -92,8 +115,7 @@ export function RenewLicenseModal({
   function closeAndReset() {
     setForm(emptyForm());
     setStep(1);
-    setFulfillmentRows([]);
-    setIsFulfillmentComplete(false);
+    setFulfillment({});
     setCopyChoices({});
     setError(null);
     onOpenChange(false);
@@ -115,12 +137,8 @@ export function RenewLicenseModal({
     }));
   }
 
-  function handleFulfillmentChange(
-    rows: ConditionFulfillmentRow[],
-    isComplete: boolean
-  ) {
-    setFulfillmentRows(rows);
-    setIsFulfillmentComplete(isComplete);
+  function handleFulfillmentSelect(conditionId: string, fulfilled: boolean) {
+    setFulfillment((current) => ({ ...current, [conditionId]: fulfilled }));
   }
 
   function updateCopyChoice(conditionId: string, change: Partial<CopyChoice>) {
@@ -147,17 +165,24 @@ export function RenewLicenseModal({
   }
 
   function buildConditionDecisions(): RenewalConditionDecision[] {
-    return fulfillmentRows.map((row) => {
-      const choice = copyChoices[row.conditionId];
+    return previousConditions.map((condition) => {
+      const choice = copyChoices[condition.id];
       const copyToNew = choice?.copy ?? false;
 
       return {
-        conditionId: row.conditionId,
+        conditionId: condition.id,
         // fulfilled is guaranteed to be boolean once the list is complete
-        fulfilled: row.fulfilled as boolean,
+        fulfilled: fulfillment[condition.id] as boolean,
         copyToNew,
         ...(copyToNew ? { newDueDate: choice?.dueDate } : {}),
       };
+    });
+  }
+
+  function hasInvalidCopyDueDate(): boolean {
+    return copiedConditions.some((condition) => {
+      const dueDate = copyChoices[condition.id]?.dueDate ?? '';
+      return dueDate < minCopyDueDate || dueDate > form.expirationDate;
     });
   }
 
@@ -182,6 +207,11 @@ export function RenewLicenseModal({
 
     if (!isConditionsStepComplete) return;
 
+    if (hasInvalidCopyDueDate()) {
+      setError(INVALID_COPY_DUE_DATE_MESSAGE);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const renewed = await renewLicense(license.id, {
@@ -197,6 +227,11 @@ export function RenewLicenseModal({
       setError(
         caught instanceof ApiError ? caught.message : GENERIC_ERROR_MESSAGE
       );
+      // The conditions changed elsewhere: reload them so the list shows what
+      // the backend expects, keeping the answers that still apply.
+      if (caught instanceof ApiError && caught.status === 409) {
+        onConditionsOutdated();
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -233,6 +268,8 @@ export function RenewLicenseModal({
                 <Input
                   aria-label={`Novo vencimento (condicionante ${condition.itemNumber})`}
                   id={`renew-copy-due-date-${condition.id}`}
+                  max={form.expirationDate || undefined}
+                  min={minCopyDueDate}
                   onChange={(event) =>
                     updateCopyChoice(condition.id, {
                       dueDate: event.target.value,
@@ -386,8 +423,9 @@ export function RenewLicenseModal({
               <div className="max-h-[50vh] overflow-y-auto rounded-panel border border-border">
                 <ConditionFulfillmentList
                   conditions={license.conditions}
-                  onChange={handleFulfillmentChange}
+                  onSelect={handleFulfillmentSelect}
                   renderRowAddon={renderCopyControls}
+                  selections={fulfillment}
                 />
               </div>
             </section>
