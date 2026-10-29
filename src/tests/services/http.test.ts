@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { authStorage } from '../../features/auth/authStorage';
 import { ApiError } from '../../services/api/apiError';
-import { request, setUnauthorizedHandler } from '../../services/api/http';
+import {
+  request,
+  requestFile,
+  setUnauthorizedHandler,
+} from '../../services/api/http';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -438,5 +442,90 @@ describe('http request()', () => {
     );
 
     expect((error as ApiError).message).toBe('Informe um CNPJ válido.');
+  });
+});
+
+describe('http requestFile()', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+    setUnauthorizedHandler(() => {});
+  });
+
+  function pdfResponse(disposition?: string): Response {
+    return new Response('%PDF-1.7', {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        ...(disposition ? { 'Content-Disposition': disposition } : {}),
+      },
+    });
+  }
+
+  it('returns the bytes and the file name from Content-Disposition', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      pdfResponse('attachment; filename="relatorio-empresa-2026-10-28.pdf"')
+    );
+
+    const file = await requestFile('/api/customers/customer-1/report.pdf');
+
+    expect(file.fileName).toBe('relatorio-empresa-2026-10-28.pdf');
+    expect(await file.blob.text()).toBe('%PDF-1.7');
+  });
+
+  it('reads an unquoted file name too', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      pdfResponse('attachment; filename=relatorio.pdf')
+    );
+
+    const file = await requestFile('/api/customers/customer-1/report.pdf');
+
+    expect(file.fileName).toBe('relatorio.pdf');
+  });
+
+  it('reports a null name when the server sends no disposition', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(pdfResponse());
+
+    const file = await requestFile('/api/customers/customer-1/report.pdf');
+
+    expect(file.fileName).toBeNull();
+  });
+
+  it('raises the server message when the download fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(404, {
+        statusCode: 404,
+        message: 'Empresa não encontrada.',
+        error: 'Not Found',
+      })
+    );
+
+    await expect(
+      requestFile('/api/customers/customer-1/report.pdf')
+    ).rejects.toMatchObject({
+      status: 404,
+      message: 'Empresa não encontrada.',
+    });
+  });
+
+  it('refreshes the session once and retries before giving up', async () => {
+    authStorage.setTokens('expired', 'refresh-1');
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          access_token: 'access-2',
+          token_type: 'Bearer',
+          expires_in: 900,
+          user: { id: 'user-1' },
+        })
+      )
+      .mockResolvedValueOnce(pdfResponse('attachment; filename="r.pdf"'));
+
+    const file = await requestFile('/api/customers/customer-1/report.pdf');
+
+    expect(file.fileName).toBe('r.pdf');
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 });

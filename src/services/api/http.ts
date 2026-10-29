@@ -112,10 +112,15 @@ async function parseBody(response: Response): Promise<unknown> {
   }
 }
 
-export async function request<T>(
+/*
+ * Owns the network call and the 401 refresh-and-retry. request() and
+ * requestFile() differ only in how they read the body, so the session handling
+ * lives here once instead of in each of them.
+ */
+async function send(
   path: string,
   options: RequestOptions = {}
-): Promise<T> {
+): Promise<Response> {
   const {
     method = 'GET',
     body,
@@ -158,9 +163,17 @@ export async function request<T>(
       throw new ApiError(401, SESSION_EXPIRED_MESSAGE);
     }
 
-    return request<T>(path, { ...options, skipAuthRefresh: true });
+    return send(path, { ...options, skipAuthRefresh: true });
   }
 
+  return response;
+}
+
+export async function request<T>(
+  path: string,
+  options: RequestOptions = {}
+): Promise<T> {
+  const response = await send(path, options);
   const payload = await parseBody(response);
 
   if (!response.ok) {
@@ -171,4 +184,39 @@ export async function request<T>(
   }
 
   return payload as T;
+}
+
+export interface DownloadedFile {
+  blob: Blob;
+  /** Taken from Content-Disposition; null when the server does not send one. */
+  fileName: string | null;
+}
+
+const FILE_NAME_PATTERN = /filename="?([^";]+)"?/i;
+
+/*
+ * For endpoints that answer with bytes instead of JSON. Reading the body as a
+ * blob keeps the bytes intact; request() would run it through JSON.parse and
+ * hand back undefined.
+ */
+export async function requestFile(
+  path: string,
+  options: RequestOptions = {}
+): Promise<DownloadedFile> {
+  const response = await send(path, options);
+
+  if (!response.ok) {
+    const payload = await parseBody(response);
+    const message =
+      (isApiErrorWire(payload) ? toErrorMessage(payload.message) : null) ??
+      GENERIC_ERROR_MESSAGE;
+    throw new ApiError(response.status, message);
+  }
+
+  const disposition = response.headers.get('Content-Disposition');
+
+  return {
+    blob: await response.blob(),
+    fileName: disposition?.match(FILE_NAME_PATTERN)?.[1] ?? null,
+  };
 }
