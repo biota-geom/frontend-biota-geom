@@ -82,6 +82,9 @@ export interface CustomerDetailWire {
   document: string;
   document_type: string;
   status: string;
+  responsible_name: string;
+  responsible_email: string;
+  sector_id: string | null;
   sector: { id: string; name: string } | null;
   address: { city: string; state: string } | null;
 }

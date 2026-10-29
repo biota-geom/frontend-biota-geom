@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -31,10 +31,12 @@ import {
   getConformityTextColor,
   getStatusLabel,
 } from './companyCardFormatting';
-import { useState } from 'react';
 import { CompanyFilters } from './components/CompanyFilters';
+import { EditCompanyModal } from './components/EditCompanyModal';
 import { NewCompanyModal } from './components/NewCompanyModal';
+import { DeleteCompanyDialog } from './components/DeleteCompanyDialog';
 import type { CreateCompanySubmission } from '../../../features/companies/createCompany.types';
+import type { CompanyListItem } from '../../../features/companies/types';
 import { ApiError } from '../../../services/api/apiError';
 import {
   createCompany,
@@ -49,6 +51,11 @@ export function AdminCompaniesPage() {
   }, [fetchCompanies]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [companyToEdit, setCompanyToEdit] = useState<CompanyListItem | null>(
+    null
+  );
+  const [companyToDelete, setCompanyToDelete] =
+    useState<CompanyListItem | null>(null);
   const [filters, setFilters] = useState(EMPTY_COMPANY_FILTERS);
 
   const segmentOptions = useMemo(
@@ -202,7 +209,7 @@ export function AdminCompaniesPage() {
                   </span>
                   <Button
                     aria-label={`Editar ${company.name}`}
-                    disabled
+                    onClick={() => setCompanyToEdit(company)}
                     type="button"
                     variant="iconSoft"
                   >
@@ -210,7 +217,7 @@ export function AdminCompaniesPage() {
                   </Button>
                   <Button
                     aria-label={`Excluir ${company.name}`}
-                    disabled
+                    onClick={() => setCompanyToDelete(company)}
                     type="button"
                     variant="iconDanger"
                   >
@@ -276,7 +283,7 @@ export function AdminCompaniesPage() {
                   Última atualização: {formatLastUpdate(company.updatedAt)}
                 </span>
                 <Link
-                  className="inline-flex items-center gap-[7px] whitespace-nowrap text-sm font-extrabold text-primary-strong no-underline hover:underline hover:underline-offset-[3px]"
+                  className="inline-flex cursor-pointer items-center gap-[7px] whitespace-nowrap text-sm font-extrabold text-primary-strong no-underline hover:underline hover:underline-offset-[3px]"
                   to={buildCompanyRoutes.dashboard(company.id)}
                 >
                   Ver detalhes
@@ -291,6 +298,20 @@ export function AdminCompaniesPage() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateCompany}
+      />
+      <EditCompanyModal
+        company={companyToEdit}
+        onSaved={() => void fetchCompanies()}
+        onOpenChange={(open) => {
+          if (!open) setCompanyToEdit(null);
+        }}
+      />
+      <DeleteCompanyDialog
+        company={companyToDelete}
+        onDeleted={() => void fetchCompanies()}
+        onOpenChange={(open) => {
+          if (!open) setCompanyToDelete(null);
+        }}
       />
     </PageScaffold>
   );

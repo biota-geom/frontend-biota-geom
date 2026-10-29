@@ -32,7 +32,7 @@ export function BreadcrumbBar({ items }: BreadcrumbBarProps) {
             >
               {item.to && !isLast ? (
                 <Link
-                  className="text-primary-strong underline underline-offset-2"
+                  className="cursor-pointer text-primary-strong underline underline-offset-2"
                   to={item.to}
                 >
                   {item.label}

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +16,7 @@ import { ApiError } from '../../services/api/apiError';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
 vi.mock('../../services/api/customersApi', () => ({
+  deleteCompany: vi.fn(),
   listCompanies: vi.fn(),
 }));
 
@@ -35,7 +36,9 @@ vi.mock('../../services/api/sectorsApi', () => ({
 vi.mock('../../services/api/companiesApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/api/companiesApi')>()),
   createCompany: vi.fn(),
+  getCompanyForEdit: vi.fn(),
   linkCompanyEsgMetrics: vi.fn(),
+  updateCompany: vi.fn(),
 }));
 
 const customersApi = await import('../../services/api/customersApi');
@@ -190,6 +193,294 @@ describe('AdminCompaniesPage', () => {
     expect(
       screen.queryByRole('link', { name: /configurações/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('edits a company and reloads the listing after saving', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    vi.mocked(companiesApi.getCompanyForEdit).mockResolvedValue({
+      name: COMPANIES[0].name,
+      sectorId: 'sector-siderurgia',
+      responsibleName: 'Maria Silva',
+      responsibleEmail: 'maria@empresa.com',
+      city: 'Porto Alegre',
+      state: 'RS',
+    });
+    vi.mocked(companiesApi.updateCompany).mockResolvedValue(undefined);
+    const user = setupUser();
+    renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Editar ${COMPANIES[0].name}`,
+      })
+    );
+    expect(
+      await screen.findByRole('dialog', { name: /editar empresa/i })
+    ).toBeInTheDocument();
+
+    const nameInput = screen.getByLabelText(/nome da empresa/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Unidade Atualizada');
+    await user.selectOptions(screen.getByLabelText(/segmento/i), 'sector-agro');
+    await user.clear(screen.getByLabelText(/^cidade/i));
+    await user.type(screen.getByLabelText(/^cidade/i), 'Canoas');
+    await user.clear(screen.getByLabelText(/^estado/i));
+    await user.type(screen.getByLabelText(/^estado/i), 'RS');
+    await user.clear(screen.getByLabelText(/^responsável$/i));
+    await user.type(screen.getByLabelText(/^responsável$/i), 'Ana Souza');
+    await user.clear(screen.getByLabelText(/e-mail do responsável/i));
+    await user.type(
+      screen.getByLabelText(/e-mail do responsável/i),
+      'ana@empresa.com'
+    );
+    await user.click(
+      screen.getByRole('button', { name: /salvar alterações/i })
+    );
+
+    await waitFor(() => {
+      expect(companiesApi.updateCompany).toHaveBeenCalledWith('customer-1', {
+        name: 'Unidade Atualizada',
+        sector_id: 'sector-agro',
+        responsible_name: 'Ana Souza',
+        responsible_email: 'ana@empresa.com',
+        address: { city: 'Canoas', state: 'RS' },
+      });
+      expect(
+        screen.queryByRole('dialog', { name: /editar empresa/i })
+      ).not.toBeInTheDocument();
+    });
+    expect(customersApi.listCompanies).toHaveBeenCalledTimes(2);
+  });
+
+  it('deletes a company only after confirmation and refreshes the listing', async () => {
+    vi.mocked(customersApi.listCompanies)
+      .mockResolvedValueOnce(COMPANIES)
+      .mockResolvedValueOnce(COMPANIES.slice(1));
+    vi.mocked(customersApi.deleteCompany).mockResolvedValue(undefined);
+    const user = setupUser();
+    renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Excluir ${COMPANIES[0].name}`,
+      })
+    );
+    expect(
+      await screen.findByRole('dialog', { name: /excluir empresa/i })
+    ).toBeInTheDocument();
+    expect(customersApi.deleteCompany).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Excluir empresa' }));
+
+    await waitFor(() => {
+      expect(customersApi.deleteCompany).toHaveBeenCalledWith('customer-1');
+      expect(customersApi.listCompanies).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      screen.queryByRole('article', { name: /unidade industrial rs/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an error when editable company details cannot be loaded', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    vi.mocked(companiesApi.getCompanyForEdit).mockRejectedValue(
+      new ApiError(404, 'Empresa não encontrada.')
+    );
+    const user = setupUser();
+    renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Editar ${COMPANIES[0].name}`,
+      })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Empresa não encontrada.'
+    );
+    expect(screen.queryByLabelText(/nome da empresa/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a fallback when editable company details fail unexpectedly', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    vi.mocked(companiesApi.getCompanyForEdit).mockRejectedValue(
+      new Error('network failure')
+    );
+    const user = setupUser();
+    renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Editar ${COMPANIES[0].name}`,
+      })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível carregar os dados da empresa.'
+    );
+  });
+
+  it('keeps the edit dialog open and shows the API update error', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    vi.mocked(companiesApi.getCompanyForEdit).mockResolvedValue({
+      name: COMPANIES[0].name,
+      sectorId: 'sector-siderurgia',
+      responsibleName: 'Maria Silva',
+      responsibleEmail: 'maria@empresa.com',
+      city: 'Porto Alegre',
+      state: 'RS',
+    });
+    vi.mocked(companiesApi.updateCompany).mockRejectedValue(
+      new ApiError(409, 'Já existe uma empresa com estes dados.')
+    );
+    const user = setupUser();
+    renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Editar ${COMPANIES[0].name}`,
+      })
+    );
+    await screen.findByRole('button', { name: /salvar alterações/i });
+    await user.click(
+      screen.getByRole('button', { name: /salvar alterações/i })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Já existe uma empresa com estes dados.'
+    );
+    expect(
+      screen.getByRole('dialog', { name: /editar empresa/i })
+    ).toBeVisible();
+  });
+
+  it('keeps the edit dialog open while the update is pending', async () => {
+    let finishUpdate: () => void = () => {};
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    vi.mocked(companiesApi.getCompanyForEdit).mockResolvedValue({
+      name: COMPANIES[0].name,
+      sectorId: 'sector-siderurgia',
+      responsibleName: 'Maria Silva',
+      responsibleEmail: 'maria@empresa.com',
+      city: 'Porto Alegre',
+      state: 'RS',
+    });
+    vi.mocked(companiesApi.updateCompany).mockReturnValue(
+      new Promise((resolve) => {
+        finishUpdate = () => resolve(undefined);
+      })
+    );
+    const user = setupUser();
+    renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Editar ${COMPANIES[0].name}`,
+      })
+    );
+    await user.click(
+      await screen.findByRole('button', { name: /salvar alterações/i })
+    );
+
+    const savingButton = await screen.findByRole('button', {
+      name: 'Salvando...',
+    });
+    expect(savingButton).toBeDisabled();
+    await user.keyboard('{Escape}');
+    expect(
+      screen.getByRole('dialog', { name: /editar empresa/i })
+    ).toBeVisible();
+
+    await act(async () => {
+      finishUpdate();
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: /editar empresa/i })
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows a fallback for unexpected update errors and can cancel editing', async () => {
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    vi.mocked(companiesApi.getCompanyForEdit).mockResolvedValue({
+      name: COMPANIES[0].name,
+      sectorId: 'sector-siderurgia',
+      responsibleName: 'Maria Silva',
+      responsibleEmail: 'maria@empresa.com',
+      city: 'Porto Alegre',
+      state: 'RS',
+    });
+    vi.mocked(companiesApi.updateCompany).mockRejectedValue(
+      new Error('network failure')
+    );
+    const user = setupUser();
+    renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Editar ${COMPANIES[0].name}`,
+      })
+    );
+    await screen.findByRole('button', { name: /salvar alterações/i });
+    await user.click(
+      screen.getByRole('button', { name: /salvar alterações/i })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível salvar as alterações da empresa.'
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(
+      screen.queryByRole('dialog', { name: /editar empresa/i })
+    ).toBeNull();
+  });
+
+  it('shows loading and ignores details arriving after unmount', async () => {
+    let resolveDetails: (details: {
+      name: string;
+      sectorId: string;
+      responsibleName: string;
+      responsibleEmail: string;
+      city: string;
+      state: string;
+    }) => void = () => {};
+    const pendingDetails = new Promise<{
+      name: string;
+      sectorId: string;
+      responsibleName: string;
+      responsibleEmail: string;
+      city: string;
+      state: string;
+    }>((resolve) => {
+      resolveDetails = resolve;
+    });
+    vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
+    vi.mocked(companiesApi.getCompanyForEdit).mockReturnValue(pendingDetails);
+    const user = setupUser();
+    const { unmount } = renderAppRoutes();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Editar ${COMPANIES[0].name}`,
+      })
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Carregando dados da empresa...'
+    );
+
+    unmount();
+    await act(async () => {
+      resolveDetails({
+        name: COMPANIES[0].name,
+        sectorId: 'sector-siderurgia',
+        responsibleName: 'Maria Silva',
+        responsibleEmail: 'maria@empresa.com',
+        city: 'Porto Alegre',
+        state: 'RS',
+      });
+      await pendingDetails;
+    });
   });
 
   it("shows each company's license total and last update date on its card", async () => {

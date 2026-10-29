@@ -1,6 +1,7 @@
 import type {
   CreateCompanyRequest,
   CreatedCompany,
+  UpdateCompanyRequest,
 } from '../../features/companies/createCompany.types';
 import type { Company, EsgIndicator } from '../../features/companies/types';
 import { toCompanyStatus } from './customersApi';
@@ -37,6 +38,30 @@ export async function getCompanyById(companyId: string): Promise<Company> {
   };
 }
 
+export type CompanyEditDetails = {
+  name: string;
+  sectorId: string;
+  responsibleName: string;
+  responsibleEmail: string;
+  city: string;
+  state: string;
+};
+
+export async function getCompanyForEdit(
+  companyId: string
+): Promise<CompanyEditDetails> {
+  const wire = await request<CustomerDetailWire>(`/api/customers/${companyId}`);
+
+  return {
+    name: wire.name,
+    sectorId: wire.sector_id ?? wire.sector?.id ?? '',
+    responsibleName: wire.responsible_name,
+    responsibleEmail: wire.responsible_email,
+    city: wire.address?.city ?? '',
+    state: wire.address?.state ?? '',
+  };
+}
+
 /*
  * The failures this endpoint can return already carry PT-BR copy written by
  * the backend (409 "Já existe uma empresa cadastrada com este CNPJ.", 422 for
@@ -52,6 +77,16 @@ export async function createCompany(
   });
 
   return { id: wire.id, name: wire.name };
+}
+
+export async function updateCompany(
+  companyId: string,
+  input: UpdateCompanyRequest
+): Promise<void> {
+  await request<void>(`/api/customers/${companyId}`, {
+    method: 'PUT',
+    body: input,
+  });
 }
 
 /** Replaces the company's monitored ESG metrics — answers 204 with no body. */

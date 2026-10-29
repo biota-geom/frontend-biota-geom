@@ -34,6 +34,14 @@ export type CreateCompanyRequest = {
   address: CreateCompanyAddress;
 };
 
+export type UpdateCompanyRequest = {
+  name: string;
+  sector_id: string;
+  responsible_name: string;
+  responsible_email: string;
+  address: Pick<CreateCompanyAddress, 'city' | 'state'>;
+};
+
 /** What the UI needs back from POST /customers — the id links the ESG metrics. */
 export type CreatedCompany = {
   id: string;
