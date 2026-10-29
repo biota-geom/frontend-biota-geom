@@ -1,11 +1,3 @@
-export type LicenseType = 'LP' | 'LI' | 'LO';
-
-export const LICENSE_TYPE_LABELS: Record<LicenseType, string> = {
-  LP: 'LP - Licença Prévia',
-  LI: 'LI - Licença de Instalação',
-  LO: 'LO - Licença de Operação',
-};
-
 export interface IssuingAgency {
   id: string;
   name: string;
@@ -15,10 +7,9 @@ export interface IssuingAgency {
 export interface License {
   id: string;
   customerId: string;
-  type: LicenseType;
+  type: string;
   processNumber: string;
-  issuingAgencyId: string;
-  issuingAgencyName: string | null;
+  issuingAgency: string;
   issueDate: string;
   expirationDate: string;
   status: string;
@@ -103,9 +94,9 @@ export interface LicensesPanel {
  * the document did not state clearly is null rather than guessed.
  */
 export interface ExtractedLicenseData {
-  type: LicenseType | null;
+  /** As printed (e.g. "LO", "LAO") — both fields are free text on the form. */
+  type: string | null;
   processNumber: string | null;
-  /** Name or acronym as printed — matched against the agency list client-side. */
   issuingAgency: string | null;
   /** `YYYY-MM-DD`. */
   issueDate: string | null;
@@ -125,4 +116,46 @@ export interface SuggestedCondition {
 export interface LicenseExtraction {
   extractedData: ExtractedLicenseData;
   suggestedConditions: SuggestedCondition[];
+}
+
+export interface ConditionFulfillmentItem {
+  conditionId: string;
+  fulfilled: boolean;
+}
+
+/**
+ * One row in the ConditionFulfillmentList component.
+ * `fulfilled` is `undefined` when the user hasn't answered yet.
+ */
+export interface ConditionFulfillmentRow {
+  conditionId: string;
+  itemNumber: string | null;
+  description: string | null;
+  conditionType: string | null;
+  fulfilled: boolean | undefined;
+}
+
+export interface LicenseDashboardHeader {
+  activeLicenses: number;
+  pendingItems: number;
+}
+
+export interface LicenseDashboardCounts {
+  regular: number;
+  attention: number;
+  expired: number;
+}
+
+export interface LicenseDashboardCriticalItem {
+  id: string;
+  type: string;
+  processNumber: string;
+  expirationDate: string;
+  status: string;
+}
+
+export interface LicenseDashboard {
+  header: LicenseDashboardHeader;
+  counts: LicenseDashboardCounts;
+  critical: LicenseDashboardCriticalItem[];
 }

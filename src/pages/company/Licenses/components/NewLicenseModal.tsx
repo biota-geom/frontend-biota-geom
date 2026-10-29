@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Sparkles } from 'lucide-react';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
   Dialog,
@@ -15,33 +15,18 @@ import { Input } from '@/components/ui/shadcn/input';
 import { InputGroup } from '@/components/ui/shadcn/input-group';
 import { Label } from '@/components/ui/shadcn/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/shadcn/select';
-import {
   CREATE_LICENSE_DEFAULT_VALUES,
   createLicenseSchema,
-  LICENSE_TYPES,
   MAX_FILE_SIZE_BYTES,
   toLicenseConditionBatchItem,
   type CreateLicenseForm,
 } from '../../../../features/licenses/createLicenseValidation';
-import {
-  matchIssuingAgency,
-  mergeSuggestedConditions,
-} from '../../../../features/licenses/licenseExtraction';
-import {
-  LICENSE_TYPE_LABELS,
-  type IssuingAgency,
-  type License,
-  type LicenseExtraction,
-  type LicenseType,
+import { mergeSuggestedConditions } from '../../../../features/licenses/licenseExtraction';
+import type {
+  License,
+  LicenseExtraction,
 } from '../../../../features/licenses/types';
 import { ApiError } from '../../../../services/api/apiError';
-import { listIssuingAgencies } from '../../../../services/api/issuingAgenciesApi';
 import { createLicenseConditions } from '../../../../services/api/licenseConditionsApi';
 import {
   createLicense,
@@ -62,7 +47,7 @@ type ExtractionState =
   | { status: 'error'; message: string };
 
 type ExtractableField =
-  'type' | 'processNumber' | 'issueDate' | 'expirationDate';
+  'type' | 'processNumber' | 'issuingAgency' | 'issueDate' | 'expirationDate';
 
 type NewLicenseModalProps = {
   companyId: string;
@@ -77,15 +62,11 @@ export function NewLicenseModal({
   onOpenChange,
   open,
 }: NewLicenseModalProps) {
-  const [issuingAgencies, setIssuingAgencies] = useState<IssuingAgency[]>([]);
-  const [isLoadingAgencies, setIsLoadingAgencies] = useState(false);
   /* Set after step 1 succeeds so a retry never creates the license twice. */
   const [createdLicense, setCreatedLicense] = useState<License | null>(null);
   const [extraction, setExtraction] = useState<ExtractionState>({
     status: 'idle',
   });
-  /* Agency name/acronym the AI read, matched once the agency list is loaded. */
-  const [extractedAgency, setExtractedAgency] = useState<string | null>(null);
   /* Bumped per extraction (and on close) so a stale response is ignored. */
   const extractionRequestRef = useRef(0);
 
@@ -103,43 +84,6 @@ export function NewLicenseModal({
     mode: 'onChange',
     resolver: zodResolver(createLicenseSchema),
   });
-  const issuingAgencyId = useWatch({ control, name: 'issuingAgencyId' });
-
-  useEffect(() => {
-    if (!open) return;
-
-    let isCurrent = true;
-
-    async function loadIssuingAgencies() {
-      setIsLoadingAgencies(true);
-      try {
-        const agencies = await listIssuingAgencies();
-        if (isCurrent) setIssuingAgencies(agencies);
-      } catch {
-        if (isCurrent) setIssuingAgencies([]);
-      } finally {
-        if (isCurrent) setIsLoadingAgencies(false);
-      }
-    }
-
-    void loadIssuingAgencies();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!extractedAgency || getValues('issuingAgencyId')) return;
-
-    const agencyId = matchIssuingAgency(extractedAgency, issuingAgencies);
-    if (agencyId) {
-      setValue('issuingAgencyId', agencyId, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    }
-  }, [extractedAgency, issuingAgencies, getValues, setValue]);
 
   // Closing the modal discards any extraction still in flight.
   useEffect(() => {
@@ -150,7 +94,6 @@ export function NewLicenseModal({
     reset(CREATE_LICENSE_DEFAULT_VALUES);
     setCreatedLicense(null);
     setExtraction({ status: 'idle' });
-    setExtractedAgency(null);
     onOpenChange(false);
   }
 
@@ -213,6 +156,7 @@ export function NewLicenseModal({
     const suggestions: Record<ExtractableField, string | null> = {
       type: extractedData.type,
       processNumber: extractedData.processNumber,
+      issuingAgency: extractedData.issuingAgency,
       issueDate: extractedData.issueDate,
       expirationDate: extractedData.expirationDate,
     };
@@ -225,7 +169,6 @@ export function NewLicenseModal({
       }
     }
 
-    setExtractedAgency(extractedData.issuingAgency);
     setValue(
       'conditions',
       mergeSuggestedConditions(getValues('conditions'), suggestedConditions),
@@ -233,23 +176,15 @@ export function NewLicenseModal({
     );
   }
 
-  const unmatchedAgency =
-    extraction.status === 'success' &&
-    extractedAgency &&
-    !issuingAgencyId &&
-    !isLoadingAgencies
-      ? extractedAgency
-      : null;
-
   const submit = handleSubmit(async (values) => {
     let license = createdLicense;
 
     if (!license) {
       try {
         license = await createLicense(companyId, {
-          type: values.type as LicenseType,
+          type: values.type,
           processNumber: values.processNumber,
-          issuingAgencyId: values.issuingAgencyId,
+          issuingAgency: values.issuingAgency,
           issueDate: values.issueDate,
           expirationDate: values.expirationDate,
           // the schema guarantees a non-null PDF here
@@ -329,24 +264,14 @@ export function NewLicenseModal({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="license-type">Tipo de Licença</Label>
-            <Controller
-              control={control}
-              name="type"
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger className="w-full" id="license-type">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LICENSE_TYPES.map((licenseType) => (
-                      <SelectItem key={licenseType} value={licenseType}>
-                        {LICENSE_TYPE_LABELS[licenseType]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+            <InputGroup variant="field">
+              <Input
+                {...register('type')}
+                id="license-type"
+                maxLength={50}
+                placeholder="Ex: LO, LP, LI, LAO"
+              />
+            </InputGroup>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -362,40 +287,14 @@ export function NewLicenseModal({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="issuing-agency">Órgão Emissor</Label>
-            <Controller
-              control={control}
-              name="issuingAgencyId"
-              render={({ field }) => (
-                <Select
-                  disabled={isLoadingAgencies}
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
-                  <SelectTrigger className="w-full" id="issuing-agency">
-                    <SelectValue
-                      placeholder={
-                        isLoadingAgencies
-                          ? 'Carregando...'
-                          : 'Selecione o órgão'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {issuingAgencies.map((agency) => (
-                      <SelectItem key={agency.id} value={agency.id}>
-                        {agency.acronym ?? agency.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {unmatchedAgency ? (
-              <p className="m-0 text-[13px] text-text-secondary">
-                Órgão identificado no documento: “{unmatchedAgency}”. Selecione
-                o órgão correspondente na lista.
-              </p>
-            ) : null}
+            <InputGroup variant="field">
+              <Input
+                {...register('issuingAgency')}
+                id="issuing-agency"
+                maxLength={150}
+                placeholder="Ex: FEPAM"
+              />
+            </InputGroup>
           </div>
 
           <div aria-hidden="true" className="max-[560px]:hidden" />

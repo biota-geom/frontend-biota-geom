@@ -11,9 +11,6 @@ import type { LicenseExtraction } from '../../features/licenses/types';
 import { NewLicenseModal } from '../../pages/company/Licenses/components/NewLicenseModal';
 import { ApiError } from '../../services/api/apiError';
 
-vi.mock('../../services/api/issuingAgenciesApi', () => ({
-  listIssuingAgencies: vi.fn(),
-}));
 vi.mock('../../services/api/licensesApi', () => ({
   createLicense: vi.fn(),
   extractLicenseData: vi.fn(),
@@ -22,8 +19,6 @@ vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
 }));
 
-const issuingAgenciesApi =
-  await import('../../services/api/issuingAgenciesApi');
 const licensesApi = await import('../../services/api/licensesApi');
 const licenseConditionsApi =
   await import('../../services/api/licenseConditionsApi');
@@ -59,10 +54,9 @@ const EXTRACTION: LicenseExtraction = {
 const CREATED_LICENSE = {
   id: 'license-9',
   customerId: COMPANY_ID,
-  type: 'LO' as const,
+  type: 'LO',
   processNumber: 'LU Nº 00865/2022',
-  issuingAgencyId: 'agency-fepam',
-  issuingAgencyName: 'FEPAM',
+  issuingAgency: 'FEPAM',
   issueDate: '2022-04-28T00:00:00.000Z',
   expirationDate: '2027-04-29T00:00:00.000Z',
   status: 'Regular',
@@ -99,14 +93,6 @@ async function uploadPdf(user: ReturnType<typeof userEvent.setup>) {
 describe('NewLicenseModal — AI pre-fill', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(issuingAgenciesApi.listIssuingAgencies).mockResolvedValue([
-      {
-        id: 'agency-fepam',
-        name: 'Fundação Estadual de Proteção Ambiental',
-        acronym: 'FEPAM',
-      },
-      { id: 'agency-ibama', name: 'IBAMA', acronym: 'IBAMA' },
-    ]);
   });
 
   it('reads the PDF on upload, shows "Lendo documento…" and pre-fills the recognized fields', async () => {
@@ -135,14 +121,8 @@ describe('NewLicenseModal — AI pre-fill', () => {
     expect(screen.getByLabelText(/data de validade/i)).toHaveValue(
       '2027-04-29'
     );
-    expect(
-      screen.getByRole('combobox', { name: /tipo de licença/i })
-    ).toHaveTextContent('LO - Licença de Operação');
-    await waitFor(() =>
-      expect(
-        screen.getByRole('combobox', { name: /órgão emissor/i })
-      ).toHaveTextContent('FEPAM')
-    );
+    expect(screen.getByLabelText(/tipo de licença/i)).toHaveValue('LO');
+    expect(screen.getByLabelText(/órgão emissor/i)).toHaveValue('FEPAM');
     // Nothing is saved by the extraction itself.
     expect(licensesApi.createLicense).not.toHaveBeenCalled();
     expect(licenseConditionsApi.createLicenseConditions).not.toHaveBeenCalled();
@@ -163,22 +143,27 @@ describe('NewLicenseModal — AI pre-fill', () => {
     expect(screen.getByLabelText(/data de emissão/i)).toHaveValue('2022-04-28');
   });
 
-  it('leaves the issuing agency for manual selection when it has no unique match', async () => {
+  it('fills type and issuing agency as printed in the document, since both are free text', async () => {
     const user = userEvent.setup();
     vi.mocked(licensesApi.extractLicenseData).mockResolvedValue({
       ...EXTRACTION,
-      extractedData: { ...EXTRACTION.extractedData, issuingAgency: 'CETESB' },
+      extractedData: {
+        ...EXTRACTION.extractedData,
+        type: 'LAO',
+        issuingAgency: 'Secretaria Municipal do Meio Ambiente',
+      },
     });
     renderModal();
 
     await uploadPdf(user);
 
     expect(
-      await screen.findByText(/órgão identificado no documento: “CETESB”/i)
+      await screen.findByText('Revise os dados sugeridos pela IA')
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('combobox', { name: /órgão emissor/i })
-    ).toHaveTextContent('Selecione o órgão');
+    expect(screen.getByLabelText(/tipo de licença/i)).toHaveValue('LAO');
+    expect(screen.getByLabelText(/órgão emissor/i)).toHaveValue(
+      'Secretaria Municipal do Meio Ambiente'
+    );
   });
 
   it('adds the suggested conditions to the conditions table, flagging missing data', async () => {
@@ -223,11 +208,9 @@ describe('NewLicenseModal — AI pre-fill', () => {
     const { onOpenChange } = renderModal();
 
     await uploadPdf(user);
-    await waitFor(() =>
-      expect(
-        screen.getByRole('combobox', { name: /órgão emissor/i })
-      ).toHaveTextContent('FEPAM')
-    );
+    expect(
+      await screen.findByText('Revise os dados sugeridos pela IA')
+    ).toBeInTheDocument();
 
     await user.click(
       await screen.findByRole('button', { name: 'Remover condicionante 1.1' })
@@ -278,7 +261,7 @@ describe('NewLicenseModal — AI pre-fill', () => {
     expect(licensesApi.createLicense).toHaveBeenCalledWith(COMPANY_ID, {
       type: 'LO',
       processNumber: 'LU Nº 00865/2022',
-      issuingAgencyId: 'agency-fepam',
+      issuingAgency: 'FEPAM',
       issueDate: '2022-04-28',
       expirationDate: '2027-04-29',
       documentFile: expect.any(File),
@@ -384,15 +367,9 @@ describe('NewLicenseModal — AI pre-fill', () => {
       screen.queryByText('Revise os dados sugeridos pela IA')
     ).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole('combobox', { name: /tipo de licença/i })
-    );
-    await user.click(
-      await screen.findByRole('option', { name: /licença de operação/i })
-    );
+    await user.type(screen.getByLabelText(/tipo de licença/i), 'LO');
     await user.type(screen.getByLabelText(/nº do processo/i), 'LO nº 1/2024');
-    await user.click(screen.getByRole('combobox', { name: /órgão emissor/i }));
-    await user.click(await screen.findByRole('option', { name: 'FEPAM' }));
+    await user.type(screen.getByLabelText(/órgão emissor/i), 'FEPAM');
     await user.type(screen.getByLabelText(/data de emissão/i), '2024-01-10');
     await user.type(screen.getByLabelText(/data de validade/i), '2028-01-10');
     await user.click(screen.getByRole('button', { name: /salvar licença/i }));

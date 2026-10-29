@@ -8,9 +8,6 @@ import { useCompanyContext } from '../../features/companies/useCompanyContext';
 import { ApiError } from '../../services/api/apiError';
 import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
 
-vi.mock('../../services/api/issuingAgenciesApi', () => ({
-  listIssuingAgencies: vi.fn(),
-}));
 vi.mock('../../services/api/licensesApi', () => ({
   createLicense: vi.fn(),
   extractLicenseData: vi.fn(),
@@ -34,8 +31,6 @@ vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
 }));
 
-const issuingAgenciesApi =
-  await import('../../services/api/issuingAgenciesApi');
 const licensesApi = await import('../../services/api/licensesApi');
 const companiesApi = await import('../../services/api/companiesApi');
 const customersApi = await import('../../services/api/customersApi');
@@ -107,16 +102,11 @@ async function openModalAndFillRequiredFields(
 ) {
   await user.click(screen.getByRole('button', { name: /nova licença/i }));
 
-  await user.click(screen.getByRole('combobox', { name: /tipo de licença/i }));
-  await user.click(
-    await screen.findByRole('option', { name: /licença de operação/i })
-  );
+  await user.type(screen.getByLabelText(/tipo de licença/i), 'LO');
 
   await user.type(screen.getByLabelText(/nº do processo/i), 'LO nº 118/2020');
 
-  await user.click(screen.getByRole('combobox', { name: /órgão emissor/i }));
-  await user.click(await screen.findByRole('option', { name: 'FEPAM' }));
-
+  await user.type(screen.getByLabelText(/órgão emissor/i), 'FEPAM');
   await user.type(screen.getByLabelText(/data de emissão/i), '2020-01-10');
   await user.type(screen.getByLabelText(/data de validade/i), '2025-01-10');
 
@@ -128,8 +118,7 @@ const CREATED_LICENSE = {
   customerId: COMPANY_ID,
   type: 'LO' as const,
   processNumber: 'LO nº 118/2020',
-  issuingAgencyId: 'agency-1',
-  issuingAgencyName: 'FEPAM',
+  issuingAgency: 'FEPAM',
   issueDate: '2020-01-10T00:00:00.000Z',
   expirationDate: '2025-01-10T00:00:00.000Z',
   status: 'Vencida',
@@ -196,9 +185,6 @@ describe('CompanyLicensesPage', () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue([
       COMPANY_IN_CONTEXT,
     ]);
-    vi.mocked(issuingAgenciesApi.listIssuingAgencies).mockResolvedValue([
-      { id: 'agency-1', name: 'FEPAM', acronym: 'FEPAM' },
-    ]);
     vi.mocked(licensesApi.listLicenses).mockResolvedValue(LICENSES_PANEL);
     // AI pre-fill is covered in NewLicenseModalExtraction.test.tsx; here the
     // reading never finishes so the manual flow is exercised on its own.
@@ -207,7 +193,7 @@ describe('CompanyLicensesPage', () => {
     );
   });
 
-  it('opens the "Nova Licença" modal and loads the issuing agencies', async () => {
+  it('opens the "Nova Licença" modal with free-text type and issuing agency fields', async () => {
     const user = userEvent.setup();
     renderLicensesPage();
 
@@ -216,9 +202,12 @@ describe('CompanyLicensesPage', () => {
     expect(
       screen.getByRole('heading', { name: /^nova licença$/i })
     ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(issuingAgenciesApi.listIssuingAgencies).toHaveBeenCalledTimes(1)
-    );
+    expect(
+      screen.getByRole('textbox', { name: /tipo de licença/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: /órgão emissor/i })
+    ).toBeInTheDocument();
   });
 
   it('rejects a non-PDF file before it ever reaches the API', async () => {
@@ -254,8 +243,7 @@ describe('CompanyLicensesPage', () => {
       customerId: COMPANY_ID,
       type: 'LO',
       processNumber: 'LO nº 118/2020',
-      issuingAgencyId: 'agency-1',
-      issuingAgencyName: 'FEPAM',
+      issuingAgency: 'FEPAM',
       issueDate: '2020-01-10T00:00:00.000Z',
       expirationDate: '2025-01-10T00:00:00.000Z',
       status: 'Vencida',
@@ -276,7 +264,7 @@ describe('CompanyLicensesPage', () => {
       expect(licensesApi.createLicense).toHaveBeenCalledWith(COMPANY_ID, {
         type: 'LO',
         processNumber: 'LO nº 118/2020',
-        issuingAgencyId: 'agency-1',
+        issuingAgency: 'FEPAM',
         issueDate: '2020-01-10',
         expirationDate: '2025-01-10',
         documentFile: expect.any(File),
@@ -398,6 +386,15 @@ describe('CompanyLicensesPage', () => {
     expect(
       screen.getByRole('row', { name: /1\.1 Segundo laudo/ })
     ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Remover descritor ambiental Água',
+      })
+    );
+    expect(screen.queryByText('Água')).not.toBeInTheDocument();
+    expect(screen.queryByText('Segundo laudo')).not.toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /1 Resíduos/ })).toBeInTheDocument();
   }, 20_000);
 
   it('creates the license first, then posts the conditions with the new license id', async () => {

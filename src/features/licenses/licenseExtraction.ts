@@ -3,7 +3,7 @@ import {
   CONDITION_TYPES,
   type LicenseConditionRow,
 } from './createLicenseValidation';
-import type { IssuingAgency, SuggestedCondition } from './types';
+import type { SuggestedCondition } from './types';
 
 function normalize(value: string): string {
   return value
@@ -12,44 +12,6 @@ function normalize(value: string): string {
     .replace(/[^a-zA-Z0-9]+/g, ' ')
     .trim()
     .toLowerCase();
-}
-
-function containsWords(text: string, words: string): boolean {
-  return ` ${text} `.includes(` ${words} `);
-}
-
-/**
- * Finds the registered agency the AI identified by name or acronym. Returns
- * null whenever the match is not unique, so an ambiguous reading is never
- * auto-selected — the user picks the agency manually instead.
- *
- * Exact matches (acronym or full name) win; only when there is none does it
- * fall back to one containing the other, e.g. "FEPAM - Fundação Estadual..."
- * or a name followed by the agency's honoree.
- */
-export function matchIssuingAgency(
-  identified: string | null,
-  agencies: IssuingAgency[]
-): string | null {
-  const target = identified ? normalize(identified) : '';
-  if (!target) return null;
-
-  const keysOf = (agency: IssuingAgency) =>
-    [agency.acronym, agency.name]
-      .filter((key): key is string => Boolean(key))
-      .map(normalize)
-      .filter(Boolean);
-
-  const exact = agencies.filter((agency) => keysOf(agency).includes(target));
-  if (exact.length > 0) return exact.length === 1 ? exact[0].id : null;
-
-  const partial = agencies.filter((agency) =>
-    keysOf(agency).some(
-      (key) => containsWords(target, key) || containsWords(key, target)
-    )
-  );
-
-  return partial.length === 1 ? partial[0].id : null;
 }
 
 function oneOf<T extends string>(

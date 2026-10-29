@@ -10,6 +10,7 @@ const {
   extractLicenseData,
   getLicenseDetails,
   getLicenseDocumentUrl,
+  getLicenseDashboard,
   listLicenses,
   renewLicense,
 } = await import('../../services/api/licensesApi');
@@ -71,7 +72,7 @@ describe('licensesApi', () => {
     });
   });
 
-  it('extractLicenseData() drops a license type the form does not know', async () => {
+  it('extractLicenseData() keeps any license type as printed, since the field is free text', async () => {
     vi.mocked(request).mockResolvedValue({
       extracted_data: {
         type: 'LU',
@@ -87,7 +88,7 @@ describe('licensesApi', () => {
       new File(['%PDF'], 'l.pdf', { type: 'application/pdf' })
     );
 
-    expect(result.extractedData.type).toBeNull();
+    expect(result.extractedData.type).toBe('LU');
   });
 
   it('getLicenseDocumentUrl() requests the signed URL and maps the response', async () => {
@@ -177,8 +178,7 @@ describe('licensesApi', () => {
       customer_id: 'customer-1',
       type: 'LO',
       process_number: 'LO nº 118/2020',
-      issuing_agency_id: 'agency-1',
-      issuing_agency_name: 'FEPAM',
+      issuing_agency: 'FEPAM',
       issue_date: '2020-01-10T00:00:00.000Z',
       expiration_date: '2025-01-10T00:00:00.000Z',
       status: 'Vencida',
@@ -192,7 +192,7 @@ describe('licensesApi', () => {
     const license = await createLicense('customer-1', {
       type: 'LO',
       processNumber: 'LO nº 118/2020',
-      issuingAgencyId: 'agency-1',
+      issuingAgency: 'FEPAM',
       issueDate: '2020-01-10',
       expirationDate: '2025-01-10',
       documentFile: file,
@@ -206,7 +206,7 @@ describe('licensesApi', () => {
     const formData = options?.body as FormData;
     expect(formData.get('type')).toBe('LO');
     expect(formData.get('process_number')).toBe('LO nº 118/2020');
-    expect(formData.get('issuing_agency_id')).toBe('agency-1');
+    expect(formData.get('issuing_agency')).toBe('FEPAM');
     expect(formData.get('issue_date')).toBe('2020-01-10');
     expect(formData.get('expiration_date')).toBe('2025-01-10');
     expect(formData.get('document_file')).toBe(file);
@@ -216,8 +216,7 @@ describe('licensesApi', () => {
       customerId: 'customer-1',
       type: 'LO',
       processNumber: 'LO nº 118/2020',
-      issuingAgencyId: 'agency-1',
-      issuingAgencyName: 'FEPAM',
+      issuingAgency: 'FEPAM',
       issueDate: '2020-01-10T00:00:00.000Z',
       expirationDate: '2025-01-10T00:00:00.000Z',
       status: 'Vencida',
@@ -312,6 +311,41 @@ describe('licensesApi', () => {
           expirationDate: '2025-01-10T00:00:00.000Z',
           status: 'Vencida',
           documentUrl: null,
+        },
+      ],
+    });
+  });
+
+  it('getLicenseDashboard() maps dashboard metrics and critical licenses', async () => {
+    vi.mocked(request).mockResolvedValue({
+      header: { active_licenses: 4, pending_items: 3 },
+      counts: { regular: 2, attention: 1, expired: 1 },
+      critical: [
+        {
+          id: 'license-1',
+          type: 'LO',
+          process_number: 'LO 118/2020',
+          expiration_date: '2026-09-01',
+          status: 'Vencida',
+        },
+      ],
+    });
+
+    const dashboard = await getLicenseDashboard('customer-1');
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/dashboard/licenses'
+    );
+    expect(dashboard).toEqual({
+      header: { activeLicenses: 4, pendingItems: 3 },
+      counts: { regular: 2, attention: 1, expired: 1 },
+      critical: [
+        {
+          id: 'license-1',
+          type: 'LO',
+          processNumber: 'LO 118/2020',
+          expirationDate: '2026-09-01',
+          status: 'Vencida',
         },
       ],
     });

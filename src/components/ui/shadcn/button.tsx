@@ -55,6 +55,10 @@ const buttonVariants = cva('cursor-pointer', {
       /* Destructive counterpart of `iconSoft`, e.g. delete. */
       iconDanger:
         'rounded-control grid size-[26px] place-items-center border-0 bg-red-100 p-0 text-red-500 disabled:cursor-default disabled:opacity-100',
+      /* Confirms a destructive action in a dialog: same shape as
+       * dialogPrimary, red so it never reads as the safe default. */
+      dialogDanger:
+        'rounded-panel inline-flex min-h-[38px] items-center justify-center gap-2 border-0 bg-red-600 px-4 text-sm font-extrabold text-white shadow-control transition-[background-color] duration-[160ms] hover:bg-red-700 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-red-600/30 disabled:cursor-not-allowed disabled:opacity-70',
     },
   },
 });

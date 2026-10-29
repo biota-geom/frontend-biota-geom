@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ApiError } from '../../services/api/apiError';
 import { getEsgIndicators } from '../../services/api/esgIndicatorsApi';
 import { isValidMonth } from './esgIndicatorsValidation';
-import type { EsgMonthlyIndicators } from './types';
+import type { MonthlyIndicator } from './types';
 
 export type EsgIndicatorsLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -11,7 +11,7 @@ const LOAD_ERROR_MESSAGE =
 
 type LoadResult = {
   key: string;
-  indicators: EsgMonthlyIndicators | null;
+  indicators: MonthlyIndicator[] | null;
   error: string | null;
 };
 

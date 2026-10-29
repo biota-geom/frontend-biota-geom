@@ -6,6 +6,7 @@ const { request } = await import('../../services/api/http');
 const {
   createDocument,
   createDocumentFolder,
+  deleteDocument,
   getDocumentAccessUrl,
   listDocumentFolders,
   listDocuments,
@@ -70,6 +71,23 @@ describe('documentsApi', () => {
     expect(formData.get('folder_id')).toBe('folder-1');
   });
 
+  it('omits the document date when it is not informed', async () => {
+    vi.mocked(request).mockResolvedValue(DOCUMENT_WIRE);
+    const file = new File(['document'], 'laudo-ruido.pdf', {
+      type: 'application/pdf',
+    });
+
+    await createDocument('customer-1', {
+      file,
+      title: 'Laudo de Ruído 2026',
+      folderId: null,
+    });
+
+    const [, options] = vi.mocked(request).mock.calls[0]!;
+    const formData = options?.body as FormData;
+    expect(formData.has('document_date')).toBe(false);
+  });
+
   it('lists and creates nested folders', async () => {
     const folderWire = {
       id: 'folder-2',
@@ -117,6 +135,18 @@ describe('documentsApi', () => {
     ).resolves.toBe('https://signed.example/document.pdf');
     expect(request).toHaveBeenCalledWith(
       '/api/customers/customer-1/documents/document-1/url'
+    );
+  });
+
+  it('deletes a document through the customer-scoped route', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await expect(
+      deleteDocument('customer-1', 'document-1')
+    ).resolves.toBeUndefined();
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/documents/document-1',
+      { method: 'DELETE' }
     );
   });
 });

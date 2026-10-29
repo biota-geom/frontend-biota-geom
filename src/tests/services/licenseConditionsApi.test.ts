@@ -8,9 +8,11 @@ const { request } = await import('../../services/api/http');
 const {
   createLicenseCondition,
   createLicenseConditions,
+  deleteLicenseCondition,
   getLicenseConditionsCompliance,
   listLicenseConditions,
   updateLicenseCondition,
+  updateLicenseConditionDescriptor,
 } = await import('../../services/api/licenseConditionsApi');
 
 describe('licenseConditionsApi', () => {
@@ -145,6 +147,36 @@ describe('licenseConditionsApi', () => {
             },
           ],
         },
+      }
+    );
+  });
+
+  it('deletes a condition through its customer and license route', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await deleteLicenseCondition('customer-1', 'license-1', 'condition-1');
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions/condition-1',
+      { method: 'DELETE' }
+    );
+  });
+
+  it('updates only the environmental descriptor through the owned license route', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await updateLicenseConditionDescriptor(
+      'customer-1',
+      'license-1',
+      'condition-1',
+      'Recursos hídricos'
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions/condition-1',
+      {
+        method: 'PUT',
+        body: { environmental_descriptor: 'Recursos hídricos' },
       }
     );
   });

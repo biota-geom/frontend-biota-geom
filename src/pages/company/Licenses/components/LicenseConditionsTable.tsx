@@ -36,7 +36,9 @@ type ConditionsFormValues = { conditions: LicenseConditionRow[] };
 
 type LicenseConditionsTableProps<TForm extends ConditionsFormValues> = {
   control: Control<TForm>;
+  description?: string;
   disabled?: boolean;
+  title?: string;
 };
 
 const HEADERS = [
@@ -57,7 +59,9 @@ function formatDeadline(value: string) {
 
 export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
   control: hostControl,
+  description = 'Adicione as condicionantes vinculadas à licença',
   disabled = false,
+  title = 'Condicionantes',
 }: LicenseConditionsTableProps<TForm>) {
   const control = hostControl as unknown as Control<ConditionsFormValues>;
   const { append, fields, insert, remove, update } = useFieldArray({
@@ -146,6 +150,21 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
     setConditionDialog(null);
   }
 
+  function removeEnvironmentalDescriptor(descriptor: string) {
+    const conditionIndexes = conditions.reduce<number[]>(
+      (indexes, condition, index) =>
+        condition.environmentalDescriptor === descriptor
+          ? [...indexes, index]
+          : indexes,
+      []
+    );
+
+    if (conditionIndexes.length > 0) remove(conditionIndexes);
+    setAddedDescriptors((current) =>
+      current.filter((item) => item !== descriptor)
+    );
+  }
+
   return (
     <section
       aria-labelledby="license-conditions-title"
@@ -156,11 +175,9 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
           className="m-0 text-base font-bold text-text-primary"
           id="license-conditions-title"
         >
-          Condicionantes
+          {title}
         </h3>
-        <p className="m-0 text-[13px] text-text-secondary">
-          Adicione as condicionantes vinculadas à licença
-        </p>
+        <p className="m-0 text-[13px] text-text-secondary">{description}</p>
       </div>
 
       {incompleteCount > 0 ? (
@@ -219,6 +236,9 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
                       })
                     }
                     onRemoveCondition={remove}
+                    onRemoveDescriptor={() =>
+                      removeEnvironmentalDescriptor(descriptor)
+                    }
                   />
                 );
               })}
@@ -327,6 +347,7 @@ type EnvironmentalDescriptorRowsProps = {
   onAddCondition: () => void;
   onEditCondition: (index: number) => void;
   onRemoveCondition: (index: number) => void;
+  onRemoveDescriptor: () => void;
 };
 
 /* Placeholder for a required value still missing (e.g. not in the PDF). */
@@ -343,11 +364,15 @@ function EnvironmentalDescriptorRows({
   onAddCondition,
   onEditCondition,
   onRemoveCondition,
+  onRemoveDescriptor,
 }: EnvironmentalDescriptorRowsProps) {
   const descriptorNumber = descriptorIndex + 1;
   // Conditions read from the PDF may come without a descriptor; they are
   // grouped here until the user sets one through the edit button.
   const hasDescriptor = descriptor.trim() !== '';
+  const descriptorRemovalLabel = hasDescriptor
+    ? `Remover descritor ambiental ${descriptor}`
+    : 'Remover condicionantes sem descritor ambiental';
 
   return (
     <>
@@ -360,19 +385,31 @@ function EnvironmentalDescriptorRows({
             <span className="text-[#b54708]">Sem descritor ambiental</span>
           )}
         </td>
-        <td className="px-3 py-2.5 text-right" colSpan={2}>
-          {hasDescriptor ? (
+        <td className="px-3 py-2.5" colSpan={2}>
+          <div className="flex items-center justify-end gap-2">
+            {hasDescriptor ? (
+              <Button
+                aria-label={`Adicionar condicionante em ${descriptor}`}
+                disabled={disabled}
+                onClick={onAddCondition}
+                type="button"
+                variant="addRow"
+              >
+                <Plus aria-hidden="true" size={15} />
+                Adicionar Condicionante
+              </Button>
+            ) : null}
             <Button
-              aria-label={`Adicionar condicionante em ${descriptor}`}
+              aria-label={descriptorRemovalLabel}
               disabled={disabled}
-              onClick={onAddCondition}
+              onClick={onRemoveDescriptor}
+              title={descriptorRemovalLabel}
               type="button"
-              variant="addRow"
+              variant="iconDanger"
             >
-              <Plus aria-hidden="true" size={15} />
-              Adicionar Condicionante
+              <Trash2 aria-hidden="true" size={14} />
             </Button>
-          ) : null}
+          </div>
         </td>
       </tr>
 
