@@ -415,3 +415,43 @@ export interface EsgIndicatorsSummaryWire {
   reference_month: string | null;
   indicators: IndicatorSummaryWire[];
 }
+
+export type LegislationTypeWire =
+  | 'LEI'
+  | 'DECRETO'
+  | 'RESOLUCAO'
+  | 'PORTARIA'
+  | 'INSTRUCAO_NORMATIVA'
+  | 'OUTRO';
+
+/** How the legislation got into the license radar. */
+export type LicenseLegislationSourceWire = 'SCAN' | 'MANUAL';
+
+export type LegislationImpactWire = 'HIGH' | 'MODERATE' | 'LOW';
+
+export interface LegislationWire {
+  id: string;
+  type: LegislationTypeWire;
+  /** As officially written, dots included (e.g. "12.305"). */
+  number: string;
+  year: number;
+  issuing_body: string;
+  summary: string | null;
+}
+
+/**
+ * One entry of a license's radar (`/licenses/:id/legislations`): the link
+ * between the license and a legislation, plus what the license says about it.
+ * `id` is the link's id, not the legislation's.
+ */
+export interface LicenseLegislationWire {
+  id: string;
+  legislation: LegislationWire;
+  source: LicenseLegislationSourceWire;
+  cited_excerpt: string | null;
+  impact: LegislationImpactWire | null;
+  technical_analysis: string | null;
+  /** ISO timestamp; null while the entry is still unread ("Novo"). */
+  read_at: string | null;
+  created_at: string;
+}
