@@ -10,18 +10,21 @@ import type {
   LicenseVersion,
   RenewalConditionDecision,
 } from '../../features/licenses/types';
+import { ApiError } from './apiError';
 import { request } from './http';
 import type {
   LicenseDocumentUrlWire,
   LicenseHistoryItemWire,
   LicensePanelItemWire,
   LicenseDetailsWire,
+  LicenseExtractionJobWire,
   LicenseExtractionWire,
   LicensePanelResponseWire,
   LicenseDashboardWire,
   LicenseRenewedWire,
   LicenseWire,
   RenewalConditionWire,
+  StartLicenseExtractionWire,
 } from './types';
 
 export interface CreateLicenseInput {
@@ -218,24 +221,97 @@ function toLicenseExtraction(wire: LicenseExtractionWire): LicenseExtraction {
   };
 }
 
+/* The backend gives the model up to BEDROCK_TIMEOUT_MS (180 s); the margin covers the upload and the last poll. */
+const EXTRACTION_POLL_INTERVAL_MS = 3_000;
+const EXTRACTION_DEADLINE_MS = 180_000 + 20_000;
+const EXTRACTION_ABORTED_MESSAGE = 'Leitura do documento cancelada.';
+const EXTRACTION_LOST_MESSAGE =
+  'A leitura do documento foi interrompida. Preencha os campos manualmente.';
+const EXTRACTION_TIMEOUT_MESSAGE =
+  'A leitura do documento demorou mais que o esperado. Preencha os campos manualmente.';
+const EXTRACTION_FAILED_MESSAGE =
+  'Não foi possível ler o documento automaticamente. Preencha os campos manualmente.';
+
+export interface ExtractLicenseDataOptions {
+  /** Stops polling; the server-side job is left to expire on its own. */
+  signal?: AbortSignal;
+  pollIntervalMs?: number;
+  deadlineMs?: number;
+}
+
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new ApiError(0, EXTRACTION_ABORTED_MESSAGE));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new ApiError(0, EXTRACTION_ABORTED_MESSAGE));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 /**
  * Sends the license PDF to be read by the AI and returns suggestions for the
- * registration form. Nothing is saved server-side — the license and its
- * conditions are still created through `createLicense` and
- * `createLicenseConditions` once the user has reviewed them.
+ * registration form. The backend reads it in the background: this uploads the
+ * PDF (answered at once with a job id), then polls the job until it is done,
+ * so no HTTP request stays open for the length of the model call. Nothing is
+ * saved server-side — the license and its conditions are still created through
+ * `createLicense` and `createLicenseConditions` once the user has reviewed
+ * them.
+ *
+ * Rejects with an `ApiError` carrying a user-facing message when the job
+ * fails, disappears (e.g. the server restarted), is aborted, or outlives the
+ * deadline.
  */
 export async function extractLicenseData(
-  documentFile: File
+  documentFile: File,
+  {
+    signal,
+    pollIntervalMs = EXTRACTION_POLL_INTERVAL_MS,
+    deadlineMs = EXTRACTION_DEADLINE_MS,
+  }: ExtractLicenseDataOptions = {}
 ): Promise<LicenseExtraction> {
   const formData = new FormData();
   formData.append('document', documentFile);
 
-  const wire = await request<LicenseExtractionWire>('/api/licenses/extract', {
-    method: 'POST',
-    body: formData,
-  });
+  const { job_id: jobId } = await request<StartLicenseExtractionWire>(
+    '/api/licenses/extract',
+    { method: 'POST', body: formData }
+  );
+  const giveUpAt = Date.now() + deadlineMs;
 
-  return toLicenseExtraction(wire);
+  while (Date.now() < giveUpAt) {
+    await wait(pollIntervalMs, signal);
+
+    let job: LicenseExtractionJobWire;
+    try {
+      job = await request<LicenseExtractionJobWire>(
+        `/api/licenses/extract/${jobId}`
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        throw new ApiError(404, EXTRACTION_LOST_MESSAGE);
+      }
+      throw error;
+    }
+
+    if (signal?.aborted) throw new ApiError(0, EXTRACTION_ABORTED_MESSAGE);
+    if (job.status === 'DONE' && job.result) {
+      return toLicenseExtraction(job.result);
+    }
+    if (job.status === 'FAILED') {
+      throw new ApiError(422, job.error ?? EXTRACTION_FAILED_MESSAGE);
+    }
+  }
+
+  throw new ApiError(504, EXTRACTION_TIMEOUT_MESSAGE);
 }
 
 function toLicensePanelItem(wire: LicensePanelItemWire): LicensePanelItem {

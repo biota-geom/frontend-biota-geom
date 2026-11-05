@@ -173,6 +173,16 @@ export interface LicenseExtractionWire {
   suggested_conditions: SuggestedConditionWire[];
 }
 
+export interface StartLicenseExtractionWire {
+  job_id: string;
+}
+
+export interface LicenseExtractionJobWire {
+  status: 'PENDING' | 'DONE' | 'FAILED';
+  result: LicenseExtractionWire | null;
+  error: string | null;
+}
+
 export interface LicenseConditionDetailsWire {
   id: string | null;
   item_number: string;
