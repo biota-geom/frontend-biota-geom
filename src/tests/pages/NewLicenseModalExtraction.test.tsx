@@ -103,9 +103,10 @@ describe('NewLicenseModal — AI pre-fill', () => {
 
     await uploadPdf(user);
 
-    expect(await screen.findByText('Lendo documento…')).toBeInTheDocument();
+    expect(await screen.findByText(/Lendo documento…/)).toBeInTheDocument();
     expect(licensesApi.extractLicenseData).toHaveBeenCalledWith(
-      expect.any(File)
+      expect.any(File),
+      { signal: expect.any(AbortSignal) }
     );
 
     reading.resolve(EXTRACTION);
@@ -113,7 +114,7 @@ describe('NewLicenseModal — AI pre-fill', () => {
     expect(
       await screen.findByText('Revise os dados sugeridos pela IA')
     ).toBeInTheDocument();
-    expect(screen.queryByText('Lendo documento…')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Lendo documento…/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/nº do processo/i)).toHaveValue(
       'LU Nº 00865/2022'
     );
@@ -433,7 +434,7 @@ describe('NewLicenseModal — AI pre-fill', () => {
         'Não foi possível ler os dados deste documento. Preencha os campos manualmente.'
       )
     ).toBeInTheDocument();
-    expect(screen.queryByText('Lendo documento…')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Lendo documento…/)).not.toBeInTheDocument();
     expect(
       screen.queryByText('Revise os dados sugeridos pela IA')
     ).not.toBeInTheDocument();
@@ -464,6 +465,28 @@ describe('NewLicenseModal — AI pre-fill', () => {
         'Não foi possível ler o documento automaticamente. Preencha os campos manualmente.'
       )
     ).toBeInTheDocument();
+  });
+
+  it('lets the user cancel the reading and keeps filling manually', async () => {
+    const user = userEvent.setup();
+    const reading = deferred<LicenseExtraction>();
+    vi.mocked(licensesApi.extractLicenseData).mockReturnValue(reading.promise);
+    renderModal();
+
+    await uploadPdf(user);
+    expect(await screen.findByText(/até 3 minutos/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancelar leitura' }));
+
+    const { signal } = vi.mocked(licensesApi.extractLicenseData).mock
+      .calls[0][1] as { signal: AbortSignal };
+    expect(signal.aborted).toBe(true);
+    expect(screen.queryByText(/Lendo documento…/)).not.toBeInTheDocument();
+
+    // A late answer for the cancelled reading must not touch the form.
+    reading.resolve(EXTRACTION);
+    await waitFor(() =>
+      expect(screen.queryByText(/Revise os dados/)).not.toBeInTheDocument()
+    );
   });
 
   it('does not send a non-PDF file for reading', async () => {
