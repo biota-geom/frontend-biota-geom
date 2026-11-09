@@ -65,6 +65,7 @@ const LICENSE_WITH_CONDITIONS: LicenseDetails = {
 function renderModal(
   overrides: Partial<{
     license: LicenseDetails;
+    legislationCount: number;
     onConditionsOutdated: () => void;
     onOpenChange: (open: boolean) => void;
     onRenewed: (license: { id: string }) => void;
@@ -75,6 +76,7 @@ function renderModal(
   const onRenewed = overrides.onRenewed ?? vi.fn();
   const modal = (license: LicenseDetails) => (
     <RenewLicenseModal
+      legislationCount={overrides.legislationCount ?? 3}
       license={license}
       onConditionsOutdated={onConditionsOutdated}
       onOpenChange={onOpenChange}
@@ -161,6 +163,34 @@ async function markToCopy(
 }
 
 describe('RenewLicenseModal', () => {
+  it.each([
+    [0, 'Não há legislações no radar para copiar para a nova licença.'],
+    [1, 'A 1 legislação do radar será copiada para a nova licença.'],
+    [3, 'As 3 legislações do radar serão copiadas para a nova licença.'],
+  ])(
+    'shows the radar notice for %i entries without conditions',
+    async (legislationCount, message) => {
+      renderModal({ legislationCount });
+
+      expect(await screen.findByText(message)).toBeVisible();
+      expect(licensesApi.renewLicense).not.toHaveBeenCalled();
+    }
+  );
+
+  it('shows the radar notice only on the final step when there are conditions', async () => {
+    const user = userEvent.setup();
+    renderModal({ license: LICENSE_WITH_CONDITIONS });
+    const message =
+      'As 3 legislações do radar serão copiadas para a nova licença.';
+
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+    const dialog = await goToConditionsStep(user);
+    expect(within(dialog).getByText(message)).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Voltar' }));
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+    expect(licensesApi.renewLicense).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     // Only Date: userEvent still needs real timers.
     vi.useFakeTimers({ toFake: ['Date'] });

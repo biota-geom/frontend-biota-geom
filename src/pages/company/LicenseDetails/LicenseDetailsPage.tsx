@@ -11,6 +11,7 @@ import {
   formatLicenseStatus,
 } from '../../../features/licenses/licenseDetailsFormatting';
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
+import { MOCK_LICENSE_LEGISLATIONS } from '../../../features/legislation/legislations.mock';
 import { useLicenseHistory } from '../../../features/licenses/useLicenseHistory';
 import type { LicenseConditionDetail } from '../../../features/licenses/types';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
@@ -338,6 +339,8 @@ export function LicenseDetailsPage() {
 
       {details ? (
         <RenewLicenseModal
+          // TODO: Replace the shared fixture with this license's radar once its API is defined.
+          legislationCount={MOCK_LICENSE_LEGISLATIONS.length}
           license={details}
           onConditionsOutdated={refetch}
           onOpenChange={setIsRenewModalOpen}

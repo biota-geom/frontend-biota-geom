@@ -31,6 +31,7 @@ const INVALID_COPY_DUE_DATE_MESSAGE =
 
 type RenewLicenseModalProps = {
   license: LicenseDetails;
+  legislationCount: number;
   /** Reloads `license`: its conditions changed since the modal was opened. */
   onConditionsOutdated: () => void;
   onOpenChange: (open: boolean) => void;
@@ -61,6 +62,7 @@ function emptyForm() {
 
 export function RenewLicenseModal({
   license,
+  legislationCount,
   onConditionsOutdated,
   onOpenChange,
   onRenewed,
@@ -429,6 +431,19 @@ export function RenewLicenseModal({
                 />
               </div>
             </section>
+          ) : null}
+
+          {isLastStep ? (
+            <p
+              className="col-span-2 m-0 rounded-panel border border-border bg-surface-muted px-3 py-2.5 text-sm text-text-secondary max-[560px]:col-span-1"
+              role="status"
+            >
+              {legislationCount === 0
+                ? 'Não há legislações no radar para copiar para a nova licença.'
+                : legislationCount === 1
+                  ? 'A 1 legislação do radar será copiada para a nova licença.'
+                  : `As ${legislationCount} legislações do radar serão copiadas para a nova licença.`}
+            </p>
           ) : null}
 
           {error ? (
