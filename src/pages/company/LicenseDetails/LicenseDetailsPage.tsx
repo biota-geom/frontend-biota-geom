@@ -13,10 +13,12 @@ import {
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
 import { MOCK_LICENSE_LEGISLATIONS } from '../../../features/legislation/legislations.mock';
 import { useLicenseHistory } from '../../../features/licenses/useLicenseHistory';
+import { useLicenseLegislations } from '../../../features/legislation/useLicenseLegislations';
 import type { LicenseConditionDetail } from '../../../features/licenses/types';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
+import { LegislationRadar } from './components/LegislationRadar';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
 import { LicenseVersionHistory } from './components/LicenseVersionHistory';
 import { RenewLicenseModal } from './components/RenewLicenseModal';
@@ -125,6 +127,7 @@ export function LicenseDetailsPage() {
     licenseId
   );
   const { versions } = useLicenseHistory(licenseId);
+  const radar = useLicenseLegislations(licenseId);
   const breadcrumbs = useCompanyBreadcrumbs('Detalhes da licença', {
     parent: { label: 'Licenças', to: buildCompanyRoutes.licenses },
   });
@@ -317,6 +320,13 @@ export function LicenseDetailsPage() {
               </table>
             </div>
           </section>
+
+          <LegislationRadar
+            error={radar.error}
+            legislations={radar.legislations}
+            onRetry={radar.refetch}
+            status={radar.status}
+          />
 
           {companyId ? (
             <LicenseVersionHistory companyId={companyId} versions={versions} />

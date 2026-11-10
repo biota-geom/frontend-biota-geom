@@ -10,12 +10,19 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LicenseDetails } from '../../features/licenses/types';
 import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
+import { MOCK_LICENSE_LEGISLATIONS } from '../../features/legislation/legislations.mock';
 import { ApiError } from '../../services/api/apiError';
 
 vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
   getLicenseHistory: vi.fn(),
   renewLicense: vi.fn(),
+}));
+vi.mock('../../services/api/legislationsApi', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('../../services/api/legislationsApi')
+  >()),
+  getLicenseLegislations: vi.fn(),
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
@@ -26,6 +33,7 @@ vi.mock('../../services/api/licenseConditionsApi', () => ({
 const licensesApi = await import('../../services/api/licensesApi');
 const licenseConditionsApi =
   await import('../../services/api/licenseConditionsApi');
+const legislationsApi = await import('../../services/api/legislationsApi');
 
 const DETAILS: LicenseDetails = {
   id: 'license-1',
@@ -163,6 +171,7 @@ describe('LicenseDetailsPage', () => {
     vi.resetAllMocks();
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(DETAILS);
     vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([]);
+    vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue([]);
     vi.mocked(licensesApi.renewLicense).mockResolvedValue({
       id: 'license-2',
       previousLicenseId: 'license-1',
@@ -722,5 +731,46 @@ describe('LicenseDetailsPage', () => {
       screen.queryByRole('region', { name: 'Histórico de versões' })
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('lists the license legislations in the radar, as the backend orders them', async () => {
+    vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+      MOCK_LICENSE_LEGISLATIONS.map(legislationsApi.toLicenseLegislation)
+    );
+
+    renderDetailsPage();
+
+    const radar = await screen.findByRole('region', {
+      name: 'Radar de Legislação',
+    });
+    await waitFor(() =>
+      expect(within(radar).getAllByRole('listitem')).toHaveLength(3)
+    );
+    expect(
+      within(radar)
+        .getAllByRole('heading', { level: 3 })
+        .map((heading) => heading.textContent)
+    ).toEqual([
+      'Lei nº 12.305/2010',
+      'Resolução nº 237/1997',
+      'Lei nº 9.605/1998',
+    ]);
+    expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledWith(
+      'license-1'
+    );
+  });
+
+  it('shows the empty radar with the add button', async () => {
+    renderDetailsPage();
+
+    const radar = await screen.findByRole('region', {
+      name: 'Radar de Legislação',
+    });
+    expect(
+      await within(radar).findByText('Nenhuma legislação vinculada')
+    ).toBeInTheDocument();
+    expect(
+      within(radar).getByRole('button', { name: 'Adicionar legislação' })
+    ).toBeInTheDocument();
   });
 });
