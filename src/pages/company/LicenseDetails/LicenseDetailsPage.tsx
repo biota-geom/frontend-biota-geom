@@ -66,7 +66,11 @@ function ConditionRow({ condition }: { condition: LicenseConditionDetail }) {
       <td className="min-w-64 px-3 py-3 align-top">
         <span
           className={
-            condition.isEnvironmentalDescriptor ? 'text-text-primary' : 'pl-4'
+            condition.isEnvironmentalDescriptor
+              ? 'text-text-primary'
+              : condition.level === 2 || condition.parentConditionId
+                ? 'pl-10'
+                : 'pl-4'
           }
         >
           {condition.isEnvironmentalDescriptor
@@ -136,12 +140,20 @@ export function LicenseDetailsPage() {
   const conditions = conditionRows.filter(
     (condition) => !condition.isEnvironmentalDescriptor
   );
+  const parentConditionIds = new Set(
+    conditions
+      .map((condition) => condition.parentConditionId)
+      .filter((id): id is string => Boolean(id))
+  );
+  const complianceConditions = conditions.filter(
+    (condition) => !parentConditionIds.has(condition.id ?? '')
+  );
   const filteredConditions = conditionRows.filter((condition) =>
     `${condition.itemNumber} ${condition.environmentalDescriptor} ${condition.description}`
       .toLocaleLowerCase('pt-BR')
       .includes(filter.trim().toLocaleLowerCase('pt-BR'))
   );
-  const fulfilledCount = conditions.filter(
+  const fulfilledCount = complianceConditions.filter(
     (condition) =>
       condition.status !== null &&
       formatConditionStatus(condition.status) === 'Atendida'
@@ -165,6 +177,11 @@ export function LicenseDetailsPage() {
 
   function handleConditionDeleted(conditionName: string) {
     setToastMessage(`Condicionante "${conditionName}" excluída com sucesso.`);
+    refetch();
+  }
+
+  function handleConditionUpdated(conditionName: string) {
+    setToastMessage(`Condicionante "${conditionName}" atualizada com sucesso.`);
     refetch();
   }
 
@@ -247,7 +264,7 @@ export function LicenseDetailsPage() {
             <LicenseSummaryCard
               accent="border-l-blue-500"
               label="Condicionantes"
-              value={`${fulfilledCount} de ${conditions.length} atendidas`}
+              value={`${fulfilledCount} de ${complianceConditions.length} atendidas`}
             />
           </section>
 
@@ -343,6 +360,7 @@ export function LicenseDetailsPage() {
           onDeleted={handleConditionDeleted}
           onDescriptorUpdated={handleDescriptorUpdated}
           onOpenChange={setIsModalOpen}
+          onConditionUpdated={handleConditionUpdated}
           open={isModalOpen}
         />
       ) : null}

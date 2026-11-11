@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
   Dialog,
@@ -15,6 +15,15 @@ import { InputGroup } from '@/components/ui/shadcn/input-group';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/shadcn/select';
+import { getLicenseDetails } from '../../../../services/api/licensesApi';
+import type { LicenseConditionDetail } from '../../../../features/licenses/types';
+import {
   editLicenseConditionSchema,
   type EditLicenseConditionForm,
 } from '../../../../features/licenseConditions/createLicenseConditionValidation';
@@ -27,6 +36,7 @@ const GENERIC_ERROR_MESSAGE =
 
 type EditConditionModalProps = {
   condition: LicenseCondition | null;
+  customerId: string | undefined;
   onOpenChange: (open: boolean) => void;
   onUpdated: (conditionName: string) => void;
   open: boolean;
@@ -52,11 +62,23 @@ function toUtcIsoDate(value: string): string {
 
 export function EditConditionModal({
   condition,
+  customerId,
   onOpenChange,
   onUpdated,
   open,
 }: EditConditionModalProps) {
+  const [parentData, setParentData] = useState<{
+    conditionId: string;
+    conditions: LicenseConditionDetail[];
+    parentConditionId: string;
+    error: string | null;
+  } | null>(null);
+  const [parentSelection, setParentSelection] = useState<{
+    conditionId: string;
+    value: string;
+  } | null>(null);
   const {
+    control,
     formState: { errors, isSubmitting, isValid },
     handleSubmit,
     register,
@@ -75,13 +97,72 @@ export function EditConditionModal({
     mode: 'onChange',
     resolver: zodResolver(editLicenseConditionSchema),
   });
+  const editedDescriptor = useWatch({
+    control,
+    name: 'environmentalDescriptor',
+  });
+  const isLoadingParents =
+    Boolean(condition && open && customerId) &&
+    parentData?.conditionId !== condition?.id;
+  const currentParentData =
+    parentData?.conditionId === condition?.id ? parentData : null;
+  const licenseConditions = currentParentData?.conditions ?? [];
+  const parentLoadError = currentParentData?.error ?? null;
+  const parentConditionId =
+    parentSelection && parentSelection.conditionId === condition?.id
+      ? parentSelection.value
+      : (currentParentData?.parentConditionId ??
+        condition?.parentConditionId ??
+        'none');
 
   useEffect(() => {
     if (condition && open) reset(valuesFromCondition(condition));
   }, [condition, open, reset]);
 
+  useEffect(() => {
+    if (!condition || !open || !customerId) return;
+
+    let isCurrent = true;
+    void getLicenseDetails(customerId, condition.licenseId)
+      .then((details) => {
+        if (!isCurrent) return;
+        const detailCondition = details.conditions.find(
+          (item) => item.id === condition.id
+        );
+        setParentData({
+          conditionId: condition.id,
+          conditions: details.conditions,
+          parentConditionId:
+            detailCondition?.parentConditionId ??
+            condition.parentConditionId ??
+            'none',
+          error: null,
+        });
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) return;
+        setParentData({
+          conditionId: condition.id,
+          conditions: [],
+          parentConditionId: 'none',
+          error:
+            error instanceof ApiError
+              ? error.message
+              : 'Não foi possível carregar as condicionantes da licença.',
+        });
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [condition, customerId, open]);
+
   function handleOpenChange(nextOpen: boolean) {
     if (isSubmitting) return;
+    if (!nextOpen) {
+      setParentData(null);
+      setParentSelection(null);
+    }
     onOpenChange(nextOpen);
   }
 
@@ -97,8 +178,16 @@ export function EditConditionModal({
         hasDelivery: values.hasDelivery,
         isViolated: values.isViolated,
         description: values.description || undefined,
+        ...(isLoadingParents || parentLoadError || !customerId
+          ? {}
+          : {
+              parentConditionId:
+                parentConditionId === 'none' ? null : parentConditionId,
+            }),
       });
       onUpdated(values.name);
+      setParentData(null);
+      setParentSelection(null);
       onOpenChange(false);
     } catch (error) {
       setError('root', {
@@ -136,13 +225,91 @@ export function EditConditionModal({
             />
           </EditTextField>
 
+          <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
+            <Label htmlFor="edit-condition-parent">Sub-item de</Label>
+            <Select
+              disabled={
+                isLoadingParents ||
+                Boolean(parentLoadError) ||
+                !customerId ||
+                licenseConditions.some(
+                  (child) => child.parentConditionId === condition?.id
+                )
+              }
+              onValueChange={(value) => {
+                if (condition)
+                  setParentSelection({ conditionId: condition.id, value });
+              }}
+              value={parentConditionId}
+            >
+              <SelectTrigger
+                className="w-full min-w-0"
+                id="edit-condition-parent"
+              >
+                <SelectValue
+                  className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
+                  placeholder={
+                    isLoadingParents
+                      ? 'Carregando condicionantes...'
+                      : 'Nenhuma (condicionante principal)'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent
+                className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
+                position="popper"
+              >
+                <SelectItem value="none">
+                  Nenhuma (condicionante principal)
+                </SelectItem>
+                {licenseConditions
+                  .filter(
+                    (candidate) =>
+                      !candidate.isEnvironmentalDescriptor &&
+                      candidate.id !== null &&
+                      candidate.id !== condition?.id &&
+                      candidate.environmentalDescriptor === editedDescriptor &&
+                      !candidate.parentConditionId
+                  )
+                  .map((parent) => (
+                    <SelectItem
+                      className="h-auto min-h-8 whitespace-normal break-words"
+                      key={parent.id}
+                      value={parent.id ?? ''}
+                    >
+                      <span className="block min-w-0 whitespace-normal break-words">
+                        {parent.itemNumber} —{' '}
+                        {parent.description || parent.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {parentLoadError ? (
+              <p
+                className="m-0 text-[13px] font-semibold text-red-600"
+                role="alert"
+              >
+                {parentLoadError}
+              </p>
+            ) : null}
+          </div>
+
           <EditTextField
             error={errors.environmentalDescriptor?.message}
             id="edit-condition-environmental-descriptor"
             label="Descritor Ambiental"
           >
             <Input
-              {...register('environmentalDescriptor')}
+              {...register('environmentalDescriptor', {
+                onChange: () => {
+                  if (condition)
+                    setParentSelection({
+                      conditionId: condition.id,
+                      value: 'none',
+                    });
+                },
+              })}
               aria-invalid={Boolean(errors.environmentalDescriptor)}
               id="edit-condition-environmental-descriptor"
             />
@@ -225,7 +392,14 @@ export function EditConditionModal({
               Cancelar
             </Button>
             <Button
-              disabled={!condition || !isValid || isSubmitting}
+              disabled={
+                !condition ||
+                !isValid ||
+                isSubmitting ||
+                isLoadingParents ||
+                Boolean(parentLoadError) ||
+                !customerId
+              }
               type="submit"
               variant="dialogPrimary"
             >

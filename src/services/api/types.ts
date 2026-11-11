@@ -186,6 +186,8 @@ export interface LicenseExtractionJobWire {
 export interface LicenseConditionDetailsWire {
   id: string | null;
   item_number: string;
+  parent_condition_id?: string | null;
+  level?: 1 | 2 | null;
   is_environmental_descriptor: boolean;
   environmental_descriptor: string;
   name: string | null;
@@ -327,6 +329,7 @@ export interface FileAccessUrlWire {
 export interface LicenseConditionWire {
   id: string;
   license_id: string;
+  parent_condition_id?: string | null;
   name: string;
   description: string | null;
   environmental_descriptor: string;
@@ -364,6 +367,7 @@ export interface LicenseConditionCreatedWire {
 }
 
 export interface LicenseConditionBatchItemWire {
+  parent_condition_id?: string;
   environmental_descriptor: string;
   description: string;
   condition_type: string;
