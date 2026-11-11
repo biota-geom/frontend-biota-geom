@@ -69,6 +69,8 @@ export function NewLicenseModal({
   });
   /* Bumped per extraction (and on close) so a stale response is ignored. */
   const extractionRequestRef = useRef(0);
+  /* Stops the polling of the extraction being cancelled, replaced or discarded. */
+  const extractionAbortRef = useRef<AbortController | null>(null);
 
   const {
     control,
@@ -87,8 +89,19 @@ export function NewLicenseModal({
 
   // Closing the modal discards any extraction still in flight.
   useEffect(() => {
-    if (!open) extractionRequestRef.current += 1;
+    if (!open) cancelExtraction();
   }, [open]);
+
+  function cancelExtraction() {
+    extractionRequestRef.current += 1;
+    extractionAbortRef.current?.abort();
+    extractionAbortRef.current = null;
+  }
+
+  function handleCancelExtraction() {
+    cancelExtraction();
+    setExtraction({ status: 'idle' });
+  }
 
   function closeAndReset() {
     reset(CREATE_LICENSE_DEFAULT_VALUES);
@@ -124,11 +137,16 @@ export function NewLicenseModal({
   }
 
   async function runExtraction(file: File) {
-    const requestId = ++extractionRequestRef.current;
+    cancelExtraction();
+    const requestId = extractionRequestRef.current;
+    const abortController = new AbortController();
+    extractionAbortRef.current = abortController;
     setExtraction({ status: 'loading' });
 
     try {
-      const result = await extractLicenseData(file);
+      const result = await extractLicenseData(file, {
+        signal: abortController.signal,
+      });
       if (requestId !== extractionRequestRef.current) return;
 
       applyExtraction(result);
@@ -259,7 +277,10 @@ export function NewLicenseModal({
                 {errors.file.message}
               </p>
             ) : null}
-            <ExtractionStatus extraction={extraction} />
+            <ExtractionStatus
+              extraction={extraction}
+              onCancel={handleCancelExtraction}
+            />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -363,17 +384,28 @@ export function NewLicenseModal({
   );
 }
 
-function ExtractionStatus({ extraction }: { extraction: ExtractionState }) {
+function ExtractionStatus({
+  extraction,
+  onCancel,
+}: {
+  extraction: ExtractionState;
+  onCancel: () => void;
+}) {
   if (extraction.status === 'loading') {
     return (
-      <p
-        aria-live="polite"
-        className="m-0 flex items-center gap-2 text-[13px] font-semibold text-text-secondary"
-        role="status"
-      >
-        <Loader2 aria-hidden="true" className="animate-spin" size={14} />
-        Lendo documento…
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p
+          aria-live="polite"
+          className="m-0 flex items-center gap-2 text-[13px] font-semibold text-text-secondary"
+          role="status"
+        >
+          <Loader2 aria-hidden="true" className="animate-spin" size={14} />
+          Lendo documento… isso pode levar até 3 minutos
+        </p>
+        <Button onClick={onCancel} type="button" variant="subtle">
+          Cancelar leitura
+        </Button>
+      </div>
     );
   }
 

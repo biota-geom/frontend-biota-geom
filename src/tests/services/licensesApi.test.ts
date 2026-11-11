@@ -4,6 +4,7 @@ vi.mock('../../services/api/http', () => ({
   request: vi.fn(),
 }));
 
+const { ApiError } = await import('../../services/api/apiError');
 const { request } = await import('../../services/api/http');
 const {
   createLicense,
@@ -21,8 +22,8 @@ describe('licensesApi', () => {
     vi.clearAllMocks();
   });
 
-  it('extractLicenseData() posts the PDF in the "document" field and maps the suggestions', async () => {
-    vi.mocked(request).mockResolvedValue({
+  describe('extractLicenseData()', () => {
+    const WIRE_RESULT = {
       extracted_data: {
         type: 'LO',
         process_number: 'LO nº 118/2020',
@@ -39,57 +40,128 @@ describe('licensesApi', () => {
           due_date: null,
         },
       ],
-    });
-    const file = new File(['%PDF-1.4'], 'licenca.pdf', {
-      type: 'application/pdf',
+    };
+    const POLL = { pollIntervalMs: 1 };
+
+    beforeEach(() => {
+      vi.mocked(request).mockReset();
     });
 
-    const result = await extractLicenseData(file);
+    const pdf = () =>
+      new File(['%PDF-1.4'], 'licenca.pdf', { type: 'application/pdf' });
 
-    const [path, options] = vi.mocked(request).mock.calls[0] as [
-      string,
-      { method: string; body: FormData },
-    ];
-    expect(path).toBe('/api/licenses/extract');
-    expect(options.method).toBe('POST');
-    expect(options.body.get('document')).toBe(file);
-    expect(result).toEqual({
-      extractedData: {
-        type: 'LO',
-        processNumber: 'LO nº 118/2020',
-        issuingAgency: 'FEPAM',
-        issueDate: '2020-01-10',
-        expirationDate: '2025-01-10',
-      },
-      suggestedConditions: [
-        {
-          environmentalDescriptor: 'Resíduos Sólidos',
-          description: 'Apresentar relatório semestral',
-          conditionType: 'PERIODIC',
-          periodicity: 'SEMIANNUAL',
-          dueDate: null,
+    it('posts the PDF in the "document" field, polls the job and maps the suggestions', async () => {
+      vi.mocked(request)
+        .mockResolvedValueOnce({ job_id: 'job-1' })
+        .mockResolvedValueOnce({ status: 'PENDING', result: null, error: null })
+        .mockResolvedValueOnce({
+          status: 'DONE',
+          result: WIRE_RESULT,
+          error: null,
+        });
+      const file = pdf();
+
+      const result = await extractLicenseData(file, POLL);
+
+      const [path, options] = vi.mocked(request).mock.calls[0] as [
+        string,
+        { method: string; body: FormData },
+      ];
+      expect(path).toBe('/api/licenses/extract');
+      expect(options.method).toBe('POST');
+      expect(options.body.get('document')).toBe(file);
+      expect(request).toHaveBeenNthCalledWith(2, '/api/licenses/extract/job-1');
+      expect(request).toHaveBeenCalledTimes(3);
+      expect(result).toEqual({
+        extractedData: {
+          type: 'LO',
+          processNumber: 'LO nº 118/2020',
+          issuingAgency: 'FEPAM',
+          issueDate: '2020-01-10',
+          expirationDate: '2025-01-10',
         },
-      ],
-    });
-  });
-
-  it('extractLicenseData() keeps any license type as printed, since the field is free text', async () => {
-    vi.mocked(request).mockResolvedValue({
-      extracted_data: {
-        type: 'LU',
-        process_number: null,
-        issuing_agency: null,
-        issue_date: null,
-        expiration_date: null,
-      },
-      suggested_conditions: [],
+        suggestedConditions: [
+          {
+            environmentalDescriptor: 'Resíduos Sólidos',
+            description: 'Apresentar relatório semestral',
+            conditionType: 'PERIODIC',
+            periodicity: 'SEMIANNUAL',
+            dueDate: null,
+          },
+        ],
+      });
     });
 
-    const result = await extractLicenseData(
-      new File(['%PDF'], 'l.pdf', { type: 'application/pdf' })
-    );
+    it('keeps any license type as printed, since the field is free text', async () => {
+      vi.mocked(request)
+        .mockResolvedValueOnce({ job_id: 'job-1' })
+        .mockResolvedValueOnce({
+          status: 'DONE',
+          result: {
+            extracted_data: {
+              ...WIRE_RESULT.extracted_data,
+              type: 'LU',
+            },
+            suggested_conditions: [],
+          },
+          error: null,
+        });
 
-    expect(result.extractedData.type).toBe('LU');
+      const result = await extractLicenseData(pdf(), POLL);
+
+      expect(result.extractedData.type).toBe('LU');
+    });
+
+    it('rejects with the friendly message of a FAILED job', async () => {
+      vi.mocked(request)
+        .mockResolvedValueOnce({ job_id: 'job-1' })
+        .mockResolvedValueOnce({
+          status: 'FAILED',
+          result: null,
+          error: 'Não foi possível ler os dados deste documento.',
+        });
+
+      await expect(extractLicenseData(pdf(), POLL)).rejects.toMatchObject({
+        message: 'Não foi possível ler os dados deste documento.',
+      });
+    });
+
+    it('rejects with a manual-filling message when the job vanished (404)', async () => {
+      vi.mocked(request)
+        .mockResolvedValueOnce({ job_id: 'job-1' })
+        .mockRejectedValueOnce(new ApiError(404, 'Leitura não encontrada.'));
+
+      await expect(extractLicenseData(pdf(), POLL)).rejects.toMatchObject({
+        status: 404,
+        message: expect.stringContaining('Preencha os campos manualmente'),
+      });
+    });
+
+    it('gives up once the deadline passes', async () => {
+      vi.mocked(request)
+        .mockResolvedValueOnce({ job_id: 'job-1' })
+        .mockResolvedValue({ status: 'PENDING', result: null, error: null });
+
+      await expect(
+        extractLicenseData(pdf(), { pollIntervalMs: 5, deadlineMs: 30 })
+      ).rejects.toMatchObject({ status: 504 });
+    });
+
+    it('stops polling when aborted', async () => {
+      vi.mocked(request)
+        .mockResolvedValueOnce({ job_id: 'job-1' })
+        .mockResolvedValue({ status: 'PENDING', result: null, error: null });
+      const controller = new AbortController();
+
+      const reading = extractLicenseData(pdf(), {
+        signal: controller.signal,
+        pollIntervalMs: 50,
+      });
+      controller.abort();
+
+      await expect(reading).rejects.toBeInstanceOf(ApiError);
+      expect(request).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('getLicenseDocumentUrl() requests the signed URL and maps the response', async () => {
