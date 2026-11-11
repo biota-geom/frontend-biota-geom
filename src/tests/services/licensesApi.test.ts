@@ -156,6 +156,8 @@ describe('licensesApi', () => {
         {
           id: 'condition-1',
           itemNumber: '1.1',
+          parentConditionId: null,
+          level: null,
           isEnvironmentalDescriptor: false,
           environmentalDescriptor: 'Água',
           name: 'Monitoramento',
