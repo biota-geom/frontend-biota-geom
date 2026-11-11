@@ -15,6 +15,7 @@ import type {
 } from './types';
 
 export interface LicenseConditionBatchItemInput {
+  parentConditionId?: string;
   environmentalDescriptor: string;
   description: string;
   conditionType: string;
@@ -38,6 +39,7 @@ export interface CreateLicenseConditionInput {
 export interface UpdateLicenseConditionInput {
   name: string;
   environmentalDescriptor: string;
+  parentConditionId?: string | null;
   responsibleAgency?: string;
   dueDate: string;
   hasDelivery: boolean;
@@ -49,6 +51,7 @@ function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
   return {
     id: wire.id,
     licenseId: wire.license_id,
+    parentConditionId: wire.parent_condition_id ?? null,
     name: wire.name,
     description: wire.description,
     environmentalDescriptor: wire.environmental_descriptor,
@@ -121,6 +124,9 @@ export async function updateLicenseCondition(
     body: {
       name: input.name,
       environmental_descriptor: input.environmentalDescriptor,
+      ...(input.parentConditionId !== undefined
+        ? { parent_condition_id: input.parentConditionId }
+        : {}),
       responsible_agency: input.responsibleAgency,
       due_date: input.dueDate,
       has_delivery: input.hasDelivery,
@@ -137,6 +143,9 @@ export async function createLicenseConditions(
 ): Promise<void> {
   const body: CreateLicenseConditionsRequestWire = {
     conditions: conditions.map((condition) => ({
+      ...(condition.parentConditionId
+        ? { parent_condition_id: condition.parentConditionId }
+        : {}),
       environmental_descriptor: condition.environmentalDescriptor,
       description: condition.description,
       condition_type: condition.conditionType,

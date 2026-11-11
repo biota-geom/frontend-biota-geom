@@ -20,6 +20,8 @@ export interface License {
 export interface LicenseConditionDetail {
   id: string | null;
   itemNumber: string;
+  parentConditionId?: string | null;
+  level?: 1 | 2 | null;
   isEnvironmentalDescriptor: boolean;
   environmentalDescriptor: string;
   name: string | null;

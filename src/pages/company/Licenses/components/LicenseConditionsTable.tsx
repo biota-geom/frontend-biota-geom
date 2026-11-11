@@ -32,6 +32,7 @@ import {
   formatConditionPeriodicity,
   formatConditionType,
 } from '../../../../features/licenses/licenseDetailsFormatting';
+import type { LicenseConditionDetail } from '../../../../features/licenses/types';
 
 type ConditionsFormValues = { conditions: LicenseConditionRow[] };
 
@@ -39,6 +40,8 @@ type LicenseConditionsTableProps<TForm extends ConditionsFormValues> = {
   control: Control<TForm>;
   description?: string;
   disabled?: boolean;
+  existingDescriptors?: string[];
+  parentConditions?: Array<LicenseConditionDetail & { id: string }>;
   title?: string;
 };
 
@@ -62,6 +65,8 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
   control: hostControl,
   description = 'Adicione as condicionantes vinculadas à licença',
   disabled = false,
+  existingDescriptors = [],
+  parentConditions = [],
   title = 'Condicionantes',
 }: LicenseConditionsTableProps<TForm>) {
   const control = hostControl as unknown as Control<ConditionsFormValues>;
@@ -88,6 +93,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
    */
   const environmentalDescriptors = Array.from(
     new Set([
+      ...existingDescriptors,
       ...addedDescriptors,
       ...conditions.map((condition) => condition.environmentalDescriptor),
     ])
@@ -258,15 +264,30 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
                     descriptorConditions={descriptorConditions}
                     descriptorIndex={descriptorIndex}
                     disabled={disabled}
+                    removable={!existingDescriptors.includes(descriptor)}
                     key={descriptor}
                     onAddCondition={() =>
-                      openConditionDialog({ mode: 'add', descriptor })
+                      openConditionDialog({
+                        mode: 'add',
+                        descriptor,
+                        parentConditions: parentConditions.filter(
+                          (condition) =>
+                            condition.environmentalDescriptor === descriptor &&
+                            !condition.parentConditionId
+                        ),
+                      })
                     }
                     onEditCondition={(index) =>
                       openConditionDialog({
                         mode: 'edit',
                         index,
                         initial: conditions[index],
+                        parentConditions: parentConditions.filter(
+                          (condition) =>
+                            condition.environmentalDescriptor ===
+                              conditions[index].environmentalDescriptor &&
+                            !condition.parentConditionId
+                        ),
                       })
                     }
                     onRemoveCondition={remove}
@@ -390,6 +411,7 @@ type EnvironmentalDescriptorRowsProps = {
   }>;
   descriptorIndex: number;
   disabled: boolean;
+  removable: boolean;
   onAddCondition: () => void;
   onEditCondition: (index: number) => void;
   onRemoveCondition: (index: number) => void;
@@ -407,6 +429,7 @@ function EnvironmentalDescriptorRows({
   descriptorConditions,
   descriptorIndex,
   disabled,
+  removable,
   onAddCondition,
   onEditCondition,
   onRemoveCondition,
@@ -445,16 +468,18 @@ function EnvironmentalDescriptorRows({
                 Adicionar Condicionante
               </Button>
             ) : null}
-            <Button
-              aria-label={descriptorRemovalLabel}
-              disabled={disabled}
-              onClick={onRemoveDescriptor}
-              title={descriptorRemovalLabel}
-              type="button"
-              variant="iconDanger"
-            >
-              <Trash2 aria-hidden="true" size={14} />
-            </Button>
+            {removable ? (
+              <Button
+                aria-label={descriptorRemovalLabel}
+                disabled={disabled}
+                onClick={onRemoveDescriptor}
+                title={descriptorRemovalLabel}
+                type="button"
+                variant="iconDanger"
+              >
+                <Trash2 aria-hidden="true" size={14} />
+              </Button>
+            ) : null}
           </div>
         </td>
       </tr>
@@ -538,8 +563,17 @@ function EnvironmentalDescriptorRows({
 }
 
 type ConditionDialogState =
-  | { mode: 'add'; descriptor: string }
-  | { mode: 'edit'; index: number; initial: LicenseConditionRow };
+  | {
+      mode: 'add';
+      descriptor: string;
+      parentConditions: Array<LicenseConditionDetail & { id: string }>;
+    }
+  | {
+      mode: 'edit';
+      index: number;
+      initial: LicenseConditionRow;
+      parentConditions: Array<LicenseConditionDetail & { id: string }>;
+    };
 
 type ConditionDialogProps = {
   onClose: () => void;
@@ -554,6 +588,7 @@ type ConditionDialogProps = {
  */
 function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
   const isEdit = state.mode === 'edit';
+  const parentConditions = state.parentConditions;
   const [condition, setCondition] = useState<LicenseConditionRow>(
     isEdit
       ? { ...state.initial }
@@ -642,6 +677,39 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
             />
             <FieldError message={errors.description} />
           </div>
+
+          {parentConditions.length > 0 ? (
+            <div className="col-span-2 flex flex-col gap-2 max-[560px]:col-span-1">
+              <Label className={FIELD_LABEL} htmlFor="new-condition-parent">
+                Sub-item de
+              </Label>
+              <Select
+                onValueChange={(value) =>
+                  updateCondition({
+                    parentConditionId: value === 'none' ? null : value,
+                  })
+                }
+                value={condition.parentConditionId ?? 'none'}
+              >
+                <SelectTrigger
+                  className={SELECT_TRIGGER}
+                  id="new-condition-parent"
+                >
+                  <SelectValue placeholder="Nenhuma (condicionante principal)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    Nenhuma (condicionante principal)
+                  </SelectItem>
+                  {parentConditions.map((parent) => (
+                    <SelectItem key={parent.id} value={parent.id}>
+                      {parent.itemNumber} — {parent.description || parent.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-2">
             <Label className={FIELD_LABEL} htmlFor="new-condition-type">

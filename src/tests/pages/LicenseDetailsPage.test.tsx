@@ -21,6 +21,7 @@ vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
   deleteLicenseCondition: vi.fn(),
   updateLicenseConditionDescriptor: vi.fn(),
+  updateLicenseCondition: vi.fn(),
 }));
 
 const licensesApi = await import('../../services/api/licensesApi');
@@ -104,7 +105,10 @@ async function openAddConditionsModal(
   return screen.findByRole('dialog', { name: 'Editar Condicionantes' });
 }
 
-async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
+async function fillConditionRow(
+  user: ReturnType<typeof userEvent.setup>,
+  parentCondition?: string
+) {
   await user.click(
     screen.getByRole('button', { name: 'Adicionar Descritor Ambiental' })
   );
@@ -146,6 +150,14 @@ async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
     within(conditionDialog).getByLabelText('Responsável'),
     'Lucas Silva'
   );
+  if (parentCondition) {
+    await user.click(
+      within(conditionDialog).getByRole('combobox', { name: 'Sub-item de' })
+    );
+    await user.click(
+      await screen.findByRole('option', { name: parentCondition })
+    );
+  }
   await user.click(
     within(conditionDialog).getByRole('button', {
       name: 'Adicionar Condicionante',
@@ -277,6 +289,213 @@ describe('LicenseDetailsPage', () => {
     ).not.toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
   }, 20_000);
+
+  it('selects a same-descriptor condition as the parent of a new sub-item', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.createLicenseConditions).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Adicionar condicionante em Monitoramento de Estacionamento e Serviços',
+      })
+    );
+
+    const conditionDialog = screen.getByRole('dialog', {
+      name: 'Nova Condicionante',
+    });
+    await user.type(
+      within(conditionDialog).getByLabelText(/^Descrição/),
+      'Apresentar análise complementar'
+    );
+    await user.click(
+      within(conditionDialog).getByRole('combobox', { name: 'Tipo' })
+    );
+    await user.click(
+      await screen.findByRole('option', { name: 'Informativo' })
+    );
+    await user.type(
+      within(conditionDialog).getByLabelText('Prazo'),
+      '2026-10-30'
+    );
+    await user.type(
+      within(conditionDialog).getByLabelText('Responsável'),
+      'Lucas Silva'
+    );
+    await user.click(
+      within(conditionDialog).getByRole('combobox', { name: 'Sub-item de' })
+    );
+    await user.click(
+      await screen.findByRole('option', {
+        name: '1.1 — Manter registros de estacionamento da frota.',
+      })
+    );
+    await user.click(
+      within(conditionDialog).getByRole('button', {
+        name: 'Adicionar Condicionante',
+      })
+    );
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Adicionar novas condicionantes',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.createLicenseConditions).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        [
+          expect.objectContaining({
+            parentConditionId: 'condition-1-1',
+            environmentalDescriptor:
+              'Monitoramento de Estacionamento e Serviços',
+            description: 'Apresentar análise complementar',
+          }),
+        ]
+      )
+    );
+  }, 20_000);
+
+  it('excludes a parent from compliance totals when it has sub-items', async () => {
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [
+        ...DETAILS.conditions,
+        {
+          ...DETAILS.conditions[1],
+          id: 'condition-1-1-1',
+          itemNumber: '1.1.1',
+          parentConditionId: 'condition-1-1',
+          level: 2,
+          description: 'Apresentar análise complementar.',
+          status: 'Em andamento',
+        },
+      ],
+    });
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('0 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.getByRole('row', { name: /1\.1\.1.*análise complementar/i })
+    ).toBeInTheDocument();
+  });
+
+  it('confirms that deleting a parent also deletes its sub-items', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [
+        ...DETAILS.conditions,
+        {
+          ...DETAILS.conditions[1],
+          id: 'condition-1-1-1',
+          itemNumber: '1.1.1',
+          parentConditionId: 'condition-1-1',
+          level: 2,
+          description: 'Apresentar análise complementar.',
+        },
+      ],
+    });
+    vi.mocked(licenseConditionsApi.deleteLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Excluir condicionante 1.1',
+      })
+    );
+
+    const confirmation = await screen.findByRole('dialog', {
+      name: 'Excluir condicionante?',
+    });
+    expect(
+      within(confirmation).getByText(
+        'Esta condicionante tem 1 sub-item que também será excluído.'
+      )
+    ).toBeInTheDocument();
+    expect(licenseConditionsApi.deleteLicenseCondition).not.toHaveBeenCalled();
+
+    await user.click(
+      within(confirmation).getByRole('button', {
+        name: 'Excluir condicionante',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.deleteLicenseCondition).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        'condition-1-1'
+      )
+    );
+    expect(
+      within(dialog).queryByText('Apresentar análise complementar.')
+    ).not.toBeInTheDocument();
+  });
+
+  it('preselects and preserves the parent in the existing condition editor', async () => {
+    const user = userEvent.setup();
+    const subItem = {
+      ...DETAILS.conditions[1],
+      id: 'condition-1-2',
+      itemNumber: '1.2',
+      description: 'Revisar os registros da frota.',
+      parentConditionId: 'condition-1-1',
+    };
+    const conditionsWithParent = [...DETAILS.conditions, subItem];
+    vi.mocked(licensesApi.getLicenseDetails)
+      .mockResolvedValueOnce({
+        ...DETAILS,
+        conditions: conditionsWithParent,
+      })
+      .mockResolvedValue({
+        ...DETAILS,
+        conditions: conditionsWithParent.map((condition) =>
+          condition.id === subItem.id
+            ? { ...condition, parentConditionId: null }
+            : condition
+        ),
+      });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Editar condicionante 1.2',
+      })
+    );
+    const editDialog = screen.getByRole('dialog', {
+      name: 'Editar Condicionante',
+    });
+    expect(
+      within(editDialog).getByRole('combobox', { name: 'Sub-item de' })
+    ).toHaveTextContent('1.1 — Manter registros de estacionamento da frota.');
+    await user.type(
+      within(editDialog).getByLabelText('Data de Vencimento'),
+      '2026-10-30'
+    );
+    await user.click(
+      within(editDialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        'condition-1-2',
+        expect.objectContaining({ parentConditionId: 'condition-1-1' })
+      )
+    );
+  });
 
   it('keeps the modal open with the API error when saving fails', async () => {
     const user = userEvent.setup();

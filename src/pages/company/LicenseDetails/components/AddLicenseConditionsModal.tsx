@@ -4,6 +4,14 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
+  Dialog as ConfirmDialog,
+  DialogContent as ConfirmDialogContent,
+  DialogDescription as ConfirmDialogDescription,
+  DialogFooter as ConfirmDialogFooter,
+  DialogHeader as ConfirmDialogHeader,
+  DialogTitle as ConfirmDialogTitle,
+} from '@/components/ui/shadcn/dialog';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -21,12 +29,18 @@ import {
   type AddLicenseConditionsForm,
 } from '../../../../features/licenses/createLicenseValidation';
 import type { LicenseConditionDetail } from '../../../../features/licenses/types';
+import type {
+  LicenseCondition,
+  LicenseConditionRiskLevel,
+  LicenseConditionStatus,
+} from '../../../../features/licenseConditions/types';
 import { ApiError } from '../../../../services/api/apiError';
 import {
   createLicenseConditions,
   deleteLicenseCondition,
   updateLicenseConditionDescriptor,
 } from '../../../../services/api/licenseConditionsApi';
+import { EditConditionModal } from '../../Conditions/components/EditConditionModal';
 import { LicenseConditionsTable } from '../../Licenses/components/LicenseConditionsTable';
 
 const GENERIC_ERROR_MESSAGE =
@@ -35,7 +49,6 @@ const DELETE_ERROR_MESSAGE =
   'Não foi possível excluir a condicionante. Tente novamente mais tarde.';
 const UPDATE_DESCRIPTOR_ERROR_MESSAGE =
   'Não foi possível alterar o descritor ambiental. Tente novamente mais tarde.';
-
 type AddLicenseConditionsModalProps = {
   companyId: string;
   conditions: LicenseConditionDetail[];
@@ -44,6 +57,7 @@ type AddLicenseConditionsModalProps = {
   onDeleted: (conditionName: string) => void;
   onDescriptorUpdated: (descriptor: string) => void;
   onOpenChange: (open: boolean) => void;
+  onConditionUpdated: (conditionName: string) => void;
   open: boolean;
 };
 
@@ -55,6 +69,7 @@ export function AddLicenseConditionsModal({
   onDeleted,
   onDescriptorUpdated,
   onOpenChange,
+  onConditionUpdated,
   open,
 }: AddLicenseConditionsModalProps) {
   const [deletedConditionIds, setDeletedConditionIds] = useState<Set<string>>(
@@ -64,6 +79,10 @@ export function AddLicenseConditionsModal({
     null
   );
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [conditionPendingDelete, setConditionPendingDelete] =
+    useState<ExistingCondition | null>(null);
+  const [conditionBeingEdited, setConditionBeingEdited] =
+    useState<ExistingCondition | null>(null);
   const [descriptorBeingEdited, setDescriptorBeingEdited] = useState<
     string | null
   >(null);
@@ -90,6 +109,10 @@ export function AddLicenseConditionsModal({
       condition.id !== null &&
       !deletedConditionIds.has(condition.id)
   );
+  const conditionWithSubItems = (condition: ExistingCondition): number =>
+    existingConditions.filter(
+      (candidate) => candidate.parentConditionId === condition.id
+    ).length;
   const existingDescriptorGroups = Array.from(
     existingConditions.reduce((groups, condition) => {
       const group = groups.get(condition.environmentalDescriptor) ?? [];
@@ -184,7 +207,14 @@ export function AddLicenseConditionsModal({
 
     try {
       await deleteLicenseCondition(companyId, licenseId, condition.id);
-      setDeletedConditionIds((current) => new Set(current).add(condition.id));
+      const deletedIds = [
+        condition.id,
+        ...existingConditions
+          .filter((candidate) => candidate.parentConditionId === condition.id)
+          .map((candidate) => candidate.id),
+      ];
+      setDeletedConditionIds((current) => new Set([...current, ...deletedIds]));
+      setConditionPendingDelete(null);
       onDeleted(
         condition.description ?? condition.name ?? condition.itemNumber
       );
@@ -197,11 +227,22 @@ export function AddLicenseConditionsModal({
     }
   }
 
+  function requestDeleteCondition(condition: ExistingCondition) {
+    if (conditionWithSubItems(condition) > 0) {
+      setConditionPendingDelete(condition);
+      return;
+    }
+
+    void removeExistingCondition(condition);
+  }
+
   function closeAndReset() {
     reset(ADD_LICENSE_CONDITIONS_DEFAULT_VALUES);
     setDeletedConditionIds(new Set());
     setDeletingConditionId(null);
     setDeleteError(null);
+    setConditionPendingDelete(null);
+    setConditionBeingEdited(null);
     setDescriptorBeingEdited(null);
     setEditedDescriptor('');
     setDescriptorEditError(null);
@@ -261,7 +302,6 @@ export function AddLicenseConditionsModal({
               {existingConditions.length} cadastrada(s)
             </span>
           </div>
-
           {existingConditions.length > 0 ? (
             <div className="rounded-panel overflow-x-auto border border-border">
               <table className="w-full min-w-[760px] border-collapse text-sm">
@@ -283,10 +323,13 @@ export function AddLicenseConditionsModal({
                       disabled={isUpdatingDescriptor}
                       group={group}
                       key={group.descriptor}
-                      onDeleteCondition={removeExistingCondition}
+                      onDeleteCondition={requestDeleteCondition}
                       onEditDescriptor={() =>
                         openDescriptorEditor(group.descriptor)
                       }
+                      onEditCondition={(condition) => {
+                        setConditionBeingEdited(condition);
+                      }}
                     />
                   ))}
                 </tbody>
@@ -321,6 +364,10 @@ export function AddLicenseConditionsModal({
               deletingConditionId !== null ||
               isUpdatingDescriptor
             }
+            existingDescriptors={existingDescriptorGroups.map(
+              (group) => group.descriptor
+            )}
+            parentConditions={existingConditions}
             title="Novas condicionantes"
           />
 
@@ -425,11 +472,102 @@ export function AddLicenseConditionsModal({
           </DialogContent>
         </Dialog>
       </DialogContent>
+
+      <ConfirmDialog
+        onOpenChange={(isOpen) => {
+          if (!isOpen && deletingConditionId === null)
+            setConditionPendingDelete(null);
+        }}
+        open={conditionPendingDelete !== null}
+      >
+        <ConfirmDialogContent className="sm:max-w-lg">
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Excluir condicionante?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {conditionPendingDelete
+                ? conditionWithSubItems(conditionPendingDelete) === 1
+                  ? 'Esta condicionante tem 1 sub-item que também será excluído.'
+                  : `Esta condicionante tem ${conditionWithSubItems(conditionPendingDelete)} sub-itens que também serão excluídos.`
+                : ''}
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <Button
+              disabled={deletingConditionId !== null}
+              onClick={() => setConditionPendingDelete(null)}
+              type="button"
+              variant="subtle"
+            >
+              Cancelar
+            </Button>
+            <Button
+              disabled={
+                deletingConditionId !== null || conditionPendingDelete === null
+              }
+              onClick={() => {
+                if (conditionPendingDelete)
+                  void removeExistingCondition(conditionPendingDelete);
+              }}
+              type="button"
+              variant="dialogPrimary"
+            >
+              {deletingConditionId ? 'Excluindo...' : 'Excluir condicionante'}
+            </Button>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
+      <EditConditionModal
+        condition={
+          conditionBeingEdited
+            ? toEditableCondition(conditionBeingEdited, licenseId)
+            : null
+        }
+        customerId={companyId}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setConditionBeingEdited(null);
+        }}
+        onUpdated={(conditionName) => {
+          setConditionBeingEdited(null);
+          onConditionUpdated(conditionName);
+        }}
+        open={conditionBeingEdited !== null}
+      />
     </Dialog>
   );
 }
 
 type ExistingCondition = LicenseConditionDetail & { id: string };
+
+function toEditableCondition(
+  condition: ExistingCondition,
+  licenseId: string
+): LicenseCondition {
+  const status: LicenseConditionStatus =
+    condition.status === 'Atenção' || condition.status === 'Risco'
+      ? condition.status
+      : 'Regular';
+  const riskLevel: LicenseConditionRiskLevel =
+    status === 'Risco'
+      ? 'RISK'
+      : status === 'Atenção'
+        ? 'ATTENTION'
+        : 'REGULAR';
+
+  return {
+    id: condition.id,
+    licenseId,
+    parentConditionId: condition.parentConditionId ?? null,
+    name: condition.name ?? condition.description ?? condition.itemNumber,
+    description: condition.description,
+    environmentalDescriptor: condition.environmentalDescriptor,
+    responsibleAgency: condition.responsibleName,
+    dueDate: condition.deadline ?? '',
+    status,
+    hasDelivery: condition.hasDelivery ?? false,
+    isViolated: condition.isViolated,
+    riskLevel,
+  };
+}
 
 function DescriptorGroupRows({
   deletingConditionId,
@@ -437,12 +575,14 @@ function DescriptorGroupRows({
   group,
   onDeleteCondition,
   onEditDescriptor,
+  onEditCondition,
 }: {
   deletingConditionId: string | null;
   disabled: boolean;
   group: { descriptor: string; conditions: ExistingCondition[] };
-  onDeleteCondition: (condition: ExistingCondition) => Promise<void>;
+  onDeleteCondition: (condition: ExistingCondition) => void;
   onEditDescriptor: () => void;
+  onEditCondition: (condition: ExistingCondition) => void;
 }) {
   return (
     <>
@@ -472,7 +612,9 @@ function DescriptorGroupRows({
             {condition.itemNumber}
           </td>
           <td className="px-3 py-2.5 text-text-secondary">—</td>
-          <td className="max-w-[320px] px-3 py-2.5 text-text-primary">
+          <td
+            className={`max-w-[320px] px-3 py-2.5 text-text-primary ${condition.parentConditionId ? 'pl-10' : ''}`}
+          >
             <span
               className="block truncate"
               title={condition.description ?? undefined}
@@ -485,9 +627,19 @@ function DescriptorGroupRows({
           </td>
           <td className="px-2 py-2 text-right">
             <Button
+              aria-label={`Editar condicionante ${condition.itemNumber}`}
+              disabled={disabled || deletingConditionId !== null}
+              onClick={() => onEditCondition(condition)}
+              title="Editar condicionante"
+              type="button"
+              variant="iconSoft"
+            >
+              <Pencil aria-hidden="true" size={14} />
+            </Button>
+            <Button
               aria-label={`Excluir condicionante ${condition.itemNumber}`}
               disabled={disabled || deletingConditionId !== null}
-              onClick={() => void onDeleteCondition(condition)}
+              onClick={() => onDeleteCondition(condition)}
               title="Excluir condicionante"
               type="button"
               variant="iconDanger"
