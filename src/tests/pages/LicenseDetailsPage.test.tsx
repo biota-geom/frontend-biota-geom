@@ -338,6 +338,11 @@ describe('LicenseDetailsPage', () => {
         name: 'Adicionar Condicionante',
       })
     );
+    expect(
+      within(dialog).getByRole('row', {
+        name: /1\.1.*Apresentar análise complementar/i,
+      })
+    ).toBeInTheDocument();
     await user.click(
       within(dialog).getByRole('button', {
         name: 'Adicionar novas condicionantes',

@@ -264,6 +264,7 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
                     descriptorConditions={descriptorConditions}
                     descriptorIndex={descriptorIndex}
                     disabled={disabled}
+                    parentConditions={parentConditions}
                     removable={!existingDescriptors.includes(descriptor)}
                     key={descriptor}
                     onAddCondition={() =>
@@ -402,6 +403,56 @@ function isUnassigned(condition: LicenseConditionRow) {
   return !condition.responsibleName.trim() || !condition.deadline;
 }
 
+function getDraftConditionItemNumber({
+  condition,
+  conditionIndex,
+  conditions,
+  descriptorIndex,
+  parentConditions,
+}: {
+  condition: LicenseConditionRow;
+  conditionIndex: number;
+  conditions: LicenseConditionRow[];
+  descriptorIndex: number;
+  parentConditions: Array<LicenseConditionDetail & { id: string }>;
+}) {
+  const descriptorNumber = descriptorIndex + 1;
+  const parentCondition = condition.parentConditionId
+    ? parentConditions.find(
+        (candidate) => candidate.id === condition.parentConditionId
+      )
+    : null;
+
+  if (parentCondition) {
+    const children = conditions
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(
+        ({ candidate }) =>
+          candidate.environmentalDescriptor ===
+            condition.environmentalDescriptor &&
+          candidate.parentConditionId === condition.parentConditionId
+      );
+    const indexWithinParent = children.findIndex(
+      ({ index }) => index === conditionIndex
+    );
+
+    return `${parentCondition.itemNumber}.${indexWithinParent + 1}`;
+  }
+
+  const topLevelConditions = conditions
+    .map((candidate, index) => ({ candidate, index }))
+    .filter(
+      ({ candidate }) =>
+        candidate.environmentalDescriptor ===
+          condition.environmentalDescriptor && !candidate.parentConditionId
+    );
+  const indexWithinDescriptor = topLevelConditions.findIndex(
+    ({ index }) => index === conditionIndex
+  );
+
+  return `${descriptorNumber}.${indexWithinDescriptor + 1}`;
+}
+
 type EnvironmentalDescriptorRowsProps = {
   conditions: LicenseConditionRow[];
   descriptor: string;
@@ -411,6 +462,7 @@ type EnvironmentalDescriptorRowsProps = {
   }>;
   descriptorIndex: number;
   disabled: boolean;
+  parentConditions: Array<LicenseConditionDetail & { id: string }>;
   removable: boolean;
   onAddCondition: () => void;
   onEditCondition: (index: number) => void;
@@ -429,6 +481,7 @@ function EnvironmentalDescriptorRows({
   descriptorConditions,
   descriptorIndex,
   disabled,
+  parentConditions,
   removable,
   onAddCondition,
   onEditCondition,
@@ -484,9 +537,15 @@ function EnvironmentalDescriptorRows({
         </td>
       </tr>
 
-      {descriptorConditions.map(({ conditionIndex, field }, itemIndex) => {
+      {descriptorConditions.map(({ conditionIndex, field }) => {
         const condition = conditions[conditionIndex];
-        const itemNumber = `${descriptorNumber}.${itemIndex + 1}`;
+        const itemNumber = getDraftConditionItemNumber({
+          condition,
+          conditionIndex,
+          conditions,
+          descriptorIndex,
+          parentConditions,
+        });
         const isIncomplete =
           !licenseConditionRowSchema.safeParse(condition).success;
         const needsPeriodicity =
