@@ -23,6 +23,9 @@ vi.mock('../../services/api/legislationsApi', async (importOriginal) => ({
     typeof import('../../services/api/legislationsApi')
   >()),
   getLicenseLegislations: vi.fn(),
+  addLicenseLegislation: vi.fn(),
+  updateLicenseLegislation: vi.fn(),
+  removeLicenseLegislation: vi.fn(),
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
@@ -772,5 +775,211 @@ describe('LicenseDetailsPage', () => {
     expect(
       within(radar).getByRole('button', { name: 'Adicionar legislação' })
     ).toBeInTheDocument();
+  });
+
+  describe('manual radar entries', () => {
+    const RADAR = MOCK_LICENSE_LEGISLATIONS.map(
+      legislationsApi.toLicenseLegislation
+    );
+
+    async function findRadar() {
+      return screen.findByRole('region', { name: 'Radar de Legislação' });
+    }
+
+    it('adds a legislation and reloads the radar', async () => {
+      vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
+        RADAR[2]
+      );
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Adicionar legislação',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        within(dialog).getByRole('combobox', { name: 'Tipo da legislação' })
+      );
+      await user.click(screen.getByRole('option', { name: 'Lei' }));
+      await user.type(within(dialog).getByLabelText('Número *'), '9.605');
+      await user.type(within(dialog).getByLabelText('Ano *'), '1998');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Adicionar legislação' })
+      );
+
+      expect(
+        await screen.findByText('Legislação adicionada ao radar.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.addLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        {
+          legislation: {
+            type: 'LEI',
+            number: '9.605',
+            year: 1998,
+            issuingBody: '',
+            summary: null,
+          },
+          citedExcerpt: null,
+        }
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }, 20_000);
+
+    it('edits only the excerpt when the act data is untouched', async () => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue(
+        RADAR[0]
+      );
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Editar Lei nº 12.305/2010',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      const excerpt = within(dialog).getByLabelText('Trecho citado (opcional)');
+      await user.clear(excerpt);
+      await user.type(excerpt, 'art. 3º');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Salvar alterações' })
+      );
+
+      expect(
+        await screen.findByText('Legislação atualizada com sucesso.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[0].id,
+        { citedExcerpt: 'art. 3º', legislation: undefined }
+      );
+    }, 20_000);
+
+    it('sends the act data when it changed', async () => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue(
+        RADAR[1]
+      );
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Editar Resolução nº 237/1997',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      const summary = within(dialog).getByLabelText('Ementa');
+      await user.clear(summary);
+      await user.type(summary, 'Nova ementa');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Salvar alterações' })
+      );
+
+      await waitFor(() =>
+        expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+          'license-1',
+          RADAR[1].id,
+          {
+            citedExcerpt: RADAR[1].citedExcerpt,
+            legislation: {
+              type: 'RESOLUCAO',
+              number: '237',
+              year: 1997,
+              issuingBody: 'CONAMA',
+              summary: 'Nova ementa',
+            },
+          }
+        )
+      );
+    }, 20_000);
+
+    it('removes a legislation after confirmation', async () => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      vi.mocked(legislationsApi.removeLicenseLegislation).mockResolvedValue();
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Remover Lei nº 9.605/1998',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Remover legislação' })
+      );
+
+      expect(
+        await screen.findByText('Legislação removida do radar.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.removeLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[2].id
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
+    });
+
+    it('closes the modals without saving', async () => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Remover Lei nº 9.605/1998',
+        })
+      );
+      await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+      await user.click(
+        within(radar).getByRole('button', { name: 'Adicionar legislação' })
+      );
+      await user.click(
+        within(await screen.findByRole('dialog')).getByRole('button', {
+          name: 'Cancelar',
+        })
+      );
+
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      );
+      expect(legislationsApi.removeLicenseLegislation).not.toHaveBeenCalled();
+      expect(legislationsApi.addLicenseLegislation).not.toHaveBeenCalled();
+    });
+
+    it('keeps an archived license radar read-only', async () => {
+      vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+        ...DETAILS,
+        status: 'Renovada/Arquivada',
+      });
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem')).toHaveLength(3)
+      );
+      expect(within(radar).queryByRole('button')).not.toBeInTheDocument();
+    });
   });
 });

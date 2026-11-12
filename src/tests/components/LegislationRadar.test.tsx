@@ -132,4 +132,54 @@ describe('LegislationRadar', () => {
     );
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it('offers the add button in the header once the radar has entries', async () => {
+    const onAddLegislation = vi.fn();
+    renderRadar({ onAddLegislation });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Adicionar legislação' })
+    );
+    expect(onAddLegislation).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the add, edit and remove buttons without handlers', () => {
+    renderRadar();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+
+    renderRadar({ legislations: [] });
+    expect(
+      screen.queryByRole('button', { name: 'Adicionar legislação' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('edits and removes each entry', async () => {
+    const onEditLegislation = vi.fn();
+    const onRemoveLegislation = vi.fn();
+    renderRadar({ onEditLegislation, onRemoveLegislation });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Editar Resolução nº 237/1997' })
+    );
+    expect(onEditLegislation).toHaveBeenCalledWith(RADAR[1]);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remover Lei nº 9.605/1998' })
+    );
+    expect(onRemoveLegislation).toHaveBeenCalledWith(RADAR[2]);
+  });
+
+  it('omits the issuing body line when the act has none', () => {
+    renderRadar({
+      legislations: [
+        {
+          ...RADAR[0],
+          legislation: { ...RADAR[0].legislation, issuingBody: '' },
+        },
+      ],
+    });
+
+    const item = screen.getByRole('listitem');
+    expect(item.querySelectorAll('p')).toHaveLength(1);
+  });
 });
