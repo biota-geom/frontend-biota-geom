@@ -209,7 +209,7 @@ function CompanyDashboardContent({
         {companyId ? (
           <ConditionsSummaryBlock companyId={companyId} key={companyId} />
         ) : null}
-        <LegislationRadarDashboardCard />
+        <LegislationRadarDashboardCard companyId={company.id} />
         <EsgIndicatorsDashboardCard companyId={company.id} />
       </div>
     </PageScaffold>

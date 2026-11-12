@@ -1,21 +1,40 @@
-import { Card, CardHeader, CardTitle } from '@/components/ui/shadcn/card';
+import { Link } from 'react-router-dom';
+import {
+  Card,
+  CardAction,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/shadcn/card';
+import { buildCompanyRoutes } from '../../../../app/router/routes';
+
+type LegislationRadarDashboardCardProps = {
+  companyId: string;
+};
 
 /*
- * Reserved slot: the Legislation Radar ships in Sprint 4. Until then the card
- * only holds its place in the panel, with no request and no link.
+ * O Radar de Legislação existe apenas por licença (US31). O painel não lista
+ * legislações: só indica onde o radar mora, apontando para as licenças da
+ * Empresa — sem requisição própria.
  */
-export function LegislationRadarDashboardCard() {
+export function LegislationRadarDashboardCard({
+  companyId,
+}: LegislationRadarDashboardCardProps) {
   return (
     <Card aria-label="Radar de Legislação" variant="dashboard">
       <CardHeader variant="dashboard">
         <CardTitle variant="dashboard">Radar de Legislação</CardTitle>
-        <span className="rounded-control bg-surface-muted px-2 py-1 text-[11px] font-bold text-text-secondary">
-          Em breve
-        </span>
+        <CardAction variant="dashboard">
+          <Link
+            className="inline-flex items-center gap-1 text-xs font-bold text-primary-strong no-underline hover:underline"
+            to={buildCompanyRoutes.licenses(companyId)}
+          >
+            Ver licenças <span aria-hidden="true">→</span>
+          </Link>
+        </CardAction>
       </CardHeader>
       <p className="m-0 text-sm text-text-secondary">
-        O acompanhamento das legislações aplicáveis à empresa estará disponível
-        em breve.
+        As legislações aplicáveis agora ficam nos detalhes de cada licença. Abra
+        uma licença para consultar o seu radar.
       </p>
     </Card>
   );

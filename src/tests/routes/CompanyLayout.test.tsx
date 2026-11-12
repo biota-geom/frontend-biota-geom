@@ -157,12 +157,7 @@ describe('CompanyLayout', () => {
   });
 
   it('keeps the context loaded across every company route', async () => {
-    for (const route of [
-      'conditions',
-      'legislation',
-      'indicators',
-      'documents',
-    ]) {
+    for (const route of ['conditions', 'indicators', 'documents']) {
       const { unmount } = renderAppRoutes(`/companies/customer-1/${route}`);
 
       await waitFor(() => {
@@ -209,6 +204,17 @@ describe('CompanyLayout', () => {
     ).toHaveAttribute('href', '/admin/companies');
   });
 
+  it('redirects the old legislation URL to the company dashboard', async () => {
+    renderAppRoutes('/companies/customer-1/legislation');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Painel de controle' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Radar de legislação ambiental' })
+    ).not.toBeInTheDocument();
+  });
+
   it('renders the company navigation with links scoped to that company', async () => {
     renderAppRoutes('/companies/customer-1/dashboard');
 
@@ -225,10 +231,9 @@ describe('CompanyLayout', () => {
     expect(
       screen.getByRole('link', { name: 'Condicionantes' })
     ).toHaveAttribute('href', '/companies/customer-1/conditions');
-    expect(screen.getByRole('link', { name: 'Legislação' })).toHaveAttribute(
-      'href',
-      '/companies/customer-1/legislation'
-    );
+    expect(
+      screen.queryByRole('link', { name: 'Legislação' })
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'ESG' })).toHaveAttribute(
       'href',
       '/companies/customer-1/indicators'

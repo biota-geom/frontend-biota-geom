@@ -168,7 +168,7 @@ describe('CompanyDashboardPage', () => {
     );
   });
 
-  it('closes the panel with the ESG indicators and the Radar placeholder', async () => {
+  it('closes the panel with the ESG indicators and the Radar pointing to the licenses', async () => {
     mockedGetCompanyById.mockResolvedValue(company);
 
     renderWithAuth(<AppRoutes />, {
@@ -190,9 +190,13 @@ describe('CompanyDashboardPage', () => {
     expect(
       screen.getByRole('link', { name: /registrar indicadores/i })
     ).toHaveAttribute('href', '/companies/company-1/indicators');
+    const radarCard = screen.getByRole('article', {
+      name: 'Radar de Legislação',
+    });
+    expect(radarCard).not.toHaveTextContent('Em breve');
     expect(
-      screen.getByRole('article', { name: 'Radar de Legislação' })
-    ).toHaveTextContent('Em breve');
+      within(radarCard).getByRole('link', { name: /ver licenças/i })
+    ).toHaveAttribute('href', '/companies/company-1/licenses');
   });
 
   it('shows an error and allows retrying the dashboard request', async () => {
