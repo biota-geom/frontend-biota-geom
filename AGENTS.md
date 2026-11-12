@@ -28,8 +28,7 @@
 - This version has a single user flow: Administrator.
 - No RBAC and no role-based dashboards — that's still true and intentional. Authentication guards do exist (`ProtectedRoute`/`PublicOnlyRoute`); the only distinction between users is whether they're logged in. The backend's `is_admin` field exists for future use and must not drive any frontend behavior today.
 - Keep global administration under `pages/admin` and company context under `pages/company`.
-- `Admin > Legislation` is the global legislation catalog.
-- `Company > Legislation` is legislation applicable to one company.
+- Legislation Radar lives only inside each license's details (US31); there is no Company or Admin legislation page.
 - `Admin > Indicators` is the global indicators catalog.
 - `Company > Indicators` is indicators monitored for one company.
 

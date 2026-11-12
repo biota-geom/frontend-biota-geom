@@ -13,13 +13,11 @@ import { useAuth } from '../../features/auth/useAuth';
 import { useInactivityLogout } from '../../features/auth/useInactivityLogout';
 import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage';
 import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage';
-import { AdminLegislationPage } from '../../pages/admin/Legislation/AdminLegislationPage';
 import { CompanyDashboardPage } from '../../pages/company/Dashboard/CompanyDashboardPage';
 import { CompanyConditionsPage } from '../../pages/company/Conditions/CompanyConditionsPage';
 import { CompanyDocumentsPage } from '../../pages/company/Documents/CompanyDocumentsPage';
 import { CompanyIndicatorsPage } from '../../pages/company/Indicators/CompanyIndicatorsPage';
 import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
-import { CompanyLegislationPage } from '../../pages/company/Legislation/CompanyLegislationPage';
 import { CompanyLicensesPage } from '../../pages/company/Licenses/CompanyLicensesPage';
 import { LoginPage } from '../../pages/Login/LoginPage';
 import { RegisterPage } from '../../pages/Register/RegisterPage';
@@ -87,7 +85,6 @@ export function AppRoutes() {
             element={<Navigate to={APP_ROUTES.admin.companies} replace />}
           />
           <Route path="companies" element={<AdminCompaniesPage />} />
-          <Route path="legislation" element={<AdminLegislationPage />} />
           <Route path="indicators" element={<AdminIndicatorsPage />} />
         </Route>
 
@@ -97,7 +94,12 @@ export function AppRoutes() {
           <Route path="licenses" element={<CompanyLicensesPage />} />
           <Route path="licenses/:licenseId" element={<LicenseDetailsPage />} />
           <Route path="conditions" element={<CompanyConditionsPage />} />
-          <Route path="legislation" element={<CompanyLegislationPage />} />
+          {/*
+           * A página "Legislação" da Empresa saiu (US31): o radar agora vive
+           * nos detalhes de cada licença. A URL antiga continua válida e leva
+           * para o painel da Empresa em vez de cair no catch-all.
+           */}
+          <Route path="legislation" element={<CompanyRootRedirect />} />
           <Route path="indicators" element={<CompanyIndicatorsPage />} />
           <Route path="esg" element={<CompanyIndicatorsPage />} />
           <Route path="documents" element={<CompanyDocumentsPage />} />

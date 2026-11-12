@@ -5,7 +5,6 @@ export const APP_ROUTES = {
   admin: {
     root: '/admin',
     companies: '/admin/companies',
-    legislation: '/admin/legislation',
     indicators: '/admin/indicators',
   },
   company: {
@@ -14,7 +13,6 @@ export const APP_ROUTES = {
     licenses: '/companies/:companyId/licenses',
     licenseDetails: '/companies/:companyId/licenses/:licenseId',
     conditions: '/companies/:companyId/conditions',
-    legislation: '/companies/:companyId/legislation',
     indicators: '/companies/:companyId/indicators',
     esg: '/companies/:companyId/esg',
     documents: '/companies/:companyId/documents',
@@ -30,7 +28,6 @@ export const buildCompanyRoutes = {
   licenseDetails: (companyId: string, licenseId: string) =>
     `/companies/${companyId}/licenses/${licenseId}`,
   conditions: (companyId: string) => `/companies/${companyId}/conditions`,
-  legislation: (companyId: string) => `/companies/${companyId}/legislation`,
   indicators: (companyId: string) => `/companies/${companyId}/indicators`,
   esg: (companyId: string) => `/companies/${companyId}/esg`,
   documents: (companyId: string) => `/companies/${companyId}/documents`,
