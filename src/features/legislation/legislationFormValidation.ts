@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { LEGISLATION_TYPES } from './legislationFormatting';
 import type { LegislationInput, LegislationType } from './types';
 
+// 4 digits, from 1000 on: the backend accepts years 1000-9999.
 const MIN_YEAR = 1000;
-const MAX_YEAR = 9999;
 
 /*
  * Mirrors the backend limits (VarChar sizes and the 4-digit year) so the form
@@ -18,15 +18,20 @@ export const legislationFormSchema = z.object({
     .trim()
     .min(1, 'Informe o número da legislação.')
     .max(50, 'O número deve ter no máximo 50 caracteres.'),
+  // One message at a time: an empty year should not also read as malformed.
   year: z
     .string()
     .trim()
-    .min(1, 'Informe o ano da legislação.')
-    .refine((value) => /^\d{4}$/.test(value), 'Informe um ano com 4 dígitos.')
-    .refine((value) => {
-      const year = Number(value);
-      return year >= MIN_YEAR && year <= MAX_YEAR;
-    }, 'Informe um ano válido.'),
+    .superRefine((value, ctx) => {
+      const message = !value
+        ? 'Informe o ano da legislação.'
+        : !/^\d{4}$/.test(value)
+          ? 'Informe um ano com 4 dígitos.'
+          : Number(value) < MIN_YEAR
+            ? 'Informe um ano válido.'
+            : null;
+      if (message) ctx.addIssue({ code: 'custom', message });
+    }),
   issuingBody: z
     .string()
     .trim()
