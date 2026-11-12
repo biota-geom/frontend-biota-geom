@@ -41,6 +41,7 @@ async function fillRequired(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('option', { name: 'Lei' }));
   await user.type(screen.getByLabelText('Número *'), '12.305');
   await user.type(screen.getByLabelText('Ano *'), '2010');
+  await user.type(screen.getByLabelText('Órgão emissor *'), 'Governo Federal');
 }
 
 describe('LegislationFormModal', () => {
@@ -62,7 +63,7 @@ describe('LegislationFormModal', () => {
           type: 'LEI',
           number: '12.305',
           year: 2010,
-          issuingBody: '',
+          issuingBody: 'Governo Federal',
           summary: null,
         },
         citedExcerpt: null,
@@ -76,7 +77,6 @@ describe('LegislationFormModal', () => {
     const { onSubmit } = renderModal();
 
     await fillRequired(user);
-    await user.type(screen.getByLabelText('Órgão emissor'), 'Governo Federal');
     await user.type(screen.getByLabelText('Ementa'), 'Institui a PNRS.');
     await user.type(
       screen.getByLabelText('Trecho citado (opcional)'),
@@ -100,7 +100,7 @@ describe('LegislationFormModal', () => {
     );
   });
 
-  it('blocks the submit until type, number and year are valid', async () => {
+  it('blocks the submit until the required fields are valid', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderModal();
 
@@ -117,6 +117,7 @@ describe('LegislationFormModal', () => {
     expect(
       screen.getByText('Informe o ano da legislação.')
     ).toBeInTheDocument();
+    expect(screen.getByText('Informe o órgão emissor.')).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -129,7 +130,7 @@ describe('LegislationFormModal', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Número *')).toHaveValue('237');
     expect(screen.getByLabelText('Ano *')).toHaveValue('1997');
-    expect(screen.getByLabelText('Órgão emissor')).toHaveValue('CONAMA');
+    expect(screen.getByLabelText('Órgão emissor *')).toHaveValue('CONAMA');
     expect(screen.getByLabelText('Ementa')).toHaveValue('');
     expect(screen.getByLabelText('Trecho citado (opcional)')).toHaveValue(
       '…conforme a Resolução…'

@@ -32,9 +32,12 @@ export const legislationFormSchema = z.object({
             : null;
       if (message) ctx.addIssue({ code: 'custom', message });
     }),
+  // Required: it is part of the catalog identity, so an act typed without it
+  // would not match the same act already registered with one.
   issuingBody: z
     .string()
     .trim()
+    .min(1, 'Informe o órgão emissor.')
     .max(150, 'O órgão emissor deve ter no máximo 150 caracteres.'),
   summary: z
     .string()

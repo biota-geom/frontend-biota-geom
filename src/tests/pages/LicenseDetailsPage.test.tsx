@@ -806,6 +806,10 @@ describe('LicenseDetailsPage', () => {
       await user.click(screen.getByRole('option', { name: 'Lei' }));
       await user.type(within(dialog).getByLabelText('Número *'), '9.605');
       await user.type(within(dialog).getByLabelText('Ano *'), '1998');
+      await user.type(
+        within(dialog).getByLabelText('Órgão emissor *'),
+        'Governo Federal'
+      );
       await user.click(
         within(dialog).getByRole('button', { name: 'Adicionar legislação' })
       );
@@ -820,7 +824,7 @@ describe('LicenseDetailsPage', () => {
             type: 'LEI',
             number: '9.605',
             year: 1998,
-            issuingBody: '',
+            issuingBody: 'Governo Federal',
             summary: null,
           },
           citedExcerpt: null,

@@ -197,7 +197,7 @@ export function LegislationFormModal({
           <TextField
             error={errors.issuingBody?.message}
             id="legislation-issuing-body"
-            label="Órgão emissor"
+            label="Órgão emissor *"
           >
             <Input
               {...register('issuingBody')}

@@ -51,11 +51,12 @@ describe('legislationFormSchema', () => {
     );
   });
 
-  it('requires type, number and year only', () => {
+  it('requires type, number, year and issuing body only', () => {
     expect(errorsOf(EMPTY_LEGISLATION_FORM)).toEqual({
       type: 'Selecione o tipo da legislação.',
       number: 'Informe o número da legislação.',
       year: 'Informe o ano da legislação.',
+      issuingBody: 'Informe o órgão emissor.',
     });
   });
 
