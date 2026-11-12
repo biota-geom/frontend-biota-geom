@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -15,8 +15,12 @@ interface LegislationRadarProps {
   status: 'idle' | 'loading' | 'success' | 'error';
   error: string | null;
   onRetry: () => void;
-  /** Opens the add-legislation modal (task #117). Until it exists, the button does nothing. */
+  /** Opens the add-legislation modal; without it the add buttons are hidden. */
   onAddLegislation?: () => void;
+  /** Opens the edit modal for an entry; without it the item has no edit button. */
+  onEditLegislation?: (item: LicenseLegislation) => void;
+  /** Asks to remove an entry; without it the item has no remove button. */
+  onRemoveLegislation?: (item: LicenseLegislation) => void;
   /** Slot next to the item's badges, e.g. the impact tag. */
   renderTags?: RadarSlot;
   /** Slot at the bottom of the item, e.g. the technical analysis actions. */
@@ -42,26 +46,37 @@ function LoadingRadar() {
   );
 }
 
+function AddLegislationButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button onClick={onClick} type="button" variant="addRow">
+      <Plus aria-hidden="true" size={15} />
+      Adicionar legislação
+    </Button>
+  );
+}
+
 function RadarItem({
   item,
+  onEdit,
+  onRemove,
   renderActions,
   renderTags,
 }: {
   item: LicenseLegislation;
+  onEdit?: (item: LicenseLegislation) => void;
+  onRemove?: (item: LicenseLegislation) => void;
   renderActions?: RadarSlot;
   renderTags?: RadarSlot;
 }) {
   const { legislation } = item;
   const tags = renderTags?.(item);
   const actions = renderActions?.(item);
+  const title = `${formatLegislationType(legislation.type)} ${formatLegislationNumber(legislation)}`;
 
   return (
     <li className="flex flex-col gap-2 px-4 py-4 text-xs">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="m-0 text-sm font-bold text-text-primary">
-          {formatLegislationType(legislation.type)}{' '}
-          {formatLegislationNumber(legislation)}
-        </h3>
+        <h3 className="m-0 text-sm font-bold text-text-primary">{title}</h3>
         <span
           className={`rounded-control px-2 py-1 text-[11px] font-bold ${SOURCE_BADGE_CLASSES[item.source]}`}
         >
@@ -72,10 +87,38 @@ function RadarItem({
             {tags}
           </div>
         ) : null}
+        {onEdit || onRemove ? (
+          <div className="ml-auto flex items-center gap-2">
+            {onEdit ? (
+              <Button
+                aria-label={`Editar ${title}`}
+                onClick={() => onEdit(item)}
+                title="Editar legislação"
+                type="button"
+                variant="iconSoft"
+              >
+                <Pencil aria-hidden="true" size={14} />
+              </Button>
+            ) : null}
+            {onRemove ? (
+              <Button
+                aria-label={`Remover ${title}`}
+                onClick={() => onRemove(item)}
+                title="Remover legislação"
+                type="button"
+                variant="iconDanger"
+              >
+                <Trash2 aria-hidden="true" size={14} />
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
-      <p className="m-0 font-semibold text-text-secondary">
-        {legislation.issuingBody}
-      </p>
+      {legislation.issuingBody ? (
+        <p className="m-0 font-semibold text-text-secondary">
+          {legislation.issuingBody}
+        </p>
+      ) : null}
       <p className="m-0 text-text-secondary">
         {legislation.summary ?? 'Ementa não informada.'}
       </p>
@@ -97,6 +140,8 @@ export function LegislationRadar({
   error,
   legislations,
   onAddLegislation,
+  onEditLegislation,
+  onRemoveLegislation,
   onRetry,
   renderActions,
   renderTags,
@@ -107,9 +152,14 @@ export function LegislationRadar({
       aria-label="Radar de Legislação"
       className="mt-5 overflow-hidden rounded-panel border border-border bg-surface"
     >
-      <h2 className="m-0 border-b border-border p-3 text-sm font-bold text-text-primary">
-        Radar de Legislação
-      </h2>
+      <div className="flex items-center justify-between gap-3 border-b border-border p-3">
+        <h2 className="m-0 text-sm font-bold text-text-primary">
+          Radar de Legislação
+        </h2>
+        {onAddLegislation && status === 'success' && legislations.length > 0 ? (
+          <AddLegislationButton onClick={onAddLegislation} />
+        ) : null}
+      </div>
 
       {status === 'loading' || status === 'idle' ? <LoadingRadar /> : null}
 
@@ -131,10 +181,9 @@ export function LegislationRadar({
           <p className="m-0 text-sm text-text-secondary">
             Nenhuma legislação vinculada
           </p>
-          <Button onClick={onAddLegislation} type="button" variant="addRow">
-            <Plus aria-hidden="true" size={15} />
-            Adicionar legislação
-          </Button>
+          {onAddLegislation ? (
+            <AddLegislationButton onClick={onAddLegislation} />
+          ) : null}
         </div>
       ) : null}
 
@@ -144,6 +193,8 @@ export function LegislationRadar({
             <RadarItem
               item={item}
               key={item.id}
+              onEdit={onEditLegislation}
+              onRemove={onRemoveLegislation}
               renderActions={renderActions}
               renderTags={renderTags}
             />

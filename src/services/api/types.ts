@@ -465,3 +465,23 @@ export interface LicenseLegislationWire {
   read_at: string | null;
   created_at: string;
 }
+
+/** Act data sent when registering or editing a radar entry by hand. */
+export interface LegislationInputWire {
+  type: LegislationTypeWire;
+  number: string;
+  year: number;
+  issuing_body?: string;
+  summary?: string | null;
+}
+
+/** `POST /licenses/:id/legislations`: a catalog act by id, or the act data. */
+export type AddLicenseLegislationRequestWire =
+  | { legislation_id: string; cited_excerpt?: string | null }
+  | { legislation: LegislationInputWire; cited_excerpt?: string | null };
+
+export interface UpdateLicenseLegislationRequestWire {
+  cited_excerpt?: string | null;
+  /** Only editable while no other license cites the act (409 otherwise). */
+  legislation?: LegislationInputWire;
+}
