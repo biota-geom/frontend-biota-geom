@@ -48,7 +48,7 @@ const buttonVariants = cva('cursor-pointer', {
         'rounded-control grid size-8 shrink-0 place-items-center border-0 bg-transparent p-0 text-text-muted hover:bg-surface-muted hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
       /* Circular header icon button, e.g. notifications. */
       iconRound:
-        'relative inline-flex size-[38px] items-center justify-center rounded-full border border-border bg-surface-muted text-text-secondary disabled:cursor-default disabled:opacity-100',
+        'relative inline-flex size-[38px] items-center justify-center rounded-full border border-border bg-surface-muted text-text-secondary hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-default disabled:opacity-100',
       /* Tinted icon button on a card header, e.g. edit. */
       iconSoft:
         'rounded-control grid size-[26px] place-items-center border-0 bg-[#d8f8ea] p-0 text-primary-strong disabled:cursor-default disabled:opacity-100',

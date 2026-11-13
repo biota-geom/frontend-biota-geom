@@ -1,8 +1,26 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { AppHeader } from '../../components/layout/AppHeader';
-import { MOCK_AUTH_USER, renderWithAuth } from '../mocks/renderWithAuth';
+import { AlertsContext } from '../../features/alerts/useAlerts';
+import {
+  MOCK_AUTH_USER,
+  renderWithAuth as renderAuthenticated,
+} from '../mocks/renderWithAuth';
+import { MOCK_ALERTS_CONTEXT } from '../mocks/alerts.mock';
+
+function renderWithAuth(
+  ui: ReactNode,
+  options: Parameters<typeof renderAuthenticated>[1]
+) {
+  return renderAuthenticated(
+    <AlertsContext.Provider value={MOCK_ALERTS_CONTEXT}>
+      {ui}
+    </AlertsContext.Provider>,
+    options
+  );
+}
 
 describe('AppHeader', () => {
   it('shows initials derived from the authenticated user name', () => {
