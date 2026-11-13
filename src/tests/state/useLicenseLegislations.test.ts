@@ -50,7 +50,7 @@ describe('useLicenseLegislations', () => {
     expect(result.current.status).toBe('loading');
     await waitFor(() => expect(result.current.status).toBe('success'));
     expect(result.current.legislations).toEqual([ITEM]);
-    expect(getLicenseLegislations).toHaveBeenCalledWith('license-1');
+    expect(getLicenseLegislations).toHaveBeenCalledWith('license-1', {});
   });
 
   it('exposes the API error message', async () => {
@@ -89,6 +89,85 @@ describe('useLicenseLegislations', () => {
 
     await waitFor(() => expect(result.current.legislations).toEqual([ITEM]));
     expect(getLicenseLegislations).toHaveBeenCalledTimes(2);
+  });
+
+  it('loads only the chosen impact level and reloads when it changes', async () => {
+    vi.mocked(getLicenseLegislations).mockResolvedValue([]);
+
+    const { result, rerender } = renderHook(
+      ({ impact }: { impact: 'HIGH' | null }) =>
+        useLicenseLegislations('license-1', impact),
+      { initialProps: { impact: 'HIGH' as 'HIGH' | null } }
+    );
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(getLicenseLegislations).toHaveBeenLastCalledWith('license-1', {
+      impact: 'HIGH',
+    });
+
+    rerender({ impact: null });
+
+    await waitFor(() =>
+      expect(getLicenseLegislations).toHaveBeenLastCalledWith('license-1', {})
+    );
+  });
+
+  it('patches an entry in place without reloading', async () => {
+    vi.mocked(getLicenseLegislations).mockResolvedValue([
+      ITEM,
+      { ...ITEM, id: 'link-2' },
+    ]);
+    const { result } = renderHook(() => useLicenseLegislations('license-1'));
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    act(() =>
+      result.current.patchLegislation('link-1', {
+        impact: 'LOW',
+        readAt: '2026-11-12T15:00:00.000Z',
+      })
+    );
+
+    expect(result.current.legislations).toEqual([
+      { ...ITEM, impact: 'LOW', readAt: '2026-11-12T15:00:00.000Z' },
+      { ...ITEM, id: 'link-2' },
+    ]);
+    expect(result.current.status).toBe('success');
+    expect(getLicenseLegislations).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an entry that still matches the active filter', async () => {
+    vi.mocked(getLicenseLegislations).mockResolvedValue([
+      { ...ITEM, impact: 'HIGH' },
+    ]);
+    const { result } = renderHook(() =>
+      useLicenseLegislations('license-1', 'HIGH')
+    );
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    act(() =>
+      result.current.patchLegislation('link-1', {
+        readAt: '2026-11-12T15:00:00.000Z',
+      })
+    );
+
+    expect(result.current.legislations).toHaveLength(1);
+    expect(result.current.legislations[0].impact).toBe('HIGH');
+  });
+
+  it('drops an entry that no longer matches the active filter', async () => {
+    vi.mocked(getLicenseLegislations).mockResolvedValue([
+      { ...ITEM, impact: 'HIGH' },
+      { ...ITEM, id: 'link-2', impact: 'HIGH' },
+    ]);
+    const { result } = renderHook(() =>
+      useLicenseLegislations('license-1', 'HIGH')
+    );
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    act(() => result.current.patchLegislation('link-1', { impact: 'LOW' }));
+
+    expect(result.current.legislations.map((item) => item.id)).toEqual([
+      'link-2',
+    ]);
   });
 
   it('ignores a response that arrives after the license changed', async () => {

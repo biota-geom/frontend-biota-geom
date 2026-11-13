@@ -1,4 +1,7 @@
-import type { LicenseLegislation } from '../../features/legislation/types';
+import type {
+  LegislationImpact,
+  LicenseLegislation,
+} from '../../features/legislation/types';
 import { request } from './http';
 import type { LicenseLegislationWire } from './types';
 
@@ -24,13 +27,44 @@ export function toLicenseLegislation(
   };
 }
 
-/** The license radar, most recent legislation first (ordered by the backend). */
+export interface LicenseLegislationFilter {
+  impact?: LegislationImpact;
+}
+
+/** What the radar's PATCH accepts; send only the fields being changed. */
+export interface LicenseLegislationUpdate {
+  /** `null` clears the classification. */
+  impact?: LegislationImpact | null;
+  /** The backend only accepts `true`: an entry can't go back to unread. */
+  read?: true;
+}
+
+/**
+ * The license radar, most recent legislation first (ordered by the backend).
+ * `filter.impact` narrows it to one impact level.
+ */
 export async function getLicenseLegislations(
-  licenseId: string
+  licenseId: string,
+  filter: LicenseLegislationFilter = {}
 ): Promise<LicenseLegislation[]> {
+  const query = filter.impact ? `?impact=${filter.impact}` : '';
   const wire = await request<LicenseLegislationWire[]>(
-    `/api/licenses/${licenseId}/legislations`
+    `/api/licenses/${licenseId}/legislations${query}`
   );
 
   return wire.map(toLicenseLegislation);
+}
+
+/** Classifies an entry's impact and/or marks it as read; returns the entry. */
+export async function updateLicenseLegislation(
+  licenseId: string,
+  id: string,
+  update: LicenseLegislationUpdate
+): Promise<LicenseLegislation> {
+  const wire = await request<LicenseLegislationWire>(
+    `/api/licenses/${licenseId}/legislations/${id}`,
+    { method: 'PATCH', body: update }
+  );
+
+  return toLicenseLegislation(wire);
 }

@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ErrorToast } from '../../../components/feedback/ErrorToast';
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { buildCompanyRoutes } from '../../../app/router/routes';
@@ -11,13 +12,21 @@ import {
   formatLicenseStatus,
 } from '../../../features/licenses/licenseDetailsFormatting';
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
+import {
+  formatLegislationNumber,
+  formatLegislationType,
+} from '../../../features/legislation/legislationFormatting';
 import { MOCK_LICENSE_LEGISLATIONS } from '../../../features/legislation/legislations.mock';
 import { useLicenseHistory } from '../../../features/licenses/useLicenseHistory';
+import type { LegislationImpact } from '../../../features/legislation/types';
+import { useLegislationUpdates } from '../../../features/legislation/useLegislationUpdates';
 import { useLicenseLegislations } from '../../../features/legislation/useLicenseLegislations';
 import type { LicenseConditionDetail } from '../../../features/licenses/types';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
+import { LegislationImpactBadge } from './components/LegislationImpactBadge';
+import { LegislationImpactSelect } from './components/LegislationImpactSelect';
 import { LegislationRadar } from './components/LegislationRadar';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
 import { LicenseVersionHistory } from './components/LicenseVersionHistory';
@@ -127,7 +136,11 @@ export function LicenseDetailsPage() {
     licenseId
   );
   const { versions } = useLicenseHistory(licenseId);
-  const radar = useLicenseLegislations(licenseId);
+  const [impactFilter, setImpactFilter] = useState<LegislationImpact | null>(
+    null
+  );
+  const radar = useLicenseLegislations(licenseId, impactFilter);
+  const radarUpdates = useLegislationUpdates(licenseId, radar.patchLegislation);
   const breadcrumbs = useCompanyBreadcrumbs('Detalhes da licença', {
     parent: { label: 'Licenças', to: buildCompanyRoutes.licenses },
   });
@@ -323,8 +336,24 @@ export function LicenseDetailsPage() {
 
           <LegislationRadar
             error={radar.error}
+            impactFilter={impactFilter}
             legislations={radar.legislations}
+            onImpactFilterChange={setImpactFilter}
+            onItemOpen={(item) => void radarUpdates.markAsRead(item.id)}
             onRetry={radar.refetch}
+            renderActions={(item) => (
+              <LegislationImpactSelect
+                disabled={radarUpdates.savingIds.has(item.id)}
+                impact={item.impact}
+                legislationName={`${formatLegislationType(item.legislation.type)} ${formatLegislationNumber(item.legislation)}`}
+                onChange={(impact) =>
+                  void radarUpdates.changeImpact(item.id, impact)
+                }
+              />
+            )}
+            renderTags={(item) => (
+              <LegislationImpactBadge impact={item.impact} />
+            )}
             status={radar.status}
           />
 
@@ -356,6 +385,13 @@ export function LicenseDetailsPage() {
           onOpenChange={setIsRenewModalOpen}
           onRenewed={handleRenewed}
           open={isRenewModalOpen}
+        />
+      ) : null}
+
+      {radarUpdates.error ? (
+        <ErrorToast
+          message={radarUpdates.error}
+          onDismiss={radarUpdates.clearError}
         />
       ) : null}
 

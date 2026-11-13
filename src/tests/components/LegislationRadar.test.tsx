@@ -132,4 +132,183 @@ describe('LegislationRadar', () => {
     );
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it('tags an entry that was never opened as new, and only that one', () => {
+    renderRadar();
+
+    const items = screen.getAllByRole('listitem');
+    expect(within(items[0]).getByText('Novo')).toBeInTheDocument();
+    expect(within(items[1]).queryByText('Novo')).not.toBeInTheDocument();
+    expect(within(items[2]).getByText('Novo')).toBeInTheDocument();
+  });
+
+  it('opens an item to show its cited excerpt and reports it as opened', async () => {
+    const onItemOpen = vi.fn();
+    renderRadar({ onItemOpen });
+    const item = screen.getAllByRole('listitem')[0];
+
+    expect(
+      within(item).queryByText('…conforme a Lei nº 12.305/2010…')
+    ).not.toBeInTheDocument();
+    const toggle = within(item).getByRole('button', { name: 'Ver detalhes' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(toggle);
+
+    expect(
+      within(item).getByText('…conforme a Lei nº 12.305/2010…')
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByRole('button', { name: 'Ocultar detalhes' })
+    ).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveAttribute(
+      'aria-controls',
+      within(item).getByText('Trecho citado na licença').parentElement?.id
+    );
+    expect(onItemOpen).toHaveBeenCalledTimes(1);
+    expect(onItemOpen).toHaveBeenCalledWith(RADAR[0]);
+  });
+
+  it('says so when an opened item has no cited excerpt', async () => {
+    renderRadar();
+
+    await userEvent.click(
+      within(screen.getAllByRole('listitem')[2]).getByRole('button', {
+        name: 'Ver detalhes',
+      })
+    );
+
+    expect(
+      screen.getByText('Nenhum trecho citado para esta legislação.')
+    ).toBeInTheDocument();
+  });
+
+  it('does not report an item that was already read', async () => {
+    const onItemOpen = vi.fn();
+    renderRadar({ onItemOpen });
+
+    await userEvent.click(
+      within(screen.getAllByRole('listitem')[1]).getByRole('button', {
+        name: 'Ver detalhes',
+      })
+    );
+
+    expect(onItemOpen).not.toHaveBeenCalled();
+  });
+
+  it('only reports the opening, not the closing', async () => {
+    const onItemOpen = vi.fn();
+    renderRadar({ onItemOpen });
+    const toggle = within(screen.getAllByRole('listitem')[0]).getByRole(
+      'button',
+      { name: 'Ver detalhes' }
+    );
+
+    await userEvent.click(toggle);
+    await userEvent.click(
+      within(screen.getAllByRole('listitem')[0]).getByRole('button', {
+        name: 'Ocultar detalhes',
+      })
+    );
+
+    expect(onItemOpen).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText('Trecho citado na licença')
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens an unread item without a listener', async () => {
+    renderRadar();
+
+    await userEvent.click(
+      within(screen.getAllByRole('listitem')[0]).getByRole('button', {
+        name: 'Ver detalhes',
+      })
+    );
+
+    expect(screen.getByText('Trecho citado na licença')).toBeInTheDocument();
+  });
+
+  it('offers the impact filter only when asked to', () => {
+    renderRadar();
+
+    expect(
+      screen.queryByRole('combobox', { name: 'Filtrar por impacto' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('lists every impact level in the filter and reports the choice', async () => {
+    const onImpactFilterChange = vi.fn();
+    renderRadar({ onImpactFilterChange });
+
+    const filter = screen.getByRole('combobox', {
+      name: 'Filtrar por impacto',
+    });
+    expect(
+      Array.from(filter.querySelectorAll('option')).map((o) => o.textContent)
+    ).toEqual([
+      'Todos os impactos',
+      'Impacta sua operação',
+      'Impacto moderado',
+      'Baixo impacto',
+    ]);
+    expect(filter).toHaveValue('');
+
+    await userEvent.selectOptions(filter, 'HIGH');
+    expect(onImpactFilterChange).toHaveBeenLastCalledWith('HIGH');
+
+    await userEvent.selectOptions(filter, '');
+    expect(onImpactFilterChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('shows the active filter', () => {
+    renderRadar({ impactFilter: 'MODERATE', onImpactFilterChange: vi.fn() });
+
+    expect(
+      screen.getByRole('combobox', { name: 'Filtrar por impacto' })
+    ).toHaveValue('MODERATE');
+  });
+
+  it('explains an empty filtered radar without offering to add', () => {
+    renderRadar({
+      impactFilter: 'HIGH',
+      legislations: [],
+      onImpactFilterChange: vi.fn(),
+    });
+
+    expect(
+      screen.getByText(
+        'Nenhuma legislação com o impacto “Impacta sua operação”.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Nenhuma legislação vinculada')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Adicionar legislação' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the filter available while loading and on error', () => {
+    const { rerender } = renderRadar({
+      onImpactFilterChange: vi.fn(),
+      status: 'loading',
+    });
+    expect(
+      screen.getByRole('combobox', { name: 'Filtrar por impacto' })
+    ).toBeInTheDocument();
+
+    rerender(
+      <LegislationRadar
+        error="Falhou."
+        legislations={[]}
+        onImpactFilterChange={vi.fn()}
+        onRetry={vi.fn()}
+        status="error"
+      />
+    );
+    expect(
+      screen.getByRole('combobox', { name: 'Filtrar por impacto' })
+    ).toBeInTheDocument();
+  });
 });

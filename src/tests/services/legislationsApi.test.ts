@@ -6,7 +6,7 @@ vi.mock('../../services/api/http', () => ({
 }));
 
 const { request } = await import('../../services/api/http');
-const { getLicenseLegislations } =
+const { getLicenseLegislations, updateLicenseLegislation } =
   await import('../../services/api/legislationsApi');
 
 describe('legislationsApi', () => {
@@ -56,5 +56,47 @@ describe('legislationsApi', () => {
     expect(radar.map((item) => item.legislation.year)).toEqual([
       1998, 1997, 2010,
     ]);
+  });
+
+  it('getLicenseLegislations() filters by impact on the server', async () => {
+    vi.mocked(request).mockResolvedValue([]);
+
+    await getLicenseLegislations('license-1', { impact: 'HIGH' });
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/licenses/license-1/legislations?impact=HIGH'
+    );
+  });
+
+  it('updateLicenseLegislation() PATCHes the entry and maps the answer', async () => {
+    vi.mocked(request).mockResolvedValue({
+      ...MOCK_LICENSE_LEGISLATIONS[0],
+      impact: 'LOW',
+      read_at: '2026-11-12T15:00:00.000Z',
+    });
+
+    const updated = await updateLicenseLegislation('license-1', 'link-1', {
+      impact: 'LOW',
+      read: true,
+    });
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/licenses/license-1/legislations/link-1',
+      { method: 'PATCH', body: { impact: 'LOW', read: true } }
+    );
+    expect(updated.impact).toBe('LOW');
+    expect(updated.readAt).toBe('2026-11-12T15:00:00.000Z');
+    expect(updated.legislation.issuingBody).toBe('Governo Federal');
+  });
+
+  it('updateLicenseLegislation() sends null to clear the impact', async () => {
+    vi.mocked(request).mockResolvedValue(MOCK_LICENSE_LEGISLATIONS[1]);
+
+    await updateLicenseLegislation('license-1', 'link-1', { impact: null });
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/licenses/license-1/legislations/link-1',
+      { method: 'PATCH', body: { impact: null } }
+    );
   });
 });
