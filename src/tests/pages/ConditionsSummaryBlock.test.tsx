@@ -31,6 +31,7 @@ const makeCondition = (
   environmentalDescriptor: `Descritor ${id}`,
   responsibleAgency: null,
   dueDate: '2026-10-25T00:00:00.000Z',
+  alertDate: null,
   status:
     riskLevel === 'RISK'
       ? 'Risco'

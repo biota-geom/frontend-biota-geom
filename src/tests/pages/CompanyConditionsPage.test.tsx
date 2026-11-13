@@ -100,6 +100,7 @@ describe('CompanyConditionsPage', () => {
           environmentalDescriptor: 'Emissões',
           responsibleAgency: 'FEPAM',
           dueDate: '2026-02-11T00:00:00.000Z',
+          alertDate: null,
           status: 'Regular',
           hasDelivery: true,
           isViolated: true,
@@ -113,6 +114,7 @@ describe('CompanyConditionsPage', () => {
           environmentalDescriptor: 'Resíduos Sólidos Gerados',
           responsibleAgency: 'FEPAM',
           dueDate: '2026-05-20T00:00:00.000Z',
+          alertDate: null,
           status: 'Regular',
           hasDelivery: true,
           isViolated: false,
@@ -262,6 +264,7 @@ describe('CompanyConditionsPage', () => {
                 environmentalDescriptor: 'Emissões',
                 responsibleAgency: 'FEPAM',
                 dueDate: '2026-02-11T00:00:00.000Z',
+                alertDate: null,
                 status: 'Regular',
                 hasDelivery: true,
                 isViolated: true,
@@ -282,6 +285,7 @@ describe('CompanyConditionsPage', () => {
               environmentalDescriptor: 'Emissões',
               responsibleAgency: 'FEPAM',
               dueDate: '2026-02-11T00:00:00.000Z',
+              alertDate: null,
               status: 'Regular',
               hasDelivery: true,
               isViolated: true,
@@ -295,6 +299,7 @@ describe('CompanyConditionsPage', () => {
               environmentalDescriptor: 'Resíduos Sólidos Gerados',
               responsibleAgency: 'FEPAM',
               dueDate: '2026-05-20T00:00:00.000Z',
+              alertDate: null,
               status: 'Regular',
               hasDelivery: true,
               isViolated: false,
@@ -399,6 +404,7 @@ describe('CompanyConditionsPage', () => {
       environmentalDescriptor: 'Resíduos sólidos',
       responsibleAgency: 'FEPAM',
       dueDate: '2026-11-30T00:00:00.000Z',
+      alertDate: null,
       status: 'Regular' as const,
       hasDelivery: true,
       isViolated: false,
@@ -431,6 +437,7 @@ describe('CompanyConditionsPage', () => {
           environmentalDescriptor: condition.environmentalDescriptor,
           responsibleAgency: condition.responsibleAgency,
           dueDate: condition.dueDate,
+          alertDate: null,
           hasDelivery: true,
           isViolated: true,
           description: condition.description,
@@ -442,5 +449,64 @@ describe('CompanyConditionsPage', () => {
         screen.getByRole('article', { name: condition.name })
       ).findByText('Violada')
     ).toBeInTheDocument();
+  });
+
+  it('validates and saves the alert date in the edit modal', async () => {
+    const user = userEvent.setup();
+    const condition = {
+      id: 'condition-alert',
+      licenseId: 'license-1',
+      name: 'Relatório anual',
+      description: null,
+      environmentalDescriptor: 'Emissões',
+      responsibleAgency: 'FEPAM',
+      dueDate: '2026-11-30T00:00:00.000Z',
+      alertDate: '2026-11-01T00:00:00.000Z',
+      status: 'Regular' as const,
+      hasDelivery: true,
+      isViolated: false,
+      riskLevel: 'REGULAR' as const,
+    };
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 1,
+      conditions: [condition],
+    });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue();
+
+    renderConditionsPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Editar Relatório anual' })
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Editar Condicionante' });
+    const alertDate = within(dialog).getByLabelText(
+      'Data de alerta (opcional)'
+    );
+    expect(alertDate).toHaveValue('2026-11-01');
+
+    await user.clear(alertDate);
+    await user.type(alertDate, '2026-12-01');
+
+    expect(
+      await within(dialog).findByText(
+        'A data de alerta não pode ser posterior à data de vencimento.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('button', { name: 'Salvar Alterações' })
+    ).toBeDisabled();
+
+    await user.clear(alertDate);
+    await user.type(alertDate, '2026-11-20');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        condition.id,
+        expect.objectContaining({ alertDate: '2026-11-20T00:00:00.000Z' })
+      )
+    );
   });
 });
