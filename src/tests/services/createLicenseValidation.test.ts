@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ALERT_DATE_AFTER_DUE_DATE_MESSAGE,
+  addLicenseConditionsSchema,
   CREATE_LICENSE_DEFAULT_VALUES,
   createLicenseSchema,
   EMPTY_CONDITION_ROW,
@@ -7,6 +9,7 @@ import {
   INVALID_DATE_RANGE_MESSAGE,
   INVALID_FILE_TYPE_MESSAGE,
   MAX_FILE_SIZE_BYTES,
+  toLicenseConditionBatchItem,
   toUtcIsoDate,
 } from '../../features/licenses/createLicenseValidation';
 
@@ -82,5 +85,47 @@ describe('createLicenseSchema', () => {
 describe('toUtcIsoDate', () => {
   it('converts a date input value to UTC midnight', () => {
     expect(toUtcIsoDate('2026-10-30')).toBe('2026-10-30T00:00:00.000Z');
+  });
+});
+
+describe('condition alert date', () => {
+  const ROW = {
+    environmentalDescriptor: 'Água',
+    description: 'Manter controle',
+    conditionType: 'INFORMATIVE',
+    periodicity: '',
+    deadline: '2026-10-30',
+    responsibleName: 'Lucas Silva',
+    hasDelivery: true,
+  };
+
+  function alertDateIssues(alertDate: string) {
+    const result = addLicenseConditionsSchema.safeParse({
+      conditions: [{ ...ROW, alertDate }],
+    });
+    return result.success ? [] : result.error.issues.map((i) => i.message);
+  }
+
+  it('accepts no alert date, one before and one on the deadline', () => {
+    expect(alertDateIssues('')).toEqual([]);
+    expect(alertDateIssues('2026-10-01')).toEqual([]);
+    expect(alertDateIssues('2026-10-30')).toEqual([]);
+  });
+
+  it('rejects an alert date after the deadline', () => {
+    expect(alertDateIssues('2026-10-31')).toEqual([
+      ALERT_DATE_AFTER_DUE_DATE_MESSAGE,
+    ]);
+  });
+
+  it('sends the alert date as UTC midnight and omits an empty one', () => {
+    expect(
+      toLicenseConditionBatchItem({ ...ROW, alertDate: '2026-10-01' })
+    ).toEqual(
+      expect.objectContaining({ alertDate: '2026-10-01T00:00:00.000Z' })
+    );
+    expect(
+      toLicenseConditionBatchItem({ ...ROW, alertDate: '' }).alertDate
+    ).toBeUndefined();
   });
 });
