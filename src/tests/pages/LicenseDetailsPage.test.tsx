@@ -112,7 +112,10 @@ async function openAddConditionsModal(
   return screen.findByRole('dialog', { name: 'Editar Condicionantes' });
 }
 
-async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
+async function fillConditionRow(
+  user: ReturnType<typeof userEvent.setup>,
+  { alertDate, submit = true }: { alertDate?: string; submit?: boolean } = {}
+) {
   await user.click(
     screen.getByRole('button', { name: 'Adicionar Descritor Ambiental' })
   );
@@ -154,11 +157,20 @@ async function fillConditionRow(user: ReturnType<typeof userEvent.setup>) {
     within(conditionDialog).getByLabelText('Responsável'),
     'Lucas Silva'
   );
-  await user.click(
-    within(conditionDialog).getByRole('button', {
-      name: 'Adicionar Condicionante',
-    })
-  );
+  if (alertDate) {
+    await user.type(
+      within(conditionDialog).getByLabelText('Data de alerta (opcional)'),
+      alertDate
+    );
+  }
+  if (submit) {
+    await user.click(
+      within(conditionDialog).getByRole('button', {
+        name: 'Adicionar Condicionante',
+      })
+    );
+  }
+  return conditionDialog;
 }
 
 /*
@@ -244,6 +256,55 @@ describe('LicenseDetailsPage', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.getByText('1 de 1 atendidas')).toBeInTheDocument();
   });
+
+  it('rejects an alert date after the deadline and sends a valid one', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.createLicenseConditions).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    const conditionDialog = await fillConditionRow(user, {
+      alertDate: '2026-10-31',
+      submit: false,
+    });
+    const addButton = within(conditionDialog).getByRole('button', {
+      name: 'Adicionar Condicionante',
+    });
+    await user.click(addButton);
+
+    expect(
+      within(conditionDialog).getByText(
+        'A data de alerta não pode ser posterior à data de vencimento.'
+      )
+    ).toBeInTheDocument();
+
+    const alertDate = within(conditionDialog).getByLabelText(
+      'Data de alerta (opcional)'
+    );
+    await user.clear(alertDate);
+    await user.type(alertDate, '2026-10-15');
+    await user.click(addButton);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Adicionar novas condicionantes',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.createLicenseConditions).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        [
+          expect.objectContaining({
+            deadline: '2026-10-30T00:00:00.000Z',
+            alertDate: '2026-10-15T00:00:00.000Z',
+          }),
+        ]
+      )
+    );
+  }, 20_000);
 
   it('adds conditions to the license and reloads the details', async () => {
     const user = userEvent.setup();

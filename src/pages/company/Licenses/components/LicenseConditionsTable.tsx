@@ -723,6 +723,21 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
           </DialogField>
 
           <DialogField
+            error={errors.alertDate}
+            id="new-condition-alert-date"
+            label="Data de alerta (opcional)"
+          >
+            <Input
+              id="new-condition-alert-date"
+              onChange={(event) =>
+                updateCondition({ alertDate: event.target.value })
+              }
+              type="date"
+              value={condition.alertDate ?? ''}
+            />
+          </DialogField>
+
+          <DialogField
             error={errors.responsibleName}
             id="new-condition-responsible"
             label="Responsável"
