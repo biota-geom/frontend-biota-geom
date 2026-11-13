@@ -23,6 +23,7 @@ vi.mock('../../services/api/legislationsApi', async (importOriginal) => ({
     typeof import('../../services/api/legislationsApi')
   >()),
   getLicenseLegislations: vi.fn(),
+  updateLicenseLegislation: vi.fn(),
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
@@ -756,8 +757,227 @@ describe('LicenseDetailsPage', () => {
       'Lei nº 9.605/1998',
     ]);
     expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledWith(
-      'license-1'
+      'license-1',
+      {}
     );
+  });
+
+  describe('legislation radar edits', () => {
+    const RADAR = MOCK_LICENSE_LEGISLATIONS.map(
+      legislationsApi.toLicenseLegislation
+    );
+
+    async function findRadar() {
+      const radar = await screen.findByRole('region', {
+        name: 'Radar de Legislação',
+      });
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem').length).toBeGreaterThan(0)
+      );
+      return radar;
+    }
+
+    beforeEach(() => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockImplementation(
+        async (_licenseId, filter) =>
+          RADAR.filter(
+            (item) => !filter?.impact || item.impact === filter.impact
+          )
+      );
+    });
+
+    it('shows each entry impact badge, including the missing classification', async () => {
+      renderDetailsPage();
+
+      const items = within(await findRadar()).getAllByRole('listitem');
+      expect(
+        within(items[0]).getByText('Impacta sua operação', { selector: 'span' })
+      ).toHaveClass('bg-rose-100');
+      expect(
+        within(items[1]).getByText('Sem classificação', { selector: 'span' })
+      ).toBeInTheDocument();
+      expect(
+        within(items[2]).getByText('Impacto moderado', { selector: 'span' })
+      ).toBeInTheDocument();
+    });
+
+    it('changes the impact, sends it to the backend and updates the badge', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+        ...RADAR[1],
+        impact: 'LOW',
+      });
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[1];
+
+      await userEvent.selectOptions(
+        within(item).getByRole('combobox', {
+          name: 'Impacto de Resolução nº 237/1997',
+        }),
+        'LOW'
+      );
+
+      expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[1].id,
+        { impact: 'LOW' }
+      );
+      expect(
+        await within(item).findByText('Baixo impacto', { selector: 'span' })
+      ).toHaveClass('bg-emerald-100');
+      expect(
+        within(item).queryByText('Sem classificação', { selector: 'span' })
+      ).not.toBeInTheDocument();
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears the classification', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+        ...RADAR[0],
+        impact: null,
+      });
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[0];
+
+      await userEvent.selectOptions(
+        within(item).getByRole('combobox', {
+          name: 'Impacto de Lei nº 12.305/2010',
+        }),
+        ''
+      );
+
+      expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[0].id,
+        { impact: null }
+      );
+      expect(
+        await within(item).findByText('Sem classificação', { selector: 'span' })
+      ).toBeInTheDocument();
+    });
+
+    it('keeps the old impact and shows the error when saving fails', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockRejectedValue(
+        new ApiError(404, 'Legislação não encontrada nesta licença.')
+      );
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[0];
+
+      await userEvent.selectOptions(
+        within(item).getByRole('combobox', {
+          name: 'Impacto de Lei nº 12.305/2010',
+        }),
+        'LOW'
+      );
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Legislação não encontrada nesta licença.'
+      );
+      expect(
+        within(item).getByText('Impacta sua operação', { selector: 'span' })
+      ).toBeInTheDocument();
+      expect(
+        within(item).getByRole('combobox', {
+          name: 'Impacto de Lei nº 12.305/2010',
+        })
+      ).toHaveValue('HIGH');
+    });
+
+    it('marks an unread entry as read when it is opened', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+        ...RADAR[0],
+        readAt: '2026-11-12T15:00:00.000Z',
+      });
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[0];
+      expect(within(item).getByText('Novo')).toBeInTheDocument();
+
+      await userEvent.click(
+        within(item).getByRole('button', { name: 'Ver detalhes' })
+      );
+
+      expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[0].id,
+        { read: true }
+      );
+      await waitFor(() =>
+        expect(within(item).queryByText('Novo')).not.toBeInTheDocument()
+      );
+    });
+
+    it('does not call the backend again for an entry that was already read', async () => {
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[1];
+
+      await userEvent.click(
+        within(item).getByRole('button', { name: 'Ver detalhes' })
+      );
+
+      expect(legislationsApi.updateLicenseLegislation).not.toHaveBeenCalled();
+    });
+
+    it('filters the radar by impact on the server', async () => {
+      renderDetailsPage();
+      const radar = await findRadar();
+
+      await userEvent.selectOptions(
+        within(radar).getByRole('combobox', { name: 'Filtrar por impacto' }),
+        'HIGH'
+      );
+
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem')).toHaveLength(1)
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenLastCalledWith(
+        'license-1',
+        { impact: 'HIGH' }
+      );
+      expect(
+        within(radar).getByRole('heading', { name: 'Lei nº 12.305/2010' })
+      ).toBeInTheDocument();
+
+      await userEvent.selectOptions(
+        within(radar).getByRole('combobox', { name: 'Filtrar por impacto' }),
+        ''
+      );
+
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem')).toHaveLength(3)
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenLastCalledWith(
+        'license-1',
+        {}
+      );
+    });
+
+    it('drops an entry from the filtered list once it is reclassified', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+        ...RADAR[0],
+        impact: 'LOW',
+      });
+      renderDetailsPage();
+      const radar = await findRadar();
+      await userEvent.selectOptions(
+        within(radar).getByRole('combobox', { name: 'Filtrar por impacto' }),
+        'HIGH'
+      );
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem')).toHaveLength(1)
+      );
+
+      await userEvent.selectOptions(
+        within(radar).getByRole('combobox', {
+          name: 'Impacto de Lei nº 12.305/2010',
+        }),
+        'LOW'
+      );
+
+      expect(
+        await within(radar).findByText(
+          'Nenhuma legislação com o impacto “Impacta sua operação”.'
+        )
+      ).toBeInTheDocument();
+    });
   });
 
   it('shows the empty radar with the add button', async () => {
