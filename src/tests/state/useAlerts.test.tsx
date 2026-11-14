@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AlertsProvider } from '../../features/alerts/AlertsProvider';
 import { useAlerts } from '../../features/alerts/useAlerts';
-import type { AlertsPage } from '../../features/alerts/types';
+import type { Alert, AlertsPage } from '../../features/alerts/types';
+import { MOCK_NOTIFICATIONS } from '../mocks/alerts.mock';
 import { useAuth } from '../../features/auth/useAuth';
 import { ApiError } from '../../services/api/apiError';
 import { MOCK_AUTH_USER, seedAuthState } from '../mocks/renderWithAuth';
@@ -11,8 +12,9 @@ import { MOCK_AUTH_USER, seedAuthState } from '../mocks/renderWithAuth';
 vi.mock('../../services/api/alertsApi', () => ({
   getUnreadAlertsCount: vi.fn(),
   listAlerts: vi.fn(),
+  markAlertAsRead: vi.fn(),
 }));
-const { getUnreadAlertsCount, listAlerts } =
+const { getUnreadAlertsCount, listAlerts, markAlertAsRead } =
   await import('../../services/api/alertsApi');
 
 const MOCK_PAGE: AlertsPage = {
@@ -308,5 +310,252 @@ describe('useAlerts', () => {
     expect(getUnreadAlertsCount).toHaveBeenCalledTimes(2);
     await act(async () => oldCount.resolve(99));
     expect(result.current.unreadCount).toBe(2);
+  });
+
+  async function renderLoadedAlerts() {
+    vi.mocked(listAlerts).mockResolvedValue({
+      ...MOCK_PAGE,
+      items: MOCK_NOTIFICATIONS,
+      total: 3,
+    });
+    const hook = renderHook(useAlerts, { wrapper });
+    await settle();
+    act(() => hook.result.current.setOpen(true));
+    await settle();
+    return hook;
+  }
+
+  it('confirms a read once, updates the list and count, and reconciles in the background', async () => {
+    const { result } = await renderLoadedAlerts();
+    const patch = deferred<Alert>();
+    const count = deferred<number>();
+    const updated = { ...MOCK_NOTIFICATIONS[0], status: 'READ' as const };
+    vi.mocked(markAlertAsRead).mockReturnValue(patch.promise);
+    vi.mocked(getUnreadAlertsCount).mockReturnValue(count.promise);
+    vi.mocked(listAlerts).mockResolvedValue({
+      ...MOCK_PAGE,
+      items: [updated],
+      total: 1,
+    });
+    let first!: Promise<Alert | null>;
+    act(() => {
+      first = result.current.markAsRead(MOCK_NOTIFICATIONS[0]);
+      expect(result.current.markAsRead(MOCK_NOTIFICATIONS[0])).toBe(first);
+    });
+    expect(markAlertAsRead).toHaveBeenCalledExactlyOnceWith('alert-1');
+    expect(result.current.pendingReadIds).toEqual(['alert-1']);
+    expect(result.current.unreadCount).toBe(3);
+    expect(result.current.alerts?.items[0].status).toBe('OPEN');
+    act(() => window.dispatchEvent(new Event('focus')));
+    expect(getUnreadAlertsCount).toHaveBeenCalledTimes(1);
+    expect(listAlerts).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      patch.resolve(updated);
+      expect(await first).toEqual(updated);
+    });
+    expect(result.current.pendingReadIds).toEqual([]);
+    expect(result.current.unreadCount).toBe(2);
+    expect(result.current.alerts?.items[0]).toEqual(updated);
+    await act(async () => {
+      expect(await result.current.markAsRead(MOCK_NOTIFICATIONS[0])).toEqual(
+        updated
+      );
+    });
+    expect(markAlertAsRead).toHaveBeenCalledTimes(1);
+    expect(result.current.unreadCount).toBe(2);
+    await act(async () => count.resolve(2));
+  });
+
+  it('returns an already-read alert without PATCH or decrement', async () => {
+    const { result } = await renderLoadedAlerts();
+    await act(async () => {
+      expect(await result.current.markAsRead(MOCK_NOTIFICATIONS[1])).toEqual(
+        MOCK_NOTIFICATIONS[1]
+      );
+    });
+    expect(markAlertAsRead).not.toHaveBeenCalled();
+    expect(result.current.unreadCount).toBe(3);
+    expect(getUnreadAlertsCount).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      new ApiError(404, 'Notificação não encontrada.'),
+      'Notificação não encontrada.',
+    ],
+    [
+      new Error('offline'),
+      'Não foi possível marcar a notificação como lida. Tente novamente.',
+    ],
+  ])(
+    'preserves unread state on PATCH failure and allows retry (%s)',
+    async (error, message) => {
+      const { result } = await renderLoadedAlerts();
+      vi.mocked(markAlertAsRead).mockRejectedValueOnce(error);
+      await act(async () => {
+        expect(
+          await result.current.markAsRead(MOCK_NOTIFICATIONS[0])
+        ).toBeNull();
+      });
+      expect(result.current.unreadCount).toBe(3);
+      expect(result.current.alerts?.items[0].status).toBe('OPEN');
+      expect(result.current.readErrors['alert-1']).toBe(message);
+      expect(result.current.pendingReadIds).toEqual([]);
+      const updated = { ...MOCK_NOTIFICATIONS[0], status: 'READ' as const };
+      vi.mocked(markAlertAsRead).mockResolvedValue(updated);
+      vi.mocked(getUnreadAlertsCount).mockResolvedValue(2);
+      vi.mocked(listAlerts).mockResolvedValue({
+        ...MOCK_PAGE,
+        items: [updated],
+      });
+      await act(async () => {
+        expect(await result.current.markAsRead(MOCK_NOTIFICATIONS[0])).toEqual(
+          updated
+        );
+      });
+      expect(result.current.readErrors).toEqual({});
+      expect(result.current.unreadCount).toBe(2);
+    }
+  );
+
+  it.each(['resolve', 'reject'] as const)(
+    'ignores old GET responses after a successful PATCH (%s)',
+    async (outcome) => {
+      const { result } = await renderLoadedAlerts();
+      const oldCount = deferred<number>();
+      const oldList = deferred<AlertsPage>();
+      const freshCount = deferred<number>();
+      const updated = { ...MOCK_NOTIFICATIONS[0], status: 'READ' as const };
+      vi.mocked(getUnreadAlertsCount)
+        .mockReturnValueOnce(oldCount.promise)
+        .mockReturnValueOnce(freshCount.promise);
+      vi.mocked(listAlerts)
+        .mockReturnValueOnce(oldList.promise)
+        .mockResolvedValue({ ...MOCK_PAGE, items: [updated] });
+      act(() => window.dispatchEvent(new Event('focus')));
+      vi.mocked(markAlertAsRead).mockResolvedValue(updated);
+      await act(async () => {
+        await result.current.markAsRead(MOCK_NOTIFICATIONS[0]);
+      });
+      expect(result.current.unreadCount).toBe(2);
+      await act(async () => {
+        if (outcome === 'resolve') {
+          oldCount.resolve(99);
+          oldList.resolve({ ...MOCK_PAGE, items: MOCK_NOTIFICATIONS });
+        } else {
+          oldCount.reject(new Error('old count error'));
+          oldList.reject(new Error('old list error'));
+        }
+      });
+      expect(result.current.unreadCount).toBe(2);
+      expect(result.current.countError).toBeNull();
+      expect(result.current.listError).toBeNull();
+      expect(result.current.alerts?.items[0].status).toBe('READ');
+      expect(result.current.countStatus).toBe('loading');
+      await act(async () => freshCount.resolve(2));
+      expect(result.current.countStatus).toBe('success');
+    }
+  );
+
+  it('returns read success even when the background count refresh fails', async () => {
+    const { result } = await renderLoadedAlerts();
+    const updated = { ...MOCK_NOTIFICATIONS[0], status: 'READ' as const };
+    vi.mocked(markAlertAsRead).mockResolvedValue(updated);
+    vi.mocked(getUnreadAlertsCount).mockRejectedValue(new Error('offline'));
+    vi.mocked(listAlerts).mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      expect(await result.current.markAsRead(MOCK_NOTIFICATIONS[0])).toEqual(
+        updated
+      );
+    });
+    expect(result.current.unreadCount).toBe(2);
+    expect(result.current.alerts?.items[0].status).toBe('READ');
+    expect(result.current.readErrors).toEqual({});
+    expect(result.current.countStatus).toBe('error');
+  });
+
+  it.each(['resolve', 'reject'] as const)(
+    'ignores a PATCH from a previous session (%s)',
+    async (outcome) => {
+      const { result } = await renderLoadedAlerts();
+      const patch = deferred<Alert>();
+      vi.mocked(markAlertAsRead).mockReturnValue(patch.promise);
+      const previousMark = result.current.markAsRead;
+      let operation!: Promise<Alert | null>;
+      act(() => {
+        operation = previousMark(MOCK_NOTIFICATIONS[0]);
+      });
+      act(() => useAuth.getState().logout());
+      vi.mocked(getUnreadAlertsCount).mockResolvedValue(1);
+      act(() =>
+        seedAuthState({
+          status: 'authenticated',
+          user: { ...MOCK_AUTH_USER, id: 'other-user' },
+        })
+      );
+      await settle();
+      await act(async () => {
+        if (outcome === 'resolve')
+          patch.resolve({ ...MOCK_NOTIFICATIONS[0], status: 'READ' });
+        else patch.reject(new Error('offline'));
+        expect(await operation).toBeNull();
+        expect(await previousMark(MOCK_NOTIFICATIONS[0])).toBeNull();
+      });
+      expect(result.current.unreadCount).toBe(1);
+      expect(result.current.alerts).toBeNull();
+      expect(result.current.readErrors).toEqual({});
+      expect(result.current.pendingReadIds).toEqual([]);
+      expect(markAlertAsRead).toHaveBeenCalledTimes(1);
+      expect(getUnreadAlertsCount).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it.each([0, null])(
+    'does not underflow or invent a count when the previous count is %s',
+    async (value) => {
+      if (value === null)
+        vi.mocked(getUnreadAlertsCount).mockRejectedValue(new Error('offline'));
+      else vi.mocked(getUnreadAlertsCount).mockResolvedValue(value);
+      const { result } = await renderLoadedAlerts();
+      vi.mocked(markAlertAsRead).mockResolvedValue({
+        ...MOCK_NOTIFICATIONS[0],
+        status: 'READ',
+      });
+      await act(async () => {
+        await result.current.markAsRead(MOCK_NOTIFICATIONS[0]);
+      });
+      expect(result.current.unreadCount).toBe(value);
+    }
+  );
+
+  it('reconciles only after all concurrent reads finish', async () => {
+    const { result } = await renderLoadedAlerts();
+    const first = deferred<Alert>();
+    const second = deferred<Alert>();
+    vi.mocked(markAlertAsRead)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    vi.mocked(getUnreadAlertsCount).mockResolvedValue(1);
+    let firstRead!: Promise<Alert | null>;
+    let secondRead!: Promise<Alert | null>;
+    act(() => {
+      firstRead = result.current.markAsRead(MOCK_NOTIFICATIONS[0]);
+      secondRead = result.current.markAsRead(MOCK_NOTIFICATIONS[2]);
+    });
+    expect(result.current.pendingReadIds).toEqual(['alert-1', 'alert-3']);
+    await act(async () => {
+      first.resolve({ ...MOCK_NOTIFICATIONS[0], status: 'READ' });
+      await firstRead;
+    });
+    expect(result.current.unreadCount).toBe(2);
+    expect(result.current.pendingReadIds).toEqual(['alert-3']);
+    expect(getUnreadAlertsCount).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      second.resolve({ ...MOCK_NOTIFICATIONS[2], status: 'READ' });
+      await secondRead;
+    });
+    expect(result.current.unreadCount).toBe(1);
+    expect(result.current.pendingReadIds).toEqual([]);
+    expect(getUnreadAlertsCount).toHaveBeenCalledTimes(2);
   });
 });

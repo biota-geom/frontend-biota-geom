@@ -9,6 +9,7 @@ import { MOCK_AUTH_USER, seedAuthState } from '../mocks/renderWithAuth';
 vi.mock('../../services/api/alertsApi', () => ({
   getUnreadAlertsCount: vi.fn(),
   listAlerts: vi.fn(),
+  markAlertAsRead: vi.fn(),
 }));
 vi.mock('../../components/layout/AdminLayout', () => ({
   AdminLayout: ProbeLayout,

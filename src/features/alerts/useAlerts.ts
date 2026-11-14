@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { AlertsPage } from './types';
+import type { Alert, AlertsPage } from './types';
 
 export type AlertsLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -13,6 +13,10 @@ export interface AlertsContextValue {
   isOpen: boolean;
   setOpen: (open: boolean) => void;
   refreshAlerts: () => Promise<void>;
+  pendingReadIds: readonly string[];
+  readErrors: Readonly<Record<string, string>>;
+  /** Null means the operation failed or its session ended. */
+  markAsRead: (alert: Alert) => Promise<Alert | null>;
 }
 
 export const AlertsContext = createContext<AlertsContextValue | null>(null);

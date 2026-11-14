@@ -1,4 +1,6 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { APP_ROUTES, buildCompanyRoutes } from '../../app/router/routes';
 import { cva } from 'class-variance-authority';
 import { CircleAlert, Info, TriangleAlert, X } from 'lucide-react';
 import { BellIcon } from '../../components/ui/icons';
@@ -28,7 +30,7 @@ const severityVariants = cva(
 );
 
 const itemVariants = cva(
-  'rounded-control min-w-0 border border-border p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+  'rounded-control block w-full min-w-0 cursor-pointer border border-border p-4 text-left transition-colors hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:opacity-70',
   {
     variants: {
       unread: {
@@ -41,39 +43,83 @@ const itemVariants = cva(
 
 const SEVERITY_ICONS = { HIGH: CircleAlert, MEDIUM: TriangleAlert, LOW: Info };
 
-function NotificationItem({ alert }: { alert: Alert }) {
+function NotificationItem({
+  alert,
+  pending,
+  disabled,
+  error,
+  onSelect,
+}: {
+  alert: Alert;
+  pending: boolean;
+  disabled: boolean;
+  error?: string;
+  onSelect: (alert: Alert) => void;
+}) {
   const Icon = SEVERITY_ICONS[alert.severity];
   const unread = alert.status === 'OPEN';
+  const titleId = useId();
+  const statusId = useId();
+  const detailsId = useId();
+  const errorId = useId();
 
   return (
     <li>
-      {/* TODO: mark as read and navigate when the interaction step is implemented. */}
-      <article className={itemVariants({ unread })} tabIndex={0}>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <button
+        type="button"
+        className={itemVariants({ unread })}
+        disabled={disabled}
+        aria-busy={pending}
+        aria-labelledby={titleId}
+        aria-describedby={`${statusId} ${detailsId}${error ? ` ${errorId}` : ''}`}
+        onClick={() => onSelect(alert)}
+      >
+        <span
+          id={statusId}
+          className="mb-2 flex flex-wrap items-center justify-between gap-2"
+        >
           <span className={severityVariants({ severity: alert.severity })}>
             <Icon aria-hidden="true" className="size-4 shrink-0" />
             {ALERT_MESSAGES.severity[alert.severity]}
-          </span>
+          </span>{' '}
           <span className="text-xs text-text-secondary">
-            {unread ? ALERT_MESSAGES.unread : ALERT_MESSAGES.read}
+            {pending
+              ? ALERT_MESSAGES.markingRead
+              : unread
+                ? ALERT_MESSAGES.unread
+                : ALERT_MESSAGES.read}
           </span>
-        </div>
-        <h3 className="m-0 text-sm font-bold break-words text-text-primary">
+        </span>
+        <span
+          id={titleId}
+          className="block text-sm font-bold break-words text-text-primary"
+        >
           {alert.title}
-        </h3>
-        <p className="mt-1 mb-3 text-sm leading-relaxed break-words text-text-secondary">
-          {alert.message}
+        </span>
+        <span id={detailsId} className="block">
+          <span className="mt-1 mb-3 block text-sm leading-relaxed break-words text-text-secondary">
+            {alert.message}
+          </span>{' '}
+          <span className="block text-xs font-semibold break-words text-text-primary">
+            {alert.customer.name}
+          </span>{' '}
+          <span className="mt-1 block text-xs text-text-secondary">
+            {ALERT_MESSAGES.dueDate}:{' '}
+            <time dateTime={alert.dueDate}>
+              {formatAlertDueDate(alert.dueDate)}
+            </time>
+          </span>
+        </span>
+      </button>
+      {error && (
+        <p
+          id={errorId}
+          role="alert"
+          className="mx-1 mt-2 mb-3 text-sm text-destructive"
+        >
+          {error}
         </p>
-        <p className="m-0 text-xs font-semibold break-words text-text-primary">
-          {alert.customer.name}
-        </p>
-        <p className="mt-1 mb-0 text-xs text-text-secondary">
-          {ALERT_MESSAGES.dueDate}:{' '}
-          <time dateTime={alert.dueDate}>
-            {formatAlertDueDate(alert.dueDate)}
-          </time>
-        </p>
-      </article>
+      )}
     </li>
   );
 }
@@ -89,7 +135,42 @@ export function NotificationBell() {
     isOpen,
     setOpen,
     refreshAlerts,
+    pendingReadIds,
+    readErrors,
+    markAsRead,
   } = useAlerts();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const selecting = useRef(false);
+  const active = useRef(false);
+  const navigationVersion = useRef(0);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      navigationVersion.current += 1;
+    };
+  }, [location.key]);
+
+  async function selectAlert(alert: Alert) {
+    if (selecting.current) return;
+    selecting.current = true;
+    const version = navigationVersion.current;
+    try {
+      const updated = await markAsRead(alert);
+      if (!updated || !active.current || navigationVersion.current !== version)
+        return;
+      setOpen(false);
+      void navigate(
+        buildCompanyRoutes.licenseDetails(
+          updated.customer.id,
+          updated.license.id
+        )
+      );
+    } finally {
+      selecting.current = false;
+    }
+  }
   const titleId = useId();
   const descriptionId = useId();
   const items = alerts?.items.slice(0, 10) ?? [];
@@ -190,10 +271,28 @@ export function NotificationBell() {
               className="m-0 flex list-none flex-col gap-2 p-0"
             >
               {items.map((alert) => (
-                <NotificationItem key={alert.id} alert={alert} />
+                <NotificationItem
+                  key={alert.id}
+                  alert={alert}
+                  pending={pendingReadIds.includes(alert.id)}
+                  disabled={pendingReadIds.length > 0}
+                  error={readErrors[alert.id]}
+                  onSelect={(selected) => {
+                    void selectAlert(selected);
+                  }}
+                />
               ))}
             </ul>
           )}
+        </div>
+        <div className="shrink-0 border-t border-border p-3 text-center">
+          <Link
+            to={APP_ROUTES.admin.notifications}
+            onClick={() => setOpen(false)}
+            className="rounded-control inline-flex min-h-9 items-center justify-center px-4 text-sm font-semibold text-primary-strong hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          >
+            {ALERT_MESSAGES.viewAll}
+          </Link>
         </div>
       </PopoverContent>
     </Popover>

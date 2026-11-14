@@ -1,5 +1,9 @@
 export const ALERT_MESSAGES = {
   title: 'Notificações',
+  viewAll: 'Ver todas',
+  centralTitle: 'Central de notificações',
+  centralPlaceholder:
+    'A Central de notificações está em preparação. Consulte os alertas pendentes pelo sino no cabeçalho.',
   description: 'Alertas pendentes das suas empresas.',
   empty: 'Nenhuma notificação pendente',
   loading: 'Carregando notificações...',
@@ -8,6 +12,9 @@ export const ALERT_MESSAGES = {
   close: 'Fechar notificações',
   unread: 'Não lida',
   read: 'Lida',
+  markingRead: 'Marcando como lida...',
+  readError:
+    'Não foi possível marcar a notificação como lida. Tente novamente.',
   dueDate: 'Vencimento',
   unavailableDate: 'Data indisponível',
   severity: {

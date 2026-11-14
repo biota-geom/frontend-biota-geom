@@ -1,4 +1,5 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -12,12 +13,19 @@ import { MOCK_ALERTS_CONTEXT, MOCK_NOTIFICATIONS } from '../mocks/alerts.mock';
 function Harness({ value = {} }: { value?: Partial<AlertsContextValue> }) {
   const [isOpen, setOpen] = useState(false);
   return (
-    <AlertsContext.Provider
-      value={{ ...MOCK_ALERTS_CONTEXT, isOpen, setOpen, ...value }}
-    >
-      <NotificationBell />
-    </AlertsContext.Provider>
+    <MemoryRouter initialEntries={['/companies/other-company/dashboard']}>
+      <AlertsContext.Provider
+        value={{ ...MOCK_ALERTS_CONTEXT, isOpen, setOpen, ...value }}
+      >
+        <NotificationBell />
+        <LocationProbe />
+      </AlertsContext.Provider>
+    </MemoryRouter>
   );
+}
+
+function LocationProbe() {
+  return <span data-testid="current-path">{useLocation().pathname}</span>;
 }
 
 const MOCK_PAGE = {
@@ -74,7 +82,7 @@ describe('NotificationBell', () => {
     expect(items).toHaveLength(3);
     for (const [index, alert] of MOCK_NOTIFICATIONS.entries()) {
       expect(
-        within(items[index]).getByRole('heading', { name: alert.title })
+        within(items[index]).getByRole('button', { name: alert.title })
       ).toBeInTheDocument();
       expect(within(items[index]).getByText(alert.message)).toBeInTheDocument();
       expect(
@@ -85,6 +93,9 @@ describe('NotificationBell', () => {
     expect(within(items[1]).getByText('Prioridade média')).toBeInTheDocument();
     expect(within(items[2]).getByText('Prioridade baixa')).toBeInTheDocument();
     expect(within(items[0]).getByText('Não lida')).toBeInTheDocument();
+    expect(within(items[0]).getByRole('button')).toHaveAccessibleDescription(
+      /Prioridade alta Não lida LO 123\/2024 Unidade Contagem Vencimento: 10\/11\/2026/
+    );
     expect(within(items[1]).getByText('Lida')).toBeInTheDocument();
     expect(within(items[0]).getByText('10/11/2026')).toHaveAttribute(
       'datetime',
@@ -202,7 +213,9 @@ describe('NotificationBell', () => {
       screen.getByRole('button', { name: 'Fechar notificações' })
     ).toHaveFocus();
     await user.tab();
-    expect(screen.getAllByRole('article')[0]).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: MOCK_NOTIFICATIONS[0].title })
+    ).toHaveFocus();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
@@ -220,12 +233,117 @@ describe('NotificationBell', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('does not mark or navigate when inspecting an item in this step', async () => {
-    const refreshAlerts = vi.fn();
-    render(<Harness value={{ alerts: MOCK_PAGE, refreshAlerts }} />);
+  it('marks an alert before closing and navigating to its own company license', async () => {
+    const markAsRead = vi
+      .fn()
+      .mockResolvedValue({ ...MOCK_NOTIFICATIONS[0], status: 'READ' });
+    render(<Harness value={{ alerts: MOCK_PAGE, markAsRead }} />);
     const user = await openBell();
     await user.click(screen.getByText('Licença vencida'));
-    expect(refreshAlerts).not.toHaveBeenCalled();
+    expect(markAsRead).toHaveBeenCalledExactlyOnceWith(MOCK_NOTIFICATIONS[0]);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(
+      '/companies/company-1/licenses/license-1'
+    );
+  });
+
+  it('keeps the popover and route when reading fails', async () => {
+    const markAsRead = vi.fn().mockResolvedValue(null);
+    render(
+      <Harness
+        value={{
+          alerts: MOCK_PAGE,
+          markAsRead,
+          readErrors: { 'alert-1': 'Notificação não encontrada.' },
+        }}
+      />
+    );
+    const user = await openBell();
+    await user.click(screen.getByRole('button', { name: 'Licença vencida' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Notificação não encontrada.'
+    );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(
+      '/companies/other-company/dashboard'
+    );
+  });
+
+  it('disables items and announces the active read', async () => {
+    render(
+      <Harness value={{ alerts: MOCK_PAGE, pendingReadIds: ['alert-1'] }} />
+    );
+    await openBell();
+    expect(
+      screen.getByRole('button', { name: 'Licença vencida' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Licença vencida' })
+    ).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('Marcando como lida...')).toBeInTheDocument();
+  });
+
+  it('coalesces rapid clicks before the pending state renders', async () => {
+    let resolve!: (alert: (typeof MOCK_NOTIFICATIONS)[0]) => void;
+    const markAsRead = vi.fn().mockReturnValue(
+      new Promise((res) => {
+        resolve = res;
+      })
+    );
+    render(<Harness value={{ alerts: MOCK_PAGE, markAsRead }} />);
+    const user = await openBell();
+    await user.dblClick(
+      screen.getByRole('button', { name: 'Licença vencida' })
+    );
+    expect(markAsRead).toHaveBeenCalledOnce();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await act(async () =>
+      resolve({ ...MOCK_NOTIFICATIONS[0], status: 'READ' })
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('links to the future central and closes the popover', async () => {
+    render(<Harness />);
+    const user = await openBell();
+    const link = screen.getByRole('link', { name: 'Ver todas' });
+    expect(link).toHaveAttribute('href', '/admin/notifications');
+    await user.click(link);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(
+      '/admin/notifications'
+    );
+  });
+
+  it('does not redirect a user who left while the read request was pending', async () => {
+    let resolve!: (alert: (typeof MOCK_NOTIFICATIONS)[0]) => void;
+    const markAsRead = vi.fn().mockReturnValue(
+      new Promise((res) => {
+        resolve = res;
+      })
+    );
+    render(<Harness value={{ alerts: MOCK_PAGE, markAsRead }} />);
+    const user = await openBell();
+    await user.click(screen.getByRole('button', { name: 'Licença vencida' }));
+    await user.click(screen.getByRole('link', { name: 'Ver todas' }));
+    await act(async () =>
+      resolve({ ...MOCK_NOTIFICATIONS[0], status: 'READ' })
+    );
+    expect(screen.getByTestId('current-path')).toHaveTextContent(
+      '/admin/notifications'
+    );
+  });
+
+  it('activates a notification with the keyboard', async () => {
+    render(<Harness value={{ alerts: MOCK_PAGE }} />);
+    const user = await openBell();
+    await user.tab();
+    expect(
+      screen.getByRole('button', { name: 'Licença vencida' })
+    ).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('current-path')).toHaveTextContent(
+      '/companies/company-1/licenses/license-1'
+    );
   });
 });

@@ -14,6 +14,7 @@ import { useAuth } from '../../features/auth/useAuth';
 import { AlertsProvider } from '../../features/alerts/AlertsProvider';
 import { useInactivityLogout } from '../../features/auth/useInactivityLogout';
 import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage';
+import { AdminNotificationsPage } from '../../pages/admin/Notifications/AdminNotificationsPage';
 import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage';
 import { AdminLegislationPage } from '../../pages/admin/Legislation/AdminLegislationPage';
 import { CompanyDashboardPage } from '../../pages/company/Dashboard/CompanyDashboardPage';
@@ -96,6 +97,10 @@ export function AppRoutes() {
               element={<Navigate to={APP_ROUTES.admin.companies} replace />}
             />
             <Route path="companies" element={<AdminCompaniesPage />} />
+            <Route
+              path={APP_ROUTES.admin.notifications}
+              element={<AdminNotificationsPage />}
+            />
             <Route path="legislation" element={<AdminLegislationPage />} />
             <Route path="indicators" element={<AdminIndicatorsPage />} />
           </Route>

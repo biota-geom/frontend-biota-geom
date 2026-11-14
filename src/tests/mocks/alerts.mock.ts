@@ -11,6 +11,9 @@ export const MOCK_ALERTS_CONTEXT: AlertsContextValue = {
   isOpen: false,
   setOpen: () => {},
   refreshAlerts: async () => {},
+  pendingReadIds: [],
+  readErrors: {},
+  markAsRead: async (alert) => ({ ...alert, status: 'READ' }),
 };
 
 export const MOCK_NOTIFICATIONS: Alert[] = [
