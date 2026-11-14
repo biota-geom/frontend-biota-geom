@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -242,9 +242,11 @@ describe('NotificationBell', () => {
     await user.click(screen.getByText('Licença vencida'));
     expect(markAsRead).toHaveBeenCalledExactlyOnceWith(MOCK_NOTIFICATIONS[0]);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByTestId('current-path')).toHaveTextContent(
-      '/companies/company-1/licenses/license-1'
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId('current-path')).toHaveTextContent(
+        '/companies/company-1/licenses/license-1'
+      );
+    });
   });
 
   it('keeps the popover and route when reading fails', async () => {
@@ -342,8 +344,10 @@ describe('NotificationBell', () => {
       screen.getByRole('button', { name: 'Licença vencida' })
     ).toHaveFocus();
     await user.keyboard('{Enter}');
-    expect(screen.getByTestId('current-path')).toHaveTextContent(
-      '/companies/company-1/licenses/license-1'
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId('current-path')).toHaveTextContent(
+        '/companies/company-1/licenses/license-1'
+      );
+    });
   });
 });
