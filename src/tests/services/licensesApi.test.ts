@@ -10,6 +10,7 @@ const {
   createLicense,
   extractLicenseData,
   getLicenseDetails,
+  saveConditionsFulfillment,
   getLicenseDocumentUrl,
   getLicenseDashboard,
   getLicenseHistory,
@@ -485,5 +486,29 @@ describe('licensesApi', () => {
         },
       ],
     });
+  });
+
+  it('saves condition fulfillment through the license-scoped route', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await expect(
+      saveConditionsFulfillment('customer-1', 'license-1', [
+        { conditionId: 'condition-1', fulfilled: true },
+        { conditionId: 'condition-2', fulfilled: false },
+      ])
+    ).resolves.toBeUndefined();
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions/fulfillment',
+      {
+        method: 'PATCH',
+        body: {
+          items: [
+            { condition_id: 'condition-1', fulfilled: true },
+            { condition_id: 'condition-2', fulfilled: false },
+          ],
+        },
+      }
+    );
   });
 });
