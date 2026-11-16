@@ -13,6 +13,9 @@ const TYPE_LABELS: Record<LegislationType, string> = {
   OUTRO: 'Outro',
 };
 
+/** Every act type, in the order the form offers them. */
+export const LEGISLATION_TYPES = Object.keys(TYPE_LABELS) as LegislationType[];
+
 const SOURCE_LABELS: Record<LicenseLegislationSource, string> = {
   SCAN: 'Extraída do scan',
   MANUAL: 'Manual',

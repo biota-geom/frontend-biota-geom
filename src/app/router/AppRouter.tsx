@@ -16,13 +16,11 @@ import { useInactivityLogout } from '../../features/auth/useInactivityLogout';
 import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage';
 import { AdminNotificationsPage } from '../../pages/admin/Notifications/AdminNotificationsPage';
 import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage';
-import { AdminLegislationPage } from '../../pages/admin/Legislation/AdminLegislationPage';
 import { CompanyDashboardPage } from '../../pages/company/Dashboard/CompanyDashboardPage';
 import { CompanyConditionsPage } from '../../pages/company/Conditions/CompanyConditionsPage';
 import { CompanyDocumentsPage } from '../../pages/company/Documents/CompanyDocumentsPage';
 import { CompanyIndicatorsPage } from '../../pages/company/Indicators/CompanyIndicatorsPage';
 import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
-import { CompanyLegislationPage } from '../../pages/company/Legislation/CompanyLegislationPage';
 import { CompanyLicensesPage } from '../../pages/company/Licenses/CompanyLicensesPage';
 import { LoginPage } from '../../pages/Login/LoginPage';
 import { RegisterPage } from '../../pages/Register/RegisterPage';
@@ -101,7 +99,6 @@ export function AppRoutes() {
               path={APP_ROUTES.admin.notifications}
               element={<AdminNotificationsPage />}
             />
-            <Route path="legislation" element={<AdminLegislationPage />} />
             <Route path="indicators" element={<AdminIndicatorsPage />} />
           </Route>
 
@@ -114,7 +111,8 @@ export function AppRoutes() {
               element={<LicenseDetailsPage />}
             />
             <Route path="conditions" element={<CompanyConditionsPage />} />
-            <Route path="legislation" element={<CompanyLegislationPage />} />
+            {/* US31 moved legislation to license details; keep legacy URLs valid. */}
+            <Route path="legislation" element={<CompanyRootRedirect />} />
             <Route path="indicators" element={<CompanyIndicatorsPage />} />
             <Route path="esg" element={<CompanyIndicatorsPage />} />
             <Route path="documents" element={<CompanyDocumentsPage />} />
