@@ -443,4 +443,78 @@ describe('CompanyConditionsPage', () => {
       ).findByText('Violada')
     ).toBeInTheDocument();
   });
+
+  it('renders "Entregue", "Não entregue" and omits delivery tag according to hasDelivery and isFulfilled', async () => {
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 3,
+      conditions: [
+        {
+          id: 'cond-delivered',
+          licenseId: 'license-1',
+          name: 'Automonitoramento Atmosférico',
+          description: 'Avaliação periódica de emissões.',
+          environmentalDescriptor: 'Emissões',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-02-11T00:00:00.000Z',
+          status: 'Regular',
+          hasDelivery: true,
+          isViolated: false,
+          riskLevel: 'REGULAR',
+          isFulfilled: true,
+        },
+        {
+          id: 'cond-pending',
+          licenseId: 'license-1',
+          name: 'Relatório Semestral de Efluentes Líquidos',
+          description: 'Laudos de análises.',
+          environmentalDescriptor: 'Recursos Hídricos',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-04-01T00:00:00.000Z',
+          status: 'Atenção',
+          hasDelivery: true,
+          isViolated: false,
+          riskLevel: 'ATTENTION',
+          isFulfilled: false,
+        },
+        {
+          id: 'cond-no-delivery',
+          licenseId: 'license-1',
+          name: 'Manutenção de Cerca',
+          description: 'Cerca da servidão.',
+          environmentalDescriptor: 'Biodiversidade',
+          responsibleAgency: 'IBAMA',
+          dueDate: '2026-06-01T00:00:00.000Z',
+          status: 'Regular',
+          hasDelivery: false,
+          isViolated: false,
+          riskLevel: 'REGULAR',
+        },
+      ],
+    });
+
+    renderConditionsPage();
+
+    const deliveredCard = await screen.findByRole('article', {
+      name: 'Automonitoramento Atmosférico',
+    });
+    expect(within(deliveredCard).getByText('REGULAR')).toBeInTheDocument();
+    expect(within(deliveredCard).getByText('Entregue')).toBeInTheDocument();
+
+    const pendingCard = await screen.findByRole('article', {
+      name: 'Relatório Semestral de Efluentes Líquidos',
+    });
+    expect(within(pendingCard).getByText('ATENÇÃO')).toBeInTheDocument();
+    expect(within(pendingCard).getByText('Não entregue')).toBeInTheDocument();
+
+    const noDeliveryCard = await screen.findByRole('article', {
+      name: 'Manutenção de Cerca',
+    });
+    expect(within(noDeliveryCard).getByText('REGULAR')).toBeInTheDocument();
+    expect(
+      within(noDeliveryCard).queryByText('Entregue')
+    ).not.toBeInTheDocument();
+    expect(
+      within(noDeliveryCard).queryByText('Não entregue')
+    ).not.toBeInTheDocument();
+  });
 });
