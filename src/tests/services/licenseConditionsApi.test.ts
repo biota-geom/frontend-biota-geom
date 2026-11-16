@@ -151,6 +151,42 @@ describe('licenseConditionsApi', () => {
     );
   });
 
+  it('posts the parent condition for a sub-item', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await createLicenseConditions('customer-1', 'license-1', [
+      {
+        parentConditionId: 'parent-condition',
+        environmentalDescriptor: 'Água',
+        description: 'Apresentar análise complementar',
+        conditionType: 'INFORMATIVE',
+        deadline: '2025-12-15T00:00:00.000Z',
+        responsibleName: 'Julia Costa',
+        hasDelivery: true,
+      },
+    ]);
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions',
+      {
+        method: 'POST',
+        body: {
+          conditions: [
+            {
+              parent_condition_id: 'parent-condition',
+              environmental_descriptor: 'Água',
+              description: 'Apresentar análise complementar',
+              condition_type: 'INFORMATIVE',
+              deadline: '2025-12-15T00:00:00.000Z',
+              responsible_name: 'Julia Costa',
+              has_delivery: true,
+            },
+          ],
+        },
+      }
+    );
+  });
+
   it('deletes a condition through its customer and license route', async () => {
     vi.mocked(request).mockResolvedValue(undefined);
 

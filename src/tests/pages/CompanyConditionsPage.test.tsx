@@ -24,6 +24,7 @@ vi.mock('../../services/api/licenseConditionsApi', () => ({
   updateLicenseCondition: vi.fn(),
 }));
 vi.mock('../../services/api/licensesApi', () => ({
+  getLicenseDetails: vi.fn(),
   listLicenses: vi.fn(),
 }));
 
@@ -411,6 +412,35 @@ describe('CompanyConditionsPage', () => {
         conditions: [{ ...condition, isViolated: true }],
       });
     vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue();
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      id: 'license-1',
+      processNumber: 'LO nº 118/2020',
+      type: 'LO',
+      issuingAgency: 'FEPAM',
+      issueDate: '2020-01-10T00:00:00.000Z',
+      expirationDate: '2099-01-10T00:00:00.000Z',
+      status: 'Regular',
+      conditions: [
+        {
+          id: condition.id,
+          itemNumber: '1.1',
+          parentConditionId: null,
+          level: 1,
+          isEnvironmentalDescriptor: false,
+          environmentalDescriptor: condition.environmentalDescriptor,
+          name: condition.name,
+          description: condition.description,
+          conditionType: 'INFORMATIVE',
+          periodicity: 'NA',
+          deadline: condition.dueDate,
+          status: condition.status,
+          completionDate: null,
+          responsibleName: condition.responsibleAgency,
+          hasDelivery: condition.hasDelivery,
+          isViolated: condition.isViolated,
+        },
+      ],
+    });
 
     renderConditionsPage();
     await user.click(
@@ -434,6 +464,7 @@ describe('CompanyConditionsPage', () => {
           hasDelivery: true,
           isViolated: true,
           description: condition.description,
+          parentConditionId: null,
         }
       )
     );
@@ -442,5 +473,120 @@ describe('CompanyConditionsPage', () => {
         screen.getByRole('article', { name: condition.name })
       ).findByText('Violada')
     ).toBeInTheDocument();
+  });
+
+  it('lets the company conditions editor assign a same-descriptor parent', async () => {
+    const user = userEvent.setup();
+    const subItem = {
+      id: 'condition-child',
+      licenseId: 'license-1',
+      parentConditionId: null,
+      name: 'Análise complementar',
+      description: 'Apresentar análise complementar.',
+      environmentalDescriptor: 'Resíduos sólidos',
+      responsibleAgency: 'FEPAM',
+      dueDate: '2026-11-30T00:00:00.000Z',
+      status: 'Regular' as const,
+      hasDelivery: true,
+      isViolated: false,
+      riskLevel: 'REGULAR' as const,
+    };
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 1,
+      conditions: [subItem],
+    });
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      id: 'license-1',
+      processNumber: 'LO nº 118/2020',
+      type: 'LO',
+      issuingAgency: 'FEPAM',
+      issueDate: '2020-01-10T00:00:00.000Z',
+      expirationDate: '2099-01-10T00:00:00.000Z',
+      status: 'Regular',
+      conditions: [
+        {
+          id: null,
+          itemNumber: '1',
+          parentConditionId: null,
+          level: null,
+          isEnvironmentalDescriptor: true,
+          environmentalDescriptor: subItem.environmentalDescriptor,
+          name: null,
+          description: null,
+          conditionType: null,
+          periodicity: 'NA',
+          deadline: null,
+          status: null,
+          completionDate: null,
+          responsibleName: null,
+          hasDelivery: null,
+          isViolated: false,
+        },
+        {
+          id: 'condition-parent',
+          itemNumber: '1.1',
+          parentConditionId: null,
+          level: 1,
+          isEnvironmentalDescriptor: false,
+          environmentalDescriptor: subItem.environmentalDescriptor,
+          name: 'Condicionante principal',
+          description: 'Manter o controle de resíduos.',
+          conditionType: 'INFORMATIVE',
+          periodicity: 'NA',
+          deadline: '2026-11-30T00:00:00.000Z',
+          status: 'Regular',
+          completionDate: null,
+          responsibleName: 'FEPAM',
+          hasDelivery: true,
+          isViolated: false,
+        },
+        {
+          id: subItem.id,
+          itemNumber: '1.2',
+          parentConditionId: null,
+          level: 1,
+          isEnvironmentalDescriptor: false,
+          environmentalDescriptor: subItem.environmentalDescriptor,
+          name: subItem.name,
+          description: subItem.description,
+          conditionType: 'INFORMATIVE',
+          periodicity: 'NA',
+          deadline: subItem.dueDate,
+          status: subItem.status,
+          completionDate: null,
+          responsibleName: subItem.responsibleAgency,
+          hasDelivery: subItem.hasDelivery,
+          isViolated: false,
+        },
+      ],
+    });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue();
+
+    renderConditionsPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Editar Análise complementar' })
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Editar Condicionante' });
+    await user.click(
+      within(dialog).getByRole('combobox', { name: 'Sub-item de' })
+    );
+    expect(
+      screen.queryByRole('option', { name: /^1 —/ })
+    ).not.toBeInTheDocument();
+    await user.click(
+      await screen.findByRole('option', {
+        name: '1.1 — Manter o controle de resíduos.',
+      })
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        subItem.id,
+        expect.objectContaining({ parentConditionId: 'condition-parent' })
+      )
+    );
   });
 });
