@@ -1,9 +1,15 @@
 import type {
   LegislationImpact,
+  LegislationInput,
   LicenseLegislation,
 } from '../../features/legislation/types';
 import { request } from './http';
-import type { LicenseLegislationWire } from './types';
+import type {
+  AddLicenseLegislationRequestWire,
+  LegislationInputWire,
+  LicenseLegislationWire,
+  UpdateLicenseLegislationRequestWire,
+} from './types';
 
 export function toLicenseLegislation(
   wire: LicenseLegislationWire
@@ -37,6 +43,9 @@ export interface LicenseLegislationUpdate {
   impact?: LegislationImpact | null;
   /** The backend only accepts `true`: an entry can't go back to unread. */
   read?: true;
+  citedExcerpt?: string | null;
+  /** Only editable while no other license cites the act (409 otherwise). */
+  legislation?: LegislationInput;
 }
 
 /**
@@ -55,16 +64,71 @@ export async function getLicenseLegislations(
   return wire.map(toLicenseLegislation);
 }
 
-/** Classifies an entry's impact and/or marks it as read; returns the entry. */
-export async function updateLicenseLegislation(
+function toLegislationInputWire(input: LegislationInput): LegislationInputWire {
+  return {
+    type: input.type,
+    number: input.number,
+    year: input.year,
+    issuing_body: input.issuingBody,
+    summary: input.summary,
+  };
+}
+
+/**
+ * Registers an act on the radar by hand. The backend reuses the catalog act
+ * when one with the same identity already exists, and answers 409 when the
+ * license already cites it.
+ */
+export async function addLicenseLegislation(
   licenseId: string,
-  id: string,
-  update: LicenseLegislationUpdate
+  input: { legislation: LegislationInput; citedExcerpt: string | null }
 ): Promise<LicenseLegislation> {
+  const body: AddLicenseLegislationRequestWire = {
+    legislation: toLegislationInputWire(input.legislation),
+    cited_excerpt: input.citedExcerpt,
+  };
   const wire = await request<LicenseLegislationWire>(
-    `/api/licenses/${licenseId}/legislations/${id}`,
-    { method: 'PATCH', body: update }
+    `/api/licenses/${licenseId}/legislations`,
+    { method: 'POST', body }
   );
 
   return toLicenseLegislation(wire);
+}
+
+/**
+ * Updates a radar entry: classifies its impact, marks it as read, edits the
+ * cited excerpt, and/or updates the manual legislation act data.
+ */
+export async function updateLicenseLegislation(
+  licenseId: string,
+  licenseLegislationId: string,
+  input: LicenseLegislationUpdate
+): Promise<LicenseLegislation> {
+  const body: UpdateLicenseLegislationRequestWire = {
+    ...(input.citedExcerpt !== undefined
+      ? { cited_excerpt: input.citedExcerpt }
+      : {}),
+    ...(input.legislation
+      ? { legislation: toLegislationInputWire(input.legislation) }
+      : {}),
+    ...(input.impact !== undefined ? { impact: input.impact } : {}),
+    ...(input.read !== undefined ? { read: input.read } : {}),
+  };
+  const wire = await request<LicenseLegislationWire>(
+    `/api/licenses/${licenseId}/legislations/${licenseLegislationId}`,
+    { method: 'PATCH', body }
+  );
+
+  return toLicenseLegislation(wire);
+}
+
+/** Takes the act off this license's radar only; the catalog keeps it. */
+export async function removeLicenseLegislation(
+  licenseId: string,
+  licenseLegislationId: string
+): Promise<void> {
+  await request<void>(
+    `/api/licenses/${licenseId}/legislations/${licenseLegislationId}`,
+    { method: 'DELETE' }
+  );
 }

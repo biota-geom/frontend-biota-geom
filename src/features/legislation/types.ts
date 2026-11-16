@@ -28,3 +28,12 @@ export interface LicenseLegislation {
   readAt: string | null;
   createdAt: string;
 }
+
+/** The act fields an operator types in, in the app's naming. */
+export interface LegislationInput {
+  type: LegislationType;
+  number: string;
+  year: number;
+  issuingBody: string;
+  summary: string | null;
+}

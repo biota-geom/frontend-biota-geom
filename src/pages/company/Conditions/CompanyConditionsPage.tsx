@@ -105,6 +105,7 @@ export function CompanyConditionsPage() {
 
       <EditConditionModal
         condition={conditionToEdit}
+        customerId={companyId}
         onOpenChange={(isOpen) => {
           if (!isOpen) setConditionToEdit(null);
         }}
