@@ -336,6 +336,8 @@ export interface LicenseConditionWire {
   has_delivery: boolean;
   is_violated: boolean;
   risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
+  condition_status?: string | null;
+  completion_date?: string | null;
 }
 
 export interface LicenseConditionsResponseWire {

@@ -48,6 +48,8 @@ describe('licenseConditionsApi', () => {
           has_delivery: true,
           is_violated: true,
           risk_level: 'RISK',
+          condition_status: 'FULFILLED',
+          completion_date: '2026-02-10T00:00:00.000Z',
         },
       ],
     });
@@ -59,6 +61,9 @@ describe('licenseConditionsApi', () => {
           environmentalDescriptor: 'Emissões',
           hasDelivery: true,
           isViolated: true,
+          conditionStatus: 'FULFILLED',
+          completionDate: '2026-02-10T00:00:00.000Z',
+          isFulfilled: true,
         }),
       ],
     });
