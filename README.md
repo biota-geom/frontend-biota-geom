@@ -138,13 +138,11 @@ administrativa e de empresa. Os caminhos ficam centralizados em
 
 - `/login`
 - `/admin/companies`
-- `/admin/legislation`
 - `/admin/indicators`
 - `/companies/:companyId/dashboard`
 - `/companies/:companyId/licenses`
 - `/companies/:companyId/licenses/:licenseId`
 - `/companies/:companyId/obligations`
-- `/companies/:companyId/legislation`
 - `/companies/:companyId/indicators`
 - `/companies/:companyId/documents`
 
