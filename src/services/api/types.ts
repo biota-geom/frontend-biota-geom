@@ -484,6 +484,23 @@ export type AddLicenseLegislationRequestWire =
   | { legislation_id: string; cited_excerpt?: string | null }
   | { legislation: LegislationInputWire; cited_excerpt?: string | null };
 
+export interface BatchLicenseLegislationRequestWire {
+  legislations: Array<
+    | {
+        legislation_id: string;
+        cited_excerpt?: string | null;
+        source: 'MANUAL' | 'SCAN';
+        impact?: LegislationImpactWire;
+      }
+    | {
+        legislation: LegislationInputWire;
+        cited_excerpt?: string | null;
+        source: 'MANUAL' | 'SCAN';
+        impact?: LegislationImpactWire;
+      }
+  >;
+}
+
 export interface UpdateLicenseLegislationRequestWire {
   cited_excerpt?: string | null;
   /** Only editable while no other license cites the act (409 otherwise). */

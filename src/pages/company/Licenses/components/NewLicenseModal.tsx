@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -33,12 +33,21 @@ import {
   extractLicenseData,
 } from '../../../../services/api/licensesApi';
 import { LicenseConditionsTable } from './LicenseConditionsTable';
+import { LegislationFormModal } from '../../../../components/legislation/LegislationFormModal';
+import type { LegislationFormResult } from '../../../../features/legislation/legislationFormValidation';
+import {
+  formatLegislationNumber,
+  formatLegislationType,
+} from '../../../../features/legislation/legislationFormatting';
+import { createLicenseLegislationsBatch } from '../../../../services/api/legislationsApi';
 
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível cadastrar a licença. Tente novamente mais tarde.';
 const CONDITIONS_ERROR_PREFIX =
   'A licença foi cadastrada, mas as condicionantes não foram salvas.';
 const CONDITIONS_ERROR_FALLBACK = 'Tente novamente.';
+const LEGISLATIONS_ERROR_PREFIX =
+  'A licença foi cadastrada, mas as legislações não foram salvas.';
 const EXTRACTION_ERROR_FALLBACK =
   'Não foi possível ler o documento automaticamente. Preencha os campos manualmente.';
 
@@ -64,6 +73,10 @@ export function NewLicenseModal({
 }: NewLicenseModalProps) {
   /* Set after step 1 succeeds so a retry never creates the license twice. */
   const [createdLicense, setCreatedLicense] = useState<License | null>(null);
+  const [legislations, setLegislations] = useState<LegislationFormResult[]>([]);
+  const [isLegislationModalOpen, setIsLegislationModalOpen] = useState(false);
+  const [conditionsSaved, setConditionsSaved] = useState(false);
+  const [legislationsSaved, setLegislationsSaved] = useState(false);
   const [extraction, setExtraction] = useState<ExtractionState>({
     status: 'idle',
   });
@@ -107,6 +120,10 @@ export function NewLicenseModal({
     reset(CREATE_LICENSE_DEFAULT_VALUES);
     setCreatedLicense(null);
     setExtraction({ status: 'idle' });
+    setLegislations([]);
+    setIsLegislationModalOpen(false);
+    setConditionsSaved(false);
+    setLegislationsSaved(false);
     onOpenChange(false);
   }
 
@@ -221,19 +238,48 @@ export function NewLicenseModal({
 
     const { conditions } = values;
 
-    if (conditions.length > 0) {
+    if (conditions.length > 0 && !conditionsSaved) {
       try {
         await createLicenseConditions(
           companyId,
           license.id,
           conditions.map(toLicenseConditionBatchItem)
         );
+        setConditionsSaved(true);
       } catch (error) {
         setError('root', {
           message: `${CONDITIONS_ERROR_PREFIX} ${
             error instanceof ApiError
               ? error.message
               : CONDITIONS_ERROR_FALLBACK
+          }`,
+        });
+        return;
+      }
+    }
+
+    if (legislations.length > 0 && !legislationsSaved) {
+      try {
+        await createLicenseLegislationsBatch(
+          license.id,
+          legislations
+            .filter(
+              (
+                item
+              ): item is LegislationFormResult & { legislationId: string } =>
+                Boolean(item.legislationId)
+            )
+            .map((item) => ({
+              legislationId: item.legislationId,
+              citedExcerpt: item.citedExcerpt,
+              source: 'MANUAL' as const,
+            }))
+        );
+        setLegislationsSaved(true);
+      } catch (error) {
+        setError('root', {
+          message: `${LEGISLATIONS_ERROR_PREFIX} ${
+            error instanceof ApiError ? error.message : 'Tente novamente.'
           }`,
         });
         return;
@@ -351,6 +397,75 @@ export function NewLicenseModal({
 
           <LicenseConditionsTable control={control} disabled={isSubmitting} />
 
+          <section
+            aria-label="Legislações"
+            className="col-span-2 flex flex-col gap-3 rounded-panel border border-border p-4 max-[560px]:col-span-1"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="m-0 text-sm font-bold text-text-primary">
+                  Legislações
+                </h3>
+                <p className="m-0 mt-1 text-xs text-text-secondary">
+                  Adicione as legislações vinculadas à licença
+                </p>
+              </div>
+              <Button
+                disabled={isSubmitting}
+                onClick={() => setIsLegislationModalOpen(true)}
+                type="button"
+                variant="addRow"
+              >
+                Adicionar
+              </Button>
+            </div>
+            {legislations.length > 0 ? (
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {legislations.map((item, index) => (
+                  <li
+                    className="flex items-center justify-between gap-3 rounded-control bg-surface-muted px-3 py-2"
+                    key={
+                      item.legislationId ??
+                      `${item.legislation.type}-${item.legislation.number}-${item.legislation.year}-${index}`
+                    }
+                  >
+                    <div className="min-w-0">
+                      <p className="m-0 text-xs font-bold text-text-primary">
+                        {formatLegislationType(item.legislation.type)}{' '}
+                        {formatLegislationNumber(item.legislation)}
+                      </p>
+                      {item.legislation.summary ? (
+                        <p className="m-0 truncate text-xs text-text-secondary">
+                          {item.legislation.summary}
+                        </p>
+                      ) : null}
+                    </div>
+                    <Button
+                      aria-label={`Remover legislação ${formatLegislationType(item.legislation.type)} ${formatLegislationNumber(item.legislation)}`}
+                      disabled={isSubmitting}
+                      onClick={() =>
+                        setLegislations((current) =>
+                          current.filter(
+                            (_, currentIndex) => currentIndex !== index
+                          )
+                        )
+                      }
+                      title="Remover legislação"
+                      type="button"
+                      variant="iconDanger"
+                    >
+                      <Trash2 aria-hidden="true" size={14} />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="m-0 text-xs text-text-secondary">
+                Nenhuma legislação adicionada.
+              </p>
+            )}
+          </section>
+
           {errors.root ? (
             <p
               aria-live="polite"
@@ -379,6 +494,24 @@ export function NewLicenseModal({
             </Button>
           </DialogFooter>
         </form>
+
+        <LegislationFormModal
+          mode="create"
+          onOpenChange={setIsLegislationModalOpen}
+          onSubmit={async (result) => {
+            const duplicate = legislations.some((item) =>
+              item.legislationId && result.legislationId
+                ? item.legislationId === result.legislationId
+                : item.legislation.type === result.legislation.type &&
+                  item.legislation.number === result.legislation.number &&
+                  item.legislation.year === result.legislation.year &&
+                  item.legislation.issuingBody ===
+                    result.legislation.issuingBody
+            );
+            if (!duplicate) setLegislations((current) => [...current, result]);
+          }}
+          open={isLegislationModalOpen}
+        />
       </DialogContent>
     </Dialog>
   );

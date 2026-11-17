@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LicenseDetails } from '../../features/licenses/types';
 import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
 import { MOCK_LICENSE_LEGISLATIONS } from '../../features/legislation/legislations.mock';
@@ -24,6 +24,7 @@ vi.mock('../../services/api/legislationsApi', async (importOriginal) => ({
   >()),
   getLicenseLegislations: vi.fn(),
   addLicenseLegislation: vi.fn(),
+  searchLegislationCatalog: vi.fn().mockResolvedValue([]),
   updateLicenseLegislation: vi.fn(),
   removeLicenseLegislation: vi.fn(),
 }));
@@ -182,11 +183,16 @@ async function fillConditionRow(
  * right at the global 10s testTimeout. Those flows pass 20_000 instead.
  */
 describe('LicenseDetailsPage', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(DETAILS);
     vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([]);
     vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue([]);
+    vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([]);
     vi.mocked(licensesApi.renewLicense).mockResolvedValue({
       id: 'license-2',
       previousLicenseId: 'license-1',
@@ -1230,10 +1236,23 @@ describe('LicenseDetailsPage', () => {
     }
 
     it('adds a legislation and reloads the radar', async () => {
+      vi.useFakeTimers();
       vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
         RADAR[2]
       );
-      const user = userEvent.setup();
+      vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([
+        {
+          id: RADAR[2].legislation.id,
+          type: RADAR[2].legislation.type,
+          number: RADAR[2].legislation.number,
+          year: RADAR[2].legislation.year,
+          issuingBody: RADAR[2].legislation.issuingBody,
+          summary: RADAR[2].legislation.summary,
+        },
+      ]);
+      const user = userEvent.setup({
+        advanceTimers: vi.advanceTimersByTime,
+      });
       renderDetailsPage();
 
       const radar = await findRadar();
@@ -1243,15 +1262,15 @@ describe('LicenseDetailsPage', () => {
         })
       );
       const dialog = await screen.findByRole('dialog');
-      await user.click(
-        within(dialog).getByRole('combobox', { name: 'Tipo da legislação' })
-      );
-      await user.click(screen.getByRole('option', { name: 'Lei' }));
-      await user.type(within(dialog).getByLabelText('Número *'), '9.605');
-      await user.type(within(dialog).getByLabelText('Ano *'), '1998');
       await user.type(
-        within(dialog).getByLabelText('Órgão emissor *'),
-        'Governo Federal'
+        within(dialog).getByLabelText('Pesquisar legislação *'),
+        '9.605'
+      );
+      await vi.runAllTimersAsync();
+      await user.click(
+        await within(dialog).findByRole('option', {
+          name: /Lei nº 9\.605\/1998/,
+        })
       );
       await user.click(
         within(dialog).getByRole('button', { name: 'Adicionar legislação' })
@@ -1263,13 +1282,7 @@ describe('LicenseDetailsPage', () => {
       expect(legislationsApi.addLicenseLegislation).toHaveBeenCalledWith(
         'license-1',
         {
-          legislation: {
-            type: 'LEI',
-            number: '9.605',
-            year: 1998,
-            issuingBody: 'Governo Federal',
-            summary: null,
-          },
+          legislationId: RADAR[2].legislation.id,
           citedExcerpt: null,
         }
       );
