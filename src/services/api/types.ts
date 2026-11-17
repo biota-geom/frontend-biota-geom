@@ -488,4 +488,6 @@ export interface UpdateLicenseLegislationRequestWire {
   cited_excerpt?: string | null;
   /** Only editable while no other license cites the act (409 otherwise). */
   legislation?: LegislationInputWire;
+  impact?: LegislationImpactWire | null;
+  read?: true;
 }

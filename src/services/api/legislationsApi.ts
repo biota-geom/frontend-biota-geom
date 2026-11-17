@@ -1,4 +1,5 @@
 import type {
+  LegislationImpact,
   LegislationInput,
   LicenseLegislation,
 } from '../../features/legislation/types';
@@ -32,12 +33,32 @@ export function toLicenseLegislation(
   };
 }
 
-/** The license radar, most recent legislation first (ordered by the backend). */
+export interface LicenseLegislationFilter {
+  impact?: LegislationImpact;
+}
+
+/** What the radar's PATCH accepts; send only the fields being changed. */
+export interface LicenseLegislationUpdate {
+  /** `null` clears the classification. */
+  impact?: LegislationImpact | null;
+  /** The backend only accepts `true`: an entry can't go back to unread. */
+  read?: true;
+  citedExcerpt?: string | null;
+  /** Only editable while no other license cites the act (409 otherwise). */
+  legislation?: LegislationInput;
+}
+
+/**
+ * The license radar, most recent legislation first (ordered by the backend).
+ * `filter.impact` narrows it to one impact level.
+ */
 export async function getLicenseLegislations(
-  licenseId: string
+  licenseId: string,
+  filter: LicenseLegislationFilter = {}
 ): Promise<LicenseLegislation[]> {
+  const query = filter.impact ? `?impact=${filter.impact}` : '';
   const wire = await request<LicenseLegislationWire[]>(
-    `/api/licenses/${licenseId}/legislations`
+    `/api/licenses/${licenseId}/legislations${query}`
   );
 
   return wire.map(toLicenseLegislation);
@@ -74,17 +95,24 @@ export async function addLicenseLegislation(
   return toLicenseLegislation(wire);
 }
 
-/** Omit `legislation` to change only the cited excerpt. */
+/**
+ * Updates a radar entry: classifies its impact, marks it as read, edits the
+ * cited excerpt, and/or updates the manual legislation act data.
+ */
 export async function updateLicenseLegislation(
   licenseId: string,
   licenseLegislationId: string,
-  input: { legislation?: LegislationInput; citedExcerpt: string | null }
+  input: LicenseLegislationUpdate
 ): Promise<LicenseLegislation> {
   const body: UpdateLicenseLegislationRequestWire = {
-    cited_excerpt: input.citedExcerpt,
+    ...(input.citedExcerpt !== undefined
+      ? { cited_excerpt: input.citedExcerpt }
+      : {}),
     ...(input.legislation
       ? { legislation: toLegislationInputWire(input.legislation) }
       : {}),
+    ...(input.impact !== undefined ? { impact: input.impact } : {}),
+    ...(input.read !== undefined ? { read: input.read } : {}),
   };
   const wire = await request<LicenseLegislationWire>(
     `/api/licenses/${licenseId}/legislations/${licenseLegislationId}`,
