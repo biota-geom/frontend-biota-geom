@@ -151,7 +151,7 @@ async function addCatalogLegislation(
     name: 'Adicionar legislação',
   });
   await user.type(
-    within(dialog).getByLabelText('Pesquisar legislação *'),
+    within(dialog).getByLabelText('Pesquisar no catálogo (opcional)'),
     legislation.number
   );
   await user.click(

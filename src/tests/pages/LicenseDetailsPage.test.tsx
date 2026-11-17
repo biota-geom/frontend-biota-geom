@@ -1260,7 +1260,7 @@ describe('LicenseDetailsPage', () => {
       );
       const dialog = await screen.findByRole('dialog');
       await user.type(
-        within(dialog).getByLabelText('Pesquisar legislação *'),
+        within(dialog).getByLabelText('Pesquisar no catálogo (opcional)'),
         '9.605'
       );
       await user.click(
@@ -1284,6 +1284,63 @@ describe('LicenseDetailsPage', () => {
       );
       expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }, 20_000);
+
+    it('creates a new legislation when the catalog has no match', async () => {
+      vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
+        RADAR[2]
+      );
+      vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Adicionar legislação',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      await user.type(
+        within(dialog).getByLabelText('Pesquisar no catálogo (opcional)'),
+        'Resolução ambiental'
+      );
+      await within(dialog).findByText(
+        'Nenhuma legislação encontrada no catálogo. Preencha os dados abaixo para cadastrar uma nova.'
+      );
+
+      await user.click(
+        within(dialog).getByRole('combobox', { name: 'Tipo da legislação' })
+      );
+      await user.click(
+        await screen.findByRole('option', { name: 'Resolução' })
+      );
+      await user.type(within(dialog).getByLabelText('Número *'), '237');
+      await user.type(within(dialog).getByLabelText('Ano *'), '1997');
+      await user.type(
+        within(dialog).getByLabelText('Órgão emissor *'),
+        'CONAMA'
+      );
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Adicionar legislação' })
+      );
+
+      expect(
+        await screen.findByText('Legislação adicionada ao radar.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.addLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        {
+          legislation: {
+            type: 'RESOLUCAO',
+            number: '237',
+            year: 1997,
+            issuingBody: 'CONAMA',
+            summary: null,
+          },
+          citedExcerpt: null,
+        }
+      );
     }, 20_000);
 
     it('edits only the excerpt when the act data is untouched', async () => {

@@ -262,18 +262,13 @@ export function NewLicenseModal({
       try {
         await createLicenseLegislationsBatch(
           license.id,
-          legislations
-            .filter(
-              (
-                item
-              ): item is LegislationFormResult & { legislationId: string } =>
-                Boolean(item.legislationId)
-            )
-            .map((item) => ({
-              legislationId: item.legislationId,
-              citedExcerpt: item.citedExcerpt,
-              source: 'MANUAL' as const,
-            }))
+          legislations.map((item) => ({
+            ...(item.legislationId
+              ? { legislationId: item.legislationId }
+              : { legislation: item.legislation }),
+            citedExcerpt: item.citedExcerpt,
+            source: 'MANUAL' as const,
+          }))
         );
         setLegislationsSaved(true);
       } catch (error) {

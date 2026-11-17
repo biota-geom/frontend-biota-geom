@@ -40,7 +40,10 @@ function renderModal(
 }
 
 async function fillRequired(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText('Pesquisar legislação *'), '12.305');
+  await user.type(
+    screen.getByLabelText('Pesquisar no catálogo (opcional)'),
+    '12.305'
+  );
   const suggestion = await screen.findByRole('option', {
     name: /Lei nº 12\.305\/2010/,
   });
@@ -65,7 +68,7 @@ describe('LegislationFormModal', () => {
     const user = userEvent.setup();
     renderModal();
 
-    const search = screen.getByLabelText('Pesquisar legislação *');
+    const search = screen.getByLabelText('Pesquisar no catálogo (opcional)');
     expect(search).toHaveAttribute(
       'placeholder',
       'Pesquisar por número, ano ou ementa'
@@ -102,7 +105,10 @@ describe('LegislationFormModal', () => {
     ]);
     const { onSubmit } = renderModal();
 
-    await user.type(screen.getByLabelText('Pesquisar legislação *'), 'PNRS');
+    await user.type(
+      screen.getByLabelText('Pesquisar no catálogo (opcional)'),
+      'PNRS'
+    );
 
     await user.click(
       await screen.findByRole('option', {
@@ -154,7 +160,7 @@ describe('LegislationFormModal', () => {
     );
   });
 
-  it('creates a legislation with only the required fields', async () => {
+  it('uses the selected catalog legislation when adding it', async () => {
     const user = userEvent.setup();
     const { onOpenChange, onSubmit } = renderModal();
 
@@ -180,6 +186,46 @@ describe('LegislationFormModal', () => {
       })
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('allows creating a legislation when the catalog has no match', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderModal();
+    vi.mocked(searchLegislationCatalog).mockResolvedValue([]);
+
+    await user.type(
+      screen.getByLabelText('Pesquisar no catálogo (opcional)'),
+      'Resolução ambiental'
+    );
+    expect(
+      await screen.findByText(
+        'Nenhuma legislação encontrada no catálogo. Preencha os dados abaixo para cadastrar uma nova.'
+      )
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('combobox', { name: 'Tipo da legislação' })
+    );
+    await user.click(await screen.findByRole('option', { name: 'Resolução' }));
+    await user.type(screen.getByLabelText('Número *'), '237');
+    await user.type(screen.getByLabelText('Ano *'), '1997');
+    await user.type(screen.getByLabelText('Órgão emissor *'), 'CONAMA');
+    await user.click(
+      screen.getByRole('button', { name: 'Adicionar legislação' })
+    );
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        legislation: {
+          type: 'RESOLUCAO',
+          number: '237',
+          year: 1997,
+          issuingBody: 'CONAMA',
+          summary: null,
+        },
+        citedExcerpt: null,
+      })
+    );
   });
 
   it('sends the optional fields when filled', async () => {
@@ -210,18 +256,35 @@ describe('LegislationFormModal', () => {
     );
   });
 
-  it('blocks the submit until the required fields are valid', async () => {
+  it('creates a legislation without searching the catalog', async () => {
     const user = userEvent.setup();
+    vi.mocked(searchLegislationCatalog).mockClear();
     const { onSubmit } = renderModal();
 
+    await user.click(
+      screen.getByRole('combobox', { name: 'Tipo da legislação' })
+    );
+    await user.click(await screen.findByRole('option', { name: 'Resolução' }));
+    await user.type(screen.getByLabelText('Número *'), '237');
+    await user.type(screen.getByLabelText('Ano *'), '1997');
+    await user.type(screen.getByLabelText('Órgão emissor *'), 'CONAMA');
     await user.click(
       screen.getByRole('button', { name: 'Adicionar legislação' })
     );
 
-    expect(
-      screen.getByText('Informe o número, ano ou ementa da legislação.')
-    ).toBeInTheDocument();
-    expect(onSubmit).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        legislation: {
+          type: 'RESOLUCAO',
+          number: '237',
+          year: 1997,
+          issuingBody: 'CONAMA',
+          summary: null,
+        },
+        citedExcerpt: null,
+      })
+    );
+    expect(searchLegislationCatalog).not.toHaveBeenCalled();
   });
 
   it('prefills the fields when editing', async () => {

@@ -88,9 +88,9 @@ export function LegislationFormModal({
     handleSubmit,
     register,
     reset,
+    clearErrors,
     setError,
     setValue,
-    watch,
   } = useForm<LegislationFormValues, unknown, ParsedLegislationForm>({
     defaultValues: EMPTY_LEGISLATION_FORM,
     mode: 'onTouched',
@@ -105,37 +105,42 @@ export function LegislationFormModal({
   const [selectedCatalog, setSelectedCatalog] = useState<Legislation | null>(
     null
   );
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogResultQuery, setCatalogResultQuery] = useState<string | null>(
+    null
+  );
   const [catalogSearchStatus, setCatalogSearchStatus] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
   const catalogSearchRequestRef = useRef(0);
-  const number = watch('number');
+  const numberRegistration = register('number');
+  const isCatalogSearchActive =
+    mode === 'create' &&
+    open &&
+    !selectedCatalogId &&
+    catalogSearch.trim().length >= 2;
+  const hasCurrentCatalogResult =
+    isCatalogSearchActive && catalogResultQuery === catalogSearch;
 
   useEffect(() => {
-    if (
-      mode !== 'create' ||
-      !open ||
-      selectedCatalogId ||
-      number.trim().length < 2
-    ) {
+    if (!isCatalogSearchActive) {
       catalogSearchRequestRef.current += 1;
-      setCatalogSuggestions([]);
-      setCatalogSearchStatus('idle');
       return;
     }
 
     const requestId = ++catalogSearchRequestRef.current;
-    setCatalogSearchStatus('loading');
     const timeout = window.setTimeout(() => {
-      void searchLegislationCatalog(number)
+      void searchLegislationCatalog(catalogSearch)
         .then((suggestions) => {
           if (requestId !== catalogSearchRequestRef.current) return;
           setCatalogSuggestions(suggestions);
+          setCatalogResultQuery(catalogSearch);
           setCatalogSearchStatus('success');
         })
         .catch(() => {
           if (requestId !== catalogSearchRequestRef.current) return;
           setCatalogSuggestions([]);
+          setCatalogResultQuery(catalogSearch);
           setCatalogSearchStatus('error');
         });
     }, 300);
@@ -143,40 +148,31 @@ export function LegislationFormModal({
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [number, open, selectedCatalogId, mode]);
+  }, [catalogSearch, isCatalogSearchActive]);
 
   useEffect(() => {
     if (open) {
       reset(toFormValues(initialValue));
-      setSelectedCatalogId(null);
-      setSelectedCatalog(null);
-      setCatalogSuggestions([]);
-      setCatalogSearchStatus('idle');
-      if (mode === 'create') {
-        reset({
-          ...EMPTY_LEGISLATION_FORM,
-          type: 'OUTRO',
-          year: '1000',
-          issuingBody: 'Catálogo',
-        });
-      }
     }
   }, [initialValue, mode, open, reset]);
 
+  function resetCatalogSearch() {
+    setSelectedCatalogId(null);
+    setSelectedCatalog(null);
+    setCatalogSearch('');
+    setCatalogSuggestions([]);
+    setCatalogResultQuery(null);
+    setCatalogSearchStatus('idle');
+  }
+
   function handleOpenChange(nextOpen: boolean) {
     if (isSubmitting) return;
+    if (!nextOpen) resetCatalogSearch();
     onOpenChange(nextOpen);
   }
 
   const submit = handleSubmit(async (values) => {
     try {
-      if (mode === 'create' && !selectedCatalog) {
-        setError('root', {
-          message: 'Pesquise e selecione uma legislação cadastrada no sistema.',
-        });
-        return;
-      }
-
       if (mode === 'create' && selectedCatalog) {
         const result: LegislationFormResult = {
           legislationId: selectedCatalog.id,
@@ -193,6 +189,7 @@ export function LegislationFormModal({
       } else {
         await onSubmit(toLegislationFormResult(values));
       }
+      resetCatalogSearch();
       onOpenChange(false);
     } catch (error) {
       setError('root', {
@@ -214,7 +211,7 @@ export function LegislationFormModal({
           <DialogDescription>
             {isEdit
               ? 'Atualize os dados da legislação vinculada.'
-              : 'Pesquise e selecione uma legislação já cadastrada no sistema.'}
+              : 'Pesquise uma legislação cadastrada ou informe os dados para cadastrar uma nova.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -223,64 +220,43 @@ export function LegislationFormModal({
           noValidate
           onSubmit={(event) => void submit(event)}
         >
-          {isEdit ? (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="legislation-type">Tipo *</Label>
-              <Controller
-                control={control}
-                name="type"
-                render={({ field }) => (
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value || undefined}
-                  >
-                    <SelectTrigger
-                      aria-invalid={Boolean(errors.type)}
-                      aria-label="Tipo da legislação"
-                      className="min-h-[42px] w-full justify-between border-border bg-surface text-sm text-text-primary focus:border-focus"
-                      id="legislation-type"
-                      onBlur={field.onBlur}
-                    >
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent className="border-border bg-surface">
-                      {LEGISLATION_TYPES.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {formatLegislationType(type)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <FieldError message={errors.type?.message} />
-            </div>
-          ) : null}
-
           <div
             className={`relative flex flex-col gap-2 ${
               isEdit ? '' : 'col-span-2 max-[560px]:col-span-1'
             }`}
           >
             <Label htmlFor="legislation-number">
-              {isEdit ? 'Número *' : 'Pesquisar legislação *'}
+              {isEdit ? 'Número *' : 'Pesquisar no catálogo (opcional)'}
             </Label>
             <InputGroup aria-invalid={Boolean(errors.number)} variant="field">
               <Input
-                {...register('number', {
-                  onChange: () => {
-                    setSelectedCatalogId(null);
-                    setSelectedCatalog(null);
-                  },
-                })}
-                aria-invalid={Boolean(errors.number)}
+                {...(isEdit ? numberRegistration : {})}
+                aria-invalid={isEdit ? Boolean(errors.number) : undefined}
                 id="legislation-number"
+                onChange={(event) => {
+                  if (isEdit) {
+                    void numberRegistration.onChange(event);
+                  } else {
+                    const nextSearch = event.currentTarget.value;
+                    clearErrors('root');
+                    setCatalogSearch(nextSearch);
+                    setCatalogResultQuery(null);
+                    setCatalogSearchStatus(
+                      nextSearch.trim().length >= 2 ? 'loading' : 'idle'
+                    );
+                    if (selectedCatalogId) {
+                      setSelectedCatalogId(null);
+                      setSelectedCatalog(null);
+                    }
+                  }
+                }}
+                value={isEdit ? undefined : catalogSearch}
                 placeholder={
                   isEdit ? 'Ex.: 12.305' : 'Pesquisar por número, ano ou ementa'
                 }
               />
             </InputGroup>
-            {catalogSearchStatus === 'loading' ? (
+            {isCatalogSearchActive && catalogSearchStatus === 'loading' ? (
               <p
                 aria-live="polite"
                 className="m-0 text-xs text-text-secondary"
@@ -288,7 +264,9 @@ export function LegislationFormModal({
               >
                 Pesquisando legislações...
               </p>
-            ) : catalogSuggestions.length > 0 ? (
+            ) : hasCurrentCatalogResult &&
+              catalogSearchStatus === 'success' &&
+              catalogSuggestions.length > 0 ? (
               <div
                 aria-label="Sugestões de legislações"
                 className="max-h-80 w-full overflow-y-auto rounded-control border border-border bg-surface"
@@ -302,6 +280,8 @@ export function LegislationFormModal({
                     onClick={() => {
                       setSelectedCatalogId(item.id);
                       setSelectedCatalog(item);
+                      setCatalogResultQuery(null);
+                      setCatalogSearchStatus('idle');
                       setValue('type', item.type, { shouldValidate: true });
                       setValue('number', item.number, { shouldValidate: true });
                       setValue('year', String(item.year), {
@@ -313,6 +293,7 @@ export function LegislationFormModal({
                       setValue('summary', item.summary ?? '', {
                         shouldValidate: true,
                       });
+                      setCatalogSearch(item.number);
                       setCatalogSuggestions([]);
                     }}
                     type="button"
@@ -335,17 +316,18 @@ export function LegislationFormModal({
                   </button>
                 ))}
               </div>
-            ) : catalogSearchStatus === 'error' ? (
+            ) : hasCurrentCatalogResult && catalogSearchStatus === 'error' ? (
               <p className="m-0 text-xs text-[#b42318]" role="alert">
                 Não foi possível pesquisar no catálogo. Tente novamente.
               </p>
-            ) : catalogSearchStatus === 'success' &&
-              number.trim().length >= 2 ? (
-              <p className="m-0 text-xs text-text-secondary">
-                Nenhuma legislação encontrada no catálogo.
+            ) : hasCurrentCatalogResult &&
+              catalogSearchStatus === 'success' &&
+              catalogSuggestions.length === 0 ? (
+              <p className="m-0 text-xs text-text-secondary" role="status">
+                Nenhuma legislação encontrada no catálogo. Preencha os dados
+                abaixo para cadastrar uma nova.
               </p>
             ) : null}
-            <FieldError message={errors.number?.message} />
           </div>
 
           {mode === 'create' && selectedCatalog ? (
@@ -367,8 +349,52 @@ export function LegislationFormModal({
             </div>
           ) : null}
 
-          {isEdit ? (
+          {isEdit || (mode === 'create' && !selectedCatalog) ? (
             <>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="legislation-type">Tipo *</Label>
+                <Controller
+                  control={control}
+                  name="type"
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger
+                        aria-invalid={Boolean(errors.type)}
+                        aria-label="Tipo da legislação"
+                        className="min-h-[42px] w-full justify-between border-border bg-surface text-sm text-text-primary focus:border-focus"
+                        id="legislation-type"
+                        onBlur={field.onBlur}
+                      >
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent className="border-border bg-surface">
+                        {LEGISLATION_TYPES.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {formatLegislationType(type)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <FieldError message={errors.type?.message} />
+              </div>
+
+              {mode === 'create' ? (
+                <TextField
+                  error={errors.number?.message}
+                  id="legislation-new-number"
+                  label="Número *"
+                >
+                  <Input
+                    {...register('number')}
+                    aria-invalid={Boolean(errors.number)}
+                    id="legislation-new-number"
+                    placeholder="Ex.: 12.305"
+                  />
+                </TextField>
+              ) : null}
+
               <TextField
                 error={errors.year?.message}
                 id="legislation-year"
