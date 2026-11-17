@@ -2,9 +2,10 @@ import { Link, NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui/shadcn/button';
 import { APP_ROUTES } from '../../app/router/routes';
 import { useAuth } from '../../features/auth/useAuth';
+import { NotificationBell } from '../../features/alerts/NotificationBell';
 import type { Company } from '../../features/companies/types';
 import { BiotaLogo } from '../ui/BiotaLogo';
-import { BellIcon, SettingsIcon } from '../ui/icons';
+import { SettingsIcon } from '../ui/icons';
 import { CompanyDropdown } from './CompanyDropdown';
 
 export type AppNavigationItem = {
@@ -91,15 +92,7 @@ export function AppHeader({
             Admin
           </span>
 
-          <Button
-            aria-label="Notificações"
-            disabled
-            type="button"
-            variant="iconRound"
-          >
-            <BellIcon />
-            <span className="absolute top-[7px] right-2 size-[7px] rounded-full border border-white bg-red-500" />
-          </Button>
+          <NotificationBell />
 
           <span
             aria-label={user ? user.name : 'Usuário administrador'}
