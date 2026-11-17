@@ -27,12 +27,18 @@ vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
   listLicenses: vi.fn(),
 }));
+vi.mock('../../services/api/alertsApi', () => ({
+  getUnreadAlertsCount: vi.fn(),
+  listAlerts: vi.fn(),
+  markAlertAsRead: vi.fn(),
+}));
 
 const companiesApi = await import('../../services/api/companiesApi');
 const customersApi = await import('../../services/api/customersApi');
 const licenseConditionsApi =
   await import('../../services/api/licenseConditionsApi');
 const licensesApi = await import('../../services/api/licensesApi');
+const alertsApi = await import('../../services/api/alertsApi');
 
 const COMPANY_ID = 'customer-1';
 
@@ -59,6 +65,7 @@ describe('CompanyConditionsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     useCompanyContext.getState().clearCompany();
+    vi.mocked(alertsApi.getUnreadAlertsCount).mockResolvedValue(0);
     vi.mocked(companiesApi.getCompanyById).mockResolvedValue(
       COMPANY_IN_CONTEXT
     );
@@ -473,6 +480,10 @@ describe('CompanyConditionsPage', () => {
         screen.getByRole('article', { name: condition.name })
       ).findByText('Violada')
     ).toBeInTheDocument();
+    // Saving may resolve the condition alerts, so the bell count is reloaded.
+    await waitFor(() =>
+      expect(alertsApi.getUnreadAlertsCount).toHaveBeenCalledTimes(2)
+    );
   });
 
   it('lets the company conditions editor assign a same-descriptor parent', async () => {
