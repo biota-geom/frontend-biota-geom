@@ -30,12 +30,17 @@ vi.mock('../../services/api/customersApi', () => ({
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
 }));
+vi.mock('../../services/api/legislationsApi', () => ({
+  searchLegislationCatalog: vi.fn(),
+  createLicenseLegislationsBatch: vi.fn(),
+}));
 
 const licensesApi = await import('../../services/api/licensesApi');
 const companiesApi = await import('../../services/api/companiesApi');
 const customersApi = await import('../../services/api/customersApi');
 const licenseConditionsApi =
   await import('../../services/api/licenseConditionsApi');
+const legislationsApi = await import('../../services/api/legislationsApi');
 
 const COMPANY_ID = 'customer-1';
 const COMPANY_IN_CONTEXT: CompanyListItem = {
@@ -126,6 +131,41 @@ const CREATED_LICENSE = {
   createdAt: '2020-01-10T00:00:00.000Z',
 };
 
+async function addCatalogLegislation(
+  user: ReturnType<typeof userEvent.setup>,
+  legislation: {
+    id: string;
+    type: 'LEI' | 'DECRETO' | 'RESOLUCAO';
+    number: string;
+    year: number;
+    issuingBody: string;
+    summary: string;
+  }
+) {
+  vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([
+    legislation,
+  ]);
+
+  await user.click(screen.getByRole('button', { name: 'Adicionar' }));
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Adicionar legislação',
+  });
+  await user.type(
+    within(dialog).getByLabelText('Pesquisar legislação *'),
+    legislation.number
+  );
+  await user.click(
+    await within(dialog).findByRole('option', {
+      name: new RegExp(
+        `${legislation.type === 'LEI' ? 'Lei' : legislation.type === 'DECRETO' ? 'Decreto' : 'Resolução'}.*${legislation.number}.*${legislation.year}`
+      ),
+    })
+  );
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Adicionar legislação' })
+  );
+}
+
 async function fillConditionRow(
   user: ReturnType<typeof userEvent.setup>,
   descriptor = 'Água',
@@ -190,6 +230,10 @@ describe('CompanyLicensesPage', () => {
     // reading never finishes so the manual flow is exercised on its own.
     vi.mocked(licensesApi.extractLicenseData).mockReturnValue(
       new Promise(() => {})
+    );
+    vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([]);
+    vi.mocked(legislationsApi.createLicenseLegislationsBatch).mockResolvedValue(
+      []
     );
   });
 
@@ -396,6 +440,104 @@ describe('CompanyLicensesPage', () => {
     expect(screen.queryByText('Segundo laudo')).not.toBeInTheDocument();
     expect(screen.getByRole('row', { name: /1 Resíduos/ })).toBeInTheDocument();
   }, 20_000);
+
+  it('adds catalog legislations and sends them in batch after creating the license', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.createLicense).mockResolvedValue(CREATED_LICENSE);
+
+    renderLicensesPage();
+    await openModalAndFillRequiredFields(user);
+    await addCatalogLegislation(user, {
+      id: 'legislation-1',
+      type: 'LEI',
+      number: '12.305',
+      year: 2010,
+      issuingBody: 'Governo Federal',
+      summary: 'Institui a PNRS.',
+    });
+    await addCatalogLegislation(user, {
+      id: 'legislation-2',
+      type: 'RESOLUCAO',
+      number: '237',
+      year: 1997,
+      issuingBody: 'CONAMA',
+      summary: 'Licenciamento ambiental.',
+    });
+
+    expect(screen.getByText(/Lei nº 12\.305\/2010/)).toBeInTheDocument();
+    expect(screen.getByText(/Resolução nº 237\/1997/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /salvar licença/i }));
+
+    await waitFor(() =>
+      expect(
+        legislationsApi.createLicenseLegislationsBatch
+      ).toHaveBeenCalledWith('license-9', [
+        {
+          legislationId: 'legislation-1',
+          citedExcerpt: null,
+          source: 'MANUAL',
+        },
+        {
+          legislationId: 'legislation-2',
+          citedExcerpt: null,
+          source: 'MANUAL',
+        },
+      ])
+    );
+  }, 20_000);
+
+  it('keeps the license created and warns when the legislation batch fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.createLicense).mockResolvedValue(CREATED_LICENSE);
+    vi.mocked(
+      legislationsApi.createLicenseLegislationsBatch
+    ).mockRejectedValueOnce(new ApiError(400, 'Legislação inválida.'));
+
+    renderLicensesPage();
+    await openModalAndFillRequiredFields(user);
+    await addCatalogLegislation(user, {
+      id: 'legislation-1',
+      type: 'LEI',
+      number: '12.305',
+      year: 2010,
+      issuingBody: 'Governo Federal',
+      summary: 'Institui a PNRS.',
+    });
+
+    await user.click(screen.getByRole('button', { name: /salvar licença/i }));
+
+    expect(
+      await screen.findByText(
+        /A licença foi cadastrada, mas as legislações não foram salvas.*Legislação inválida/i
+      )
+    ).toBeInTheDocument();
+    expect(licensesApi.createLicense).toHaveBeenCalledTimes(1);
+  }, 20_000);
+
+  it('removes a selected legislation from the Nova Licença list', async () => {
+    const user = userEvent.setup();
+    renderLicensesPage();
+    await openModalAndFillRequiredFields(user);
+    await addCatalogLegislation(user, {
+      id: 'legislation-1',
+      type: 'LEI',
+      number: '12.305',
+      year: 2010,
+      issuingBody: 'Governo Federal',
+      summary: 'Institui a PNRS.',
+    });
+
+    await user.click(
+      screen.getByRole('button', {
+        name: /Remover legislação Lei nº 12\.305\/2010/,
+      })
+    );
+
+    expect(
+      screen.getByText('Nenhuma legislação adicionada.')
+    ).toBeInTheDocument();
+  });
 
   it('creates the license first, then posts the conditions with the new license id', async () => {
     const user = userEvent.setup();
