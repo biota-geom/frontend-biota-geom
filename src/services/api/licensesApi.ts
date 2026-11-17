@@ -85,6 +85,8 @@ function toLicenseDetails(wire: LicenseDetailsWire): LicenseDetails {
     conditions: wire.conditions.map((condition) => ({
       id: condition.id,
       itemNumber: condition.item_number,
+      parentConditionId: condition.parent_condition_id ?? null,
+      level: condition.level ?? null,
       isEnvironmentalDescriptor: condition.is_environmental_descriptor,
       environmentalDescriptor: condition.environmental_descriptor,
       name: condition.name,
@@ -92,6 +94,7 @@ function toLicenseDetails(wire: LicenseDetailsWire): LicenseDetails {
       conditionType: condition.condition_type,
       periodicity: condition.periodicity,
       deadline: condition.deadline,
+      alertDate: condition.alert_date ?? null,
       status: condition.status,
       completionDate: condition.completion_date,
       responsibleName: condition.responsible_name,

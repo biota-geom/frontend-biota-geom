@@ -661,17 +661,15 @@ describe('AdminCompaniesPage', () => {
     renderAppRoutes();
 
     const companiesLink = screen.getByRole('link', { name: 'Empresas' });
-    const legislationLink = screen.getByRole('link', { name: 'Legislação' });
     const indicatorsLink = screen.getByRole('link', { name: 'Indicadores' });
 
     expect(companiesLink).toHaveAttribute('href', APP_ROUTES.admin.companies);
-    expect(legislationLink).toHaveAttribute(
-      'href',
-      APP_ROUTES.admin.legislation
-    );
     expect(indicatorsLink).toHaveAttribute('href', APP_ROUTES.admin.indicators);
     expect(companiesLink.className).toContain('border-primary-strong');
-    expect(legislationLink.className).not.toContain('border-primary-strong');
+    expect(indicatorsLink.className).not.toContain('border-primary-strong');
+    expect(
+      screen.queryByRole('link', { name: 'Legislação' })
+    ).not.toBeInTheDocument();
   });
 
   it('renders the "Nova Empresa" action button', async () => {

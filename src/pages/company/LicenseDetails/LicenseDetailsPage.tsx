@@ -1,7 +1,9 @@
 import { Search } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ErrorToast } from '../../../components/feedback/ErrorToast';
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
+import { LegislationFormModal } from '../../../components/legislation/LegislationFormModal';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { buildCompanyRoutes } from '../../../app/router/routes';
 import {
@@ -11,16 +13,37 @@ import {
   formatLicenseStatus,
 } from '../../../features/licenses/licenseDetailsFormatting';
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
+import {
+  formatLegislationNumber,
+  formatLegislationType,
+} from '../../../features/legislation/legislationFormatting';
 import { MOCK_LICENSE_LEGISLATIONS } from '../../../features/legislation/legislations.mock';
 import { useLicenseHistory } from '../../../features/licenses/useLicenseHistory';
+import {
+  hasLegislationChanged,
+  type LegislationFormResult,
+} from '../../../features/legislation/legislationFormValidation';
+import type {
+  LegislationImpact,
+  LegislationInput,
+  LicenseLegislation,
+} from '../../../features/legislation/types';
+import { useLegislationUpdates } from '../../../features/legislation/useLegislationUpdates';
 import { useLicenseLegislations } from '../../../features/legislation/useLicenseLegislations';
 import type { LicenseConditionDetail } from '../../../features/licenses/types';
+import {
+  addLicenseLegislation,
+  updateLicenseLegislation,
+} from '../../../services/api/legislationsApi';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
+import { LegislationImpactBadge } from './components/LegislationImpactBadge';
+import { LegislationImpactSelect } from './components/LegislationImpactSelect';
 import { LegislationRadar } from './components/LegislationRadar';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
 import { LicenseVersionHistory } from './components/LicenseVersionHistory';
+import { RemoveLegislationDialog } from './components/RemoveLegislationDialog';
 import { RenewLicenseModal } from './components/RenewLicenseModal';
 
 function formatDate(value: string | null): string {
@@ -48,6 +71,19 @@ function LoadingDetails() {
   );
 }
 
+type LegislationFormState =
+  { mode: 'create' } | { mode: 'edit'; item: LicenseLegislation } | null;
+
+function toLegislationInput({
+  issuingBody,
+  number,
+  summary,
+  type,
+  year,
+}: LicenseLegislation['legislation']): LegislationInput {
+  return { issuingBody, number, summary, type, year };
+}
+
 function ConditionRow({ condition }: { condition: LicenseConditionDetail }) {
   return (
     <tr
@@ -66,7 +102,11 @@ function ConditionRow({ condition }: { condition: LicenseConditionDetail }) {
       <td className="min-w-64 px-3 py-3 align-top">
         <span
           className={
-            condition.isEnvironmentalDescriptor ? 'text-text-primary' : 'pl-4'
+            condition.isEnvironmentalDescriptor
+              ? 'text-text-primary'
+              : condition.level === 2 || condition.parentConditionId
+                ? 'pl-10'
+                : 'pl-4'
           }
         >
           {condition.isEnvironmentalDescriptor
@@ -121,13 +161,21 @@ export function LicenseDetailsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [legislationForm, setLegislationForm] =
+    useState<LegislationFormState>(null);
+  const [legislationToRemove, setLegislationToRemove] =
+    useState<LicenseLegislation | null>(null);
   const navigate = useNavigate();
   const { details, error, refetch, status } = useLicenseDetails(
     companyId,
     licenseId
   );
   const { versions } = useLicenseHistory(licenseId);
-  const radar = useLicenseLegislations(licenseId);
+  const [impactFilter, setImpactFilter] = useState<LegislationImpact | null>(
+    null
+  );
+  const radar = useLicenseLegislations(licenseId, impactFilter);
+  const radarUpdates = useLegislationUpdates(licenseId, radar.patchLegislation);
   const breadcrumbs = useCompanyBreadcrumbs('Detalhes da licença', {
     parent: { label: 'Licenças', to: buildCompanyRoutes.licenses },
   });
@@ -136,12 +184,20 @@ export function LicenseDetailsPage() {
   const conditions = conditionRows.filter(
     (condition) => !condition.isEnvironmentalDescriptor
   );
+  const parentConditionIds = new Set(
+    conditions
+      .map((condition) => condition.parentConditionId)
+      .filter((id): id is string => Boolean(id))
+  );
+  const complianceConditions = conditions.filter(
+    (condition) => !parentConditionIds.has(condition.id ?? '')
+  );
   const filteredConditions = conditionRows.filter((condition) =>
     `${condition.itemNumber} ${condition.environmentalDescriptor} ${condition.description}`
       .toLocaleLowerCase('pt-BR')
       .includes(filter.trim().toLocaleLowerCase('pt-BR'))
   );
-  const fulfilledCount = conditions.filter(
+  const fulfilledCount = complianceConditions.filter(
     (condition) =>
       condition.status !== null &&
       formatConditionStatus(condition.status) === 'Atendida'
@@ -154,6 +210,48 @@ export function LicenseDetailsPage() {
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
 
+  const editingLegislation =
+    legislationForm?.mode === 'edit' ? legislationForm.item : null;
+  // Memoized: the modal resets its fields whenever this value changes.
+  const legislationInitialValue = useMemo<LegislationFormResult | undefined>(
+    () =>
+      editingLegislation
+        ? {
+            legislation: toLegislationInput(editingLegislation.legislation),
+            citedExcerpt: editingLegislation.citedExcerpt,
+          }
+        : undefined,
+    [editingLegislation]
+  );
+
+  async function handleLegislationSubmit(result: LegislationFormResult) {
+    if (!licenseId) return;
+
+    if (editingLegislation) {
+      // Act data goes only when it changed: an act other licenses also cite
+      // cannot be edited (409), but its excerpt here still can.
+      const legislationChanged = hasLegislationChanged(
+        toLegislationInput(editingLegislation.legislation),
+        result.legislation
+      );
+      await updateLicenseLegislation(licenseId, editingLegislation.id, {
+        citedExcerpt: result.citedExcerpt,
+        legislation: legislationChanged ? result.legislation : undefined,
+      });
+      setToastMessage('Legislação atualizada com sucesso.');
+    } else {
+      await addLicenseLegislation(licenseId, result);
+      setToastMessage('Legislação adicionada ao radar.');
+    }
+
+    radar.refetch();
+  }
+
+  function handleLegislationRemoved() {
+    setToastMessage('Legislação removida do radar.');
+    radar.refetch();
+  }
+
   function handleConditionsCreated(count: number) {
     setToastMessage(
       count === 1
@@ -165,6 +263,11 @@ export function LicenseDetailsPage() {
 
   function handleConditionDeleted(conditionName: string) {
     setToastMessage(`Condicionante "${conditionName}" excluída com sucesso.`);
+    refetch();
+  }
+
+  function handleConditionUpdated(conditionName: string) {
+    setToastMessage(`Condicionante "${conditionName}" atualizada com sucesso.`);
     refetch();
   }
 
@@ -247,7 +350,7 @@ export function LicenseDetailsPage() {
             <LicenseSummaryCard
               accent="border-l-blue-500"
               label="Condicionantes"
-              value={`${fulfilledCount} de ${conditions.length} atendidas`}
+              value={`${fulfilledCount} de ${complianceConditions.length} atendidas`}
             />
           </section>
 
@@ -323,8 +426,37 @@ export function LicenseDetailsPage() {
 
           <LegislationRadar
             error={radar.error}
+            impactFilter={impactFilter}
             legislations={radar.legislations}
+            onAddLegislation={
+              isArchived
+                ? undefined
+                : () => setLegislationForm({ mode: 'create' })
+            }
+            onEditLegislation={
+              isArchived
+                ? undefined
+                : (item) => setLegislationForm({ mode: 'edit', item })
+            }
+            onImpactFilterChange={setImpactFilter}
+            onItemOpen={(item) => void radarUpdates.markAsRead(item.id)}
+            onRemoveLegislation={
+              isArchived ? undefined : setLegislationToRemove
+            }
             onRetry={radar.refetch}
+            renderActions={(item) => (
+              <LegislationImpactSelect
+                disabled={radarUpdates.savingIds.has(item.id)}
+                impact={item.impact}
+                legislationName={`${formatLegislationType(item.legislation.type)} ${formatLegislationNumber(item.legislation)}`}
+                onChange={(impact) =>
+                  void radarUpdates.changeImpact(item.id, impact)
+                }
+              />
+            )}
+            renderTags={(item) => (
+              <LegislationImpactBadge impact={item.impact} />
+            )}
             status={radar.status}
           />
 
@@ -343,8 +475,31 @@ export function LicenseDetailsPage() {
           onDeleted={handleConditionDeleted}
           onDescriptorUpdated={handleDescriptorUpdated}
           onOpenChange={setIsModalOpen}
+          onConditionUpdated={handleConditionUpdated}
           open={isModalOpen}
         />
+      ) : null}
+
+      {licenseId ? (
+        <>
+          <LegislationFormModal
+            initialValue={legislationInitialValue}
+            mode={legislationForm?.mode ?? 'create'}
+            onOpenChange={(open) => {
+              if (!open) setLegislationForm(null);
+            }}
+            onSubmit={handleLegislationSubmit}
+            open={legislationForm !== null}
+          />
+          <RemoveLegislationDialog
+            item={legislationToRemove}
+            licenseId={licenseId}
+            onOpenChange={(open) => {
+              if (!open) setLegislationToRemove(null);
+            }}
+            onRemoved={handleLegislationRemoved}
+          />
+        </>
       ) : null}
 
       {details ? (
@@ -356,6 +511,13 @@ export function LicenseDetailsPage() {
           onOpenChange={setIsRenewModalOpen}
           onRenewed={handleRenewed}
           open={isRenewModalOpen}
+        />
+      ) : null}
+
+      {radarUpdates.error ? (
+        <ErrorToast
+          message={radarUpdates.error}
+          onDismiss={radarUpdates.clearError}
         />
       ) : null}
 

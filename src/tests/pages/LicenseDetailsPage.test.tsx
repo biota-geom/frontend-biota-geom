@@ -23,11 +23,15 @@ vi.mock('../../services/api/legislationsApi', async (importOriginal) => ({
     typeof import('../../services/api/legislationsApi')
   >()),
   getLicenseLegislations: vi.fn(),
+  addLicenseLegislation: vi.fn(),
+  updateLicenseLegislation: vi.fn(),
+  removeLicenseLegislation: vi.fn(),
 }));
 vi.mock('../../services/api/licenseConditionsApi', () => ({
   createLicenseConditions: vi.fn(),
   deleteLicenseCondition: vi.fn(),
   updateLicenseConditionDescriptor: vi.fn(),
+  updateLicenseCondition: vi.fn(),
 }));
 
 const licensesApi = await import('../../services/api/licensesApi');
@@ -114,6 +118,7 @@ async function openAddConditionsModal(
 
 async function fillConditionRow(
   user: ReturnType<typeof userEvent.setup>,
+  parentCondition?: string,
   { alertDate, submit = true }: { alertDate?: string; submit?: boolean } = {}
 ) {
   await user.click(
@@ -157,6 +162,14 @@ async function fillConditionRow(
     within(conditionDialog).getByLabelText('Responsável'),
     'Lucas Silva'
   );
+  if (parentCondition) {
+    await user.click(
+      within(conditionDialog).getByRole('combobox', { name: 'Sub-item de' })
+    );
+    await user.click(
+      await screen.findByRole('option', { name: parentCondition })
+    );
+  }
   if (alertDate) {
     await user.type(
       within(conditionDialog).getByLabelText('Data de alerta (opcional)'),
@@ -265,7 +278,7 @@ describe('LicenseDetailsPage', () => {
     renderDetailsPage();
 
     const dialog = await openAddConditionsModal(user);
-    const conditionDialog = await fillConditionRow(user, {
+    const conditionDialog = await fillConditionRow(user, undefined, {
       alertDate: '2026-10-31',
       submit: false,
     });
@@ -347,6 +360,259 @@ describe('LicenseDetailsPage', () => {
     ).not.toBeInTheDocument();
     expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2);
   }, 20_000);
+
+  it('selects a same-descriptor condition as the parent of a new sub-item', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.createLicenseConditions).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Adicionar condicionante em Monitoramento de Estacionamento e Serviços',
+      })
+    );
+
+    const conditionDialog = screen.getByRole('dialog', {
+      name: 'Nova Condicionante',
+    });
+    await user.type(
+      within(conditionDialog).getByLabelText(/^Descrição/),
+      'Apresentar análise complementar'
+    );
+    await user.click(
+      within(conditionDialog).getByRole('combobox', { name: 'Tipo' })
+    );
+    await user.click(
+      await screen.findByRole('option', { name: 'Informativo' })
+    );
+    await user.type(
+      within(conditionDialog).getByLabelText('Prazo'),
+      '2026-10-30'
+    );
+    await user.type(
+      within(conditionDialog).getByLabelText('Responsável'),
+      'Lucas Silva'
+    );
+    await user.click(
+      within(conditionDialog).getByRole('combobox', { name: 'Sub-item de' })
+    );
+    await user.click(
+      await screen.findByRole('option', {
+        name: '1.1 — Manter registros de estacionamento da frota.',
+      })
+    );
+    await user.click(
+      within(conditionDialog).getByRole('button', {
+        name: 'Adicionar Condicionante',
+      })
+    );
+    expect(
+      within(dialog).getByRole('row', {
+        name: /1\.1.*Apresentar análise complementar/i,
+      })
+    ).toBeInTheDocument();
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Adicionar novas condicionantes',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.createLicenseConditions).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        [
+          expect.objectContaining({
+            parentConditionId: 'condition-1-1',
+            environmentalDescriptor:
+              'Monitoramento de Estacionamento e Serviços',
+            description: 'Apresentar análise complementar',
+          }),
+        ]
+      )
+    );
+  }, 20_000);
+
+  it('excludes a parent from compliance totals when it has sub-items', async () => {
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [
+        ...DETAILS.conditions,
+        {
+          ...DETAILS.conditions[1],
+          id: 'condition-1-1-1',
+          itemNumber: '1.1.1',
+          parentConditionId: 'condition-1-1',
+          level: 2,
+          description: 'Apresentar análise complementar.',
+          status: 'Em andamento',
+        },
+      ],
+    });
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('0 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.getByRole('row', { name: /1\.1\.1.*análise complementar/i })
+    ).toBeInTheDocument();
+  });
+
+  it('confirms that deleting a parent also deletes its sub-items', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [
+        ...DETAILS.conditions,
+        {
+          ...DETAILS.conditions[1],
+          id: 'condition-1-1-1',
+          itemNumber: '1.1.1',
+          parentConditionId: 'condition-1-1',
+          level: 2,
+          description: 'Apresentar análise complementar.',
+        },
+      ],
+    });
+    vi.mocked(licenseConditionsApi.deleteLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Excluir condicionante 1.1',
+      })
+    );
+
+    const confirmation = await screen.findByRole('dialog', {
+      name: 'Excluir condicionante?',
+    });
+    expect(
+      within(confirmation).getByText(
+        'Esta condicionante tem 1 sub-item que também será excluído.'
+      )
+    ).toBeInTheDocument();
+    expect(licenseConditionsApi.deleteLicenseCondition).not.toHaveBeenCalled();
+
+    await user.click(
+      within(confirmation).getByRole('button', {
+        name: 'Excluir condicionante',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.deleteLicenseCondition).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        'condition-1-1'
+      )
+    );
+    expect(
+      within(dialog).queryByText('Apresentar análise complementar.')
+    ).not.toBeInTheDocument();
+  });
+
+  it('preselects and preserves the parent in the existing condition editor', async () => {
+    const user = userEvent.setup();
+    const subItem = {
+      ...DETAILS.conditions[1],
+      id: 'condition-1-2',
+      itemNumber: '1.2',
+      description: 'Revisar os registros da frota.',
+      parentConditionId: 'condition-1-1',
+    };
+    const conditionsWithParent = [...DETAILS.conditions, subItem];
+    vi.mocked(licensesApi.getLicenseDetails)
+      .mockResolvedValueOnce({
+        ...DETAILS,
+        conditions: conditionsWithParent,
+      })
+      .mockResolvedValue({
+        ...DETAILS,
+        conditions: conditionsWithParent.map((condition) =>
+          condition.id === subItem.id
+            ? { ...condition, parentConditionId: null }
+            : condition
+        ),
+      });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Editar condicionante 1.2',
+      })
+    );
+    const editDialog = screen.getByRole('dialog', {
+      name: 'Editar Condicionante',
+    });
+    expect(
+      within(editDialog).getByRole('combobox', { name: 'Sub-item de' })
+    ).toHaveTextContent('1.1 — Manter registros de estacionamento da frota.');
+    await user.type(
+      within(editDialog).getByLabelText('Data de Vencimento'),
+      '2026-10-30'
+    );
+    await user.click(
+      within(editDialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        'condition-1-2',
+        expect.objectContaining({ parentConditionId: 'condition-1-1' })
+      )
+    );
+  });
+
+  it('keeps the alert date when editing an existing condition', async () => {
+    const user = userEvent.setup();
+    const withAlert = {
+      ...DETAILS.conditions[1],
+      id: 'condition-1-2',
+      itemNumber: '1.2',
+      description: 'Enviar relatório anual.',
+      deadline: '2026-10-30T00:00:00.000Z',
+      alertDate: '2026-10-01T00:00:00.000Z',
+    };
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [...DETAILS.conditions, withAlert],
+    });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Editar condicionante 1.2' })
+    );
+    const editDialog = screen.getByRole('dialog', {
+      name: 'Editar Condicionante',
+    });
+    expect(
+      within(editDialog).getByLabelText('Data de alerta (opcional)')
+    ).toHaveValue('2026-10-01');
+    await user.click(
+      within(editDialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        'condition-1-2',
+        expect.objectContaining({ alertDate: '2026-10-01T00:00:00.000Z' })
+      )
+    );
+  });
 
   it('keeps the modal open with the API error when saving fails', async () => {
     const user = userEvent.setup();
@@ -817,8 +1083,227 @@ describe('LicenseDetailsPage', () => {
       'Lei nº 9.605/1998',
     ]);
     expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledWith(
-      'license-1'
+      'license-1',
+      {}
     );
+  });
+
+  describe('legislation radar edits', () => {
+    const RADAR = MOCK_LICENSE_LEGISLATIONS.map(
+      legislationsApi.toLicenseLegislation
+    );
+
+    async function findRadar() {
+      const radar = await screen.findByRole('region', {
+        name: 'Radar de Legislação',
+      });
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem').length).toBeGreaterThan(0)
+      );
+      return radar;
+    }
+
+    beforeEach(() => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockImplementation(
+        async (_licenseId, filter) =>
+          RADAR.filter(
+            (item) => !filter?.impact || item.impact === filter.impact
+          )
+      );
+    });
+
+    it('shows each entry impact badge, including the missing classification', async () => {
+      renderDetailsPage();
+
+      const items = within(await findRadar()).getAllByRole('listitem');
+      expect(
+        within(items[0]).getByText('Impacta sua operação', { selector: 'span' })
+      ).toHaveClass('bg-rose-100');
+      expect(
+        within(items[1]).getByText('Sem classificação', { selector: 'span' })
+      ).toBeInTheDocument();
+      expect(
+        within(items[2]).getByText('Impacto moderado', { selector: 'span' })
+      ).toBeInTheDocument();
+    });
+
+    it('changes the impact, sends it to the backend and updates the badge', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+        ...RADAR[1],
+        impact: 'LOW',
+      });
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[1];
+
+      await userEvent.selectOptions(
+        within(item).getByRole('combobox', {
+          name: 'Impacto de Resolução nº 237/1997',
+        }),
+        'LOW'
+      );
+
+      expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[1].id,
+        { impact: 'LOW' }
+      );
+      expect(
+        await within(item).findByText('Baixo impacto', { selector: 'span' })
+      ).toHaveClass('bg-emerald-100');
+      expect(
+        within(item).queryByText('Sem classificação', { selector: 'span' })
+      ).not.toBeInTheDocument();
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears the classification', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+        ...RADAR[0],
+        impact: null,
+      });
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[0];
+
+      await userEvent.selectOptions(
+        within(item).getByRole('combobox', {
+          name: 'Impacto de Lei nº 12.305/2010',
+        }),
+        ''
+      );
+
+      expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[0].id,
+        { impact: null }
+      );
+      expect(
+        await within(item).findByText('Sem classificação', { selector: 'span' })
+      ).toBeInTheDocument();
+    });
+
+    it('keeps the old impact and shows the error when saving fails', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockRejectedValue(
+        new ApiError(404, 'Legislação não encontrada nesta licença.')
+      );
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[0];
+
+      await userEvent.selectOptions(
+        within(item).getByRole('combobox', {
+          name: 'Impacto de Lei nº 12.305/2010',
+        }),
+        'LOW'
+      );
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Legislação não encontrada nesta licença.'
+      );
+      expect(
+        within(item).getByText('Impacta sua operação', { selector: 'span' })
+      ).toBeInTheDocument();
+      expect(
+        within(item).getByRole('combobox', {
+          name: 'Impacto de Lei nº 12.305/2010',
+        })
+      ).toHaveValue('HIGH');
+    });
+
+    it('marks an unread entry as read when it is opened', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+        ...RADAR[0],
+        readAt: '2026-11-12T15:00:00.000Z',
+      });
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[0];
+      expect(within(item).getByText('Novo')).toBeInTheDocument();
+
+      await userEvent.click(
+        within(item).getByRole('button', { name: 'Ver detalhes' })
+      );
+
+      expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[0].id,
+        { read: true }
+      );
+      await waitFor(() =>
+        expect(within(item).queryByText('Novo')).not.toBeInTheDocument()
+      );
+    });
+
+    it('does not call the backend again for an entry that was already read', async () => {
+      renderDetailsPage();
+      const item = within(await findRadar()).getAllByRole('listitem')[1];
+
+      await userEvent.click(
+        within(item).getByRole('button', { name: 'Ver detalhes' })
+      );
+
+      expect(legislationsApi.updateLicenseLegislation).not.toHaveBeenCalled();
+    });
+
+    it('filters the radar by impact on the server', async () => {
+      renderDetailsPage();
+      const radar = await findRadar();
+
+      await userEvent.selectOptions(
+        within(radar).getByRole('combobox', { name: 'Filtrar por impacto' }),
+        'HIGH'
+      );
+
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem')).toHaveLength(1)
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenLastCalledWith(
+        'license-1',
+        { impact: 'HIGH' }
+      );
+      expect(
+        within(radar).getByRole('heading', { name: 'Lei nº 12.305/2010' })
+      ).toBeInTheDocument();
+
+      await userEvent.selectOptions(
+        within(radar).getByRole('combobox', { name: 'Filtrar por impacto' }),
+        ''
+      );
+
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem')).toHaveLength(3)
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenLastCalledWith(
+        'license-1',
+        {}
+      );
+    });
+
+    it('drops an entry from the filtered list once it is reclassified', async () => {
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+        ...RADAR[0],
+        impact: 'LOW',
+      });
+      renderDetailsPage();
+      const radar = await findRadar();
+      await userEvent.selectOptions(
+        within(radar).getByRole('combobox', { name: 'Filtrar por impacto' }),
+        'HIGH'
+      );
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem')).toHaveLength(1)
+      );
+
+      await userEvent.selectOptions(
+        within(radar).getByRole('combobox', {
+          name: 'Impacto de Lei nº 12.305/2010',
+        }),
+        'LOW'
+      );
+
+      expect(
+        await within(radar).findByText(
+          'Nenhuma legislação com o impacto “Impacta sua operação”.'
+        )
+      ).toBeInTheDocument();
+    });
   });
 
   it('shows the empty radar with the add button', async () => {
@@ -833,5 +1318,223 @@ describe('LicenseDetailsPage', () => {
     expect(
       within(radar).getByRole('button', { name: 'Adicionar legislação' })
     ).toBeInTheDocument();
+  });
+
+  describe('manual radar entries', () => {
+    const RADAR = MOCK_LICENSE_LEGISLATIONS.map(
+      legislationsApi.toLicenseLegislation
+    );
+
+    async function findRadar() {
+      return screen.findByRole('region', { name: 'Radar de Legislação' });
+    }
+
+    it('adds a legislation and reloads the radar', async () => {
+      vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
+        RADAR[2]
+      );
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Adicionar legislação',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        within(dialog).getByRole('combobox', { name: 'Tipo da legislação' })
+      );
+      await user.click(screen.getByRole('option', { name: 'Lei' }));
+      await user.type(within(dialog).getByLabelText('Número *'), '9.605');
+      await user.type(within(dialog).getByLabelText('Ano *'), '1998');
+      await user.type(
+        within(dialog).getByLabelText('Órgão emissor *'),
+        'Governo Federal'
+      );
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Adicionar legislação' })
+      );
+
+      expect(
+        await screen.findByText('Legislação adicionada ao radar.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.addLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        {
+          legislation: {
+            type: 'LEI',
+            number: '9.605',
+            year: 1998,
+            issuingBody: 'Governo Federal',
+            summary: null,
+          },
+          citedExcerpt: null,
+        }
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }, 20_000);
+
+    it('edits only the excerpt when the act data is untouched', async () => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue(
+        RADAR[0]
+      );
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Editar Lei nº 12.305/2010',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      const excerpt = within(dialog).getByLabelText('Trecho citado (opcional)');
+      await user.clear(excerpt);
+      await user.type(excerpt, 'art. 3º');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Salvar alterações' })
+      );
+
+      expect(
+        await screen.findByText('Legislação atualizada com sucesso.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[0].id,
+        { citedExcerpt: 'art. 3º', legislation: undefined }
+      );
+    }, 20_000);
+
+    it('sends the act data when it changed', async () => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue(
+        RADAR[1]
+      );
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Editar Resolução nº 237/1997',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      const summary = within(dialog).getByLabelText('Ementa');
+      await user.clear(summary);
+      await user.type(summary, 'Nova ementa');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Salvar alterações' })
+      );
+
+      await waitFor(() =>
+        expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+          'license-1',
+          RADAR[1].id,
+          {
+            citedExcerpt: RADAR[1].citedExcerpt,
+            legislation: {
+              type: 'RESOLUCAO',
+              number: '237',
+              year: 1997,
+              issuingBody: 'CONAMA',
+              summary: 'Nova ementa',
+            },
+          }
+        )
+      );
+    }, 20_000);
+
+    it('removes a legislation after confirmation', async () => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      vi.mocked(legislationsApi.removeLicenseLegislation).mockResolvedValue();
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Remover Lei nº 9.605/1998',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Remover legislação' })
+      );
+
+      expect(
+        await screen.findByText('Legislação removida do radar.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.removeLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        RADAR[2].id
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
+    });
+
+    it('closes the modals without saving', async () => {
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Remover Lei nº 9.605/1998',
+        })
+      );
+      await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+      await user.click(
+        within(radar).getByRole('button', { name: 'Adicionar legislação' })
+      );
+      await user.click(
+        within(await screen.findByRole('dialog')).getByRole('button', {
+          name: 'Cancelar',
+        })
+      );
+
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      );
+      expect(legislationsApi.removeLicenseLegislation).not.toHaveBeenCalled();
+      expect(legislationsApi.addLicenseLegislation).not.toHaveBeenCalled();
+    });
+
+    it('keeps an archived license radar read-only', async () => {
+      vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+        ...DETAILS,
+        status: 'Renovada/Arquivada',
+      });
+      vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue(
+        RADAR
+      );
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await waitFor(() =>
+        expect(within(radar).getAllByRole('listitem')).toHaveLength(3)
+      );
+      expect(
+        within(radar).queryByRole('button', { name: 'Adicionar legislação' })
+      ).not.toBeInTheDocument();
+      expect(
+        within(radar).queryByRole('button', { name: /^Editar / })
+      ).not.toBeInTheDocument();
+      expect(
+        within(radar).queryByRole('button', { name: /^Remover / })
+      ).not.toBeInTheDocument();
+    });
   });
 });

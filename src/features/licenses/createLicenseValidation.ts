@@ -33,6 +33,7 @@ export const licenseConditionRowSchema = z
       .trim()
       .min(1, 'Informe o descritor ambiental.')
       .max(120, 'O descritor ambiental deve ter no máximo 120 caracteres.'),
+    parentConditionId: z.string().nullable().optional(),
     description: z
       .string()
       .trim()
@@ -80,6 +81,7 @@ export const licenseConditionRowSchema = z
 
 export type LicenseConditionRow = {
   environmentalDescriptor: string;
+  parentConditionId?: string | null;
   description: string;
   conditionType: string;
   periodicity: string;
@@ -186,6 +188,9 @@ export function toLicenseConditionBatchItem(
 ): LicenseConditionBatchItemInput {
   return {
     environmentalDescriptor: row.environmentalDescriptor,
+    ...(row.parentConditionId
+      ? { parentConditionId: row.parentConditionId }
+      : {}),
     description: row.description,
     conditionType: row.conditionType,
     periodicity: row.periodicity || undefined,
