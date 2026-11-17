@@ -1236,7 +1236,6 @@ describe('LicenseDetailsPage', () => {
     }
 
     it('adds a legislation and reloads the radar', async () => {
-      vi.useFakeTimers();
       vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
         RADAR[2]
       );
@@ -1250,9 +1249,7 @@ describe('LicenseDetailsPage', () => {
           summary: RADAR[2].legislation.summary,
         },
       ]);
-      const user = userEvent.setup({
-        advanceTimers: vi.advanceTimersByTime,
-      });
+      const user = userEvent.setup();
       renderDetailsPage();
 
       const radar = await findRadar();
@@ -1266,7 +1263,6 @@ describe('LicenseDetailsPage', () => {
         within(dialog).getByLabelText('Pesquisar legislação *'),
         '9.605'
       );
-      await vi.runAllTimersAsync();
       await user.click(
         await within(dialog).findByRole('option', {
           name: /Lei nº 9\.605\/1998/,
