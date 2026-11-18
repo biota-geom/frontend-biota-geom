@@ -539,5 +539,7 @@ export interface UpdateLicenseLegislationRequestWire {
   /** Only editable while no other license cites the act (409 otherwise). */
   legislation?: LegislationInputWire;
   impact?: LegislationImpactWire | null;
+  /** Up to 10,000 characters; `null` or `""` clears it. */
+  technical_analysis?: string | null;
   read?: true;
 }

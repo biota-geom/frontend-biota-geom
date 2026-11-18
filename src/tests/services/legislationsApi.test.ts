@@ -111,6 +111,39 @@ describe('legislationsApi', () => {
     expect(updated.legislation.issuingBody).toBe('Governo Federal');
   });
 
+  it('updateLicenseLegislation() sends the technical analysis and maps it back', async () => {
+    vi.mocked(request).mockResolvedValue({
+      ...MOCK_LICENSE_LEGISLATIONS[0],
+      technical_analysis: 'Exige novo plano de resíduos.',
+    });
+
+    const updated = await updateLicenseLegislation('license-1', 'link-1', {
+      technicalAnalysis: 'Exige novo plano de resíduos.',
+    });
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/licenses/license-1/legislations/link-1',
+      {
+        method: 'PATCH',
+        body: { technical_analysis: 'Exige novo plano de resíduos.' },
+      }
+    );
+    expect(updated.technicalAnalysis).toBe('Exige novo plano de resíduos.');
+  });
+
+  it('updateLicenseLegislation() sends null to clear the technical analysis', async () => {
+    vi.mocked(request).mockResolvedValue(MOCK_LICENSE_LEGISLATIONS[0]);
+
+    await updateLicenseLegislation('license-1', 'link-1', {
+      technicalAnalysis: null,
+    });
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/licenses/license-1/legislations/link-1',
+      { method: 'PATCH', body: { technical_analysis: null } }
+    );
+  });
+
   it('updateLicenseLegislation() sends null to clear the impact', async () => {
     vi.mocked(request).mockResolvedValue(MOCK_LICENSE_LEGISLATIONS[1]);
 
