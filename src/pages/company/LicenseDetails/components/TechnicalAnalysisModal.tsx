@@ -161,26 +161,15 @@ export function TechnicalAnalysisModal({
                 {isSaving ? 'Salvando...' : 'Salvar'}
               </Button>
             </>
-          ) : (
-            <>
-              <Button
-                onClick={() => handleOpenChange(false)}
-                type="button"
-                variant="subtle"
-              >
-                Fechar
-              </Button>
-              {canEdit ? (
-                <Button
-                  onClick={startEditing}
-                  type="button"
-                  variant="dialogPrimary"
-                >
-                  {analysis ? 'Editar' : 'Escrever análise'}
-                </Button>
-              ) : null}
-            </>
-          )}
+          ) : canEdit ? (
+            <Button
+              onClick={startEditing}
+              type="button"
+              variant="dialogPrimary"
+            >
+              {analysis ? 'Editar' : 'Escrever análise'}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
