@@ -224,7 +224,7 @@ export function AdminNotificationsPage() {
 
   return (
     <PageScaffold
-      subtitle={ALERT_MESSAGES.description}
+      subtitle={ALERT_MESSAGES.centralDescription}
       title={ALERT_MESSAGES.centralTitle}
       actions={[
         {
