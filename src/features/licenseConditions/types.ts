@@ -16,6 +16,9 @@ export interface LicenseCondition {
   hasDelivery: boolean;
   isViolated: boolean;
   riskLevel: LicenseConditionRiskLevel;
+  conditionStatus?: string | null;
+  completionDate?: string | null;
+  isFulfilled?: boolean;
 }
 
 export interface LicenseConditionsCompliance {

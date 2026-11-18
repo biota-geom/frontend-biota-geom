@@ -370,6 +370,8 @@ export interface LicenseConditionWire {
   has_delivery: boolean;
   is_violated: boolean;
   risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
+  condition_status?: string | null;
+  completion_date?: string | null;
 }
 
 export interface LicenseConditionsResponseWire {
@@ -514,6 +516,23 @@ export interface LegislationInputWire {
 export type AddLicenseLegislationRequestWire =
   | { legislation_id: string; cited_excerpt?: string | null }
   | { legislation: LegislationInputWire; cited_excerpt?: string | null };
+
+export interface BatchLicenseLegislationRequestWire {
+  legislations: Array<
+    | {
+        legislation_id: string;
+        cited_excerpt?: string | null;
+        source: 'MANUAL' | 'SCAN';
+        impact?: LegislationImpactWire;
+      }
+    | {
+        legislation: LegislationInputWire;
+        cited_excerpt?: string | null;
+        source: 'MANUAL' | 'SCAN';
+        impact?: LegislationImpactWire;
+      }
+  >;
+}
 
 export interface UpdateLicenseLegislationRequestWire {
   cited_excerpt?: string | null;

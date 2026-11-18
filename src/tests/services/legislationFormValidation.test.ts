@@ -54,7 +54,7 @@ describe('legislationFormSchema', () => {
   it('requires type, number, year and issuing body only', () => {
     expect(errorsOf(EMPTY_LEGISLATION_FORM)).toEqual({
       type: 'Selecione o tipo da legislação.',
-      number: 'Informe o número da legislação.',
+      number: 'Informe o número, ano ou ementa da legislação.',
       year: 'Informe o ano da legislação.',
       issuingBody: 'Informe o órgão emissor.',
     });

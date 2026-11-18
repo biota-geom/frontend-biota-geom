@@ -48,6 +48,11 @@ export interface UpdateLicenseConditionInput {
 }
 
 function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
+  const isFulfilled =
+    wire.condition_status === 'FULFILLED' ||
+    wire.condition_status === 'Atendida' ||
+    Boolean(wire.completion_date);
+
   return {
     id: wire.id,
     licenseId: wire.license_id,
@@ -61,6 +66,9 @@ function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
     hasDelivery: wire.has_delivery,
     isViolated: wire.is_violated,
     riskLevel: wire.risk_level,
+    conditionStatus: wire.condition_status ?? null,
+    completionDate: wire.completion_date ?? null,
+    isFulfilled,
   };
 }
 
