@@ -86,7 +86,7 @@ function stubAlertsHttp({
         return json({ count: read ? 0 : 1 });
       }
       if (url.pathname === '/api/alerts' && init?.method === 'GET') {
-        expect(url.searchParams.get('status')).toBe('OPEN,READ');
+        expect(['OPEN,READ', 'OPEN']).toContain(url.searchParams.get('status'));
         expect(url.searchParams.get('page_size')).toBe('10');
         return json({
           items: [{ ...MOCK_ALERT, status: read ? 'READ' : 'OPEN' }],
@@ -198,7 +198,7 @@ describe('notification HTTP and navigation flow', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens the protected placeholder through Ver todas', async () => {
+  it('opens the protected notification center through Ver todas', async () => {
     stubAlertsHttp();
     const user = userEvent.setup();
     renderFlow();
@@ -210,8 +210,9 @@ describe('notification HTTP and navigation flow', () => {
       await screen.findByRole('heading', { name: 'Central de notificações' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: 'Conteúdo em preparação' })
+      screen.getByRole('region', { name: 'Filtros de notificações' })
     ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Não lidas' })).toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/admin/notifications'
     );

@@ -6,8 +6,13 @@ import type { AlertWire } from '../../services/api/types';
 vi.mock('../../services/api/http', () => ({ request: vi.fn() }));
 
 const { request } = await import('../../services/api/http');
-const { listAlerts, getUnreadAlertsCount, markAlertAsRead } =
-  await import('../../services/api/alertsApi');
+const {
+  listAlerts,
+  getUnreadAlertsCount,
+  markAlertAsRead,
+  markAllAlertsAsRead,
+  updateAlertStatus,
+} = await import('../../services/api/alertsApi');
 
 const MOCK_ALERT_WIRE: AlertWire = {
   id: 'alert-1',
@@ -124,6 +129,26 @@ describe('alertsApi', () => {
     );
   });
 
+  it('serializes company, type, and multiple severity filters', async () => {
+    vi.mocked(request).mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 10,
+    });
+
+    await listAlerts({
+      status: ['OPEN', 'RESOLVED'],
+      customerId: 'company-1',
+      type: ['CONDITION_DUE'],
+      severity: ['HIGH', 'MEDIUM'],
+    });
+
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      '/api/alerts?status=OPEN%2CRESOLVED&page=1&page_size=10&customer_id=company-1&type=CONDITION_DUE&severity=HIGH%2CMEDIUM'
+    );
+  });
+
   it.each([0, 3, 23])(
     'returns the unread count unchanged (%i)',
     async (count) => {
@@ -150,10 +175,43 @@ describe('alertsApi', () => {
     });
   });
 
+  it('marks an alert as resolved', async () => {
+    vi.mocked(request).mockResolvedValue({
+      ...MOCK_ALERT_WIRE,
+      status: 'RESOLVED',
+    });
+
+    await expect(updateAlertStatus('alert-1', 'RESOLVED')).resolves.toEqual({
+      ...MOCK_ALERT,
+      status: 'RESOLVED',
+    });
+    expect(request).toHaveBeenCalledExactlyOnceWith('/api/alerts/alert-1', {
+      method: 'PATCH',
+      body: { status: 'RESOLVED' },
+    });
+  });
+
+  it('marks all alerts as read, optionally scoped to a company', async () => {
+    vi.mocked(request).mockResolvedValue({ updated: 4 });
+
+    await expect(markAllAlertsAsRead('company-1')).resolves.toBe(4);
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      '/api/alerts/read-all?customer_id=company-1',
+      { method: 'POST' }
+    );
+
+    vi.mocked(request).mockResolvedValue({ updated: 23 });
+    await expect(markAllAlertsAsRead()).resolves.toBe(23);
+    expect(request).toHaveBeenLastCalledWith('/api/alerts/read-all', {
+      method: 'POST',
+    });
+  });
+
   it.each([
     ['list', () => listAlerts()],
     ['count', () => getUnreadAlertsCount()],
     ['read', () => markAlertAsRead('alert-1')],
+    ['read all', () => markAllAlertsAsRead()],
   ] as const)(
     'propagates API errors from %s without a mock fallback',
     async (_name, action) => {
