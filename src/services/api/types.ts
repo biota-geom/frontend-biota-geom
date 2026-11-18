@@ -1,7 +1,38 @@
+import type {
+  AlertSeverity,
+  AlertStatus,
+  AlertType,
+} from '../../features/alerts/types';
+
 /*
  * Wire shapes match the backend contract exactly (snake_case) — never rename
  * these fields, they're what actually crosses the network.
  */
+export interface AlertWire {
+  id: string;
+  type: AlertType;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  title: string;
+  message: string;
+  due_date: string;
+  customer: { id: string; name: string };
+  license: { id: string; type: string; process_number: string };
+  condition: { id: string; name: string } | null;
+  created_at: string;
+}
+
+export interface AlertsPageWire {
+  items: AlertWire[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface UnreadAlertsCountWire {
+  count: number;
+}
+
 export interface UserWire {
   id: string;
   name: string;
@@ -186,6 +217,8 @@ export interface LicenseExtractionJobWire {
 export interface LicenseConditionDetailsWire {
   id: string | null;
   item_number: string;
+  parent_condition_id?: string | null;
+  level?: 1 | 2 | null;
   is_environmental_descriptor: boolean;
   environmental_descriptor: string;
   name: string | null;
@@ -327,6 +360,7 @@ export interface FileAccessUrlWire {
 export interface LicenseConditionWire {
   id: string;
   license_id: string;
+  parent_condition_id?: string | null;
   name: string;
   description: string | null;
   environmental_descriptor: string;
@@ -364,6 +398,7 @@ export interface LicenseConditionCreatedWire {
 }
 
 export interface LicenseConditionBatchItemWire {
+  parent_condition_id?: string;
   environmental_descriptor: string;
   description: string;
   condition_type: string;
@@ -464,4 +499,26 @@ export interface LicenseLegislationWire {
   /** ISO timestamp; null while the entry is still unread ("Novo"). */
   read_at: string | null;
   created_at: string;
+}
+
+/** Act data sent when registering or editing a radar entry by hand. */
+export interface LegislationInputWire {
+  type: LegislationTypeWire;
+  number: string;
+  year: number;
+  issuing_body?: string;
+  summary?: string | null;
+}
+
+/** `POST /licenses/:id/legislations`: a catalog act by id, or the act data. */
+export type AddLicenseLegislationRequestWire =
+  | { legislation_id: string; cited_excerpt?: string | null }
+  | { legislation: LegislationInputWire; cited_excerpt?: string | null };
+
+export interface UpdateLicenseLegislationRequestWire {
+  cited_excerpt?: string | null;
+  /** Only editable while no other license cites the act (409 otherwise). */
+  legislation?: LegislationInputWire;
+  impact?: LegislationImpactWire | null;
+  read?: true;
 }

@@ -8,6 +8,7 @@
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const UI_DIR = path.resolve(import.meta.dirname, '../src/components/ui/shadcn');
 const BARE_CN_IMPORT = /from ['"]cn['"]/g;
@@ -18,9 +19,16 @@ if (args.length === 0) {
   process.exit(1);
 }
 
-const cli = spawnSync('npx', ['--yes', 'shadcn@latest', 'add', ...args], {
-  stdio: 'inherit',
-});
+// Run the installed CLI with Node directly: .cmd launchers require a shell on
+// Windows, which also concatenates arguments instead of preserving boundaries.
+const cli = spawnSync(
+  process.execPath,
+  [fileURLToPath(import.meta.resolve('shadcn')), 'add', ...args],
+  {
+    stdio: 'inherit',
+  }
+);
+if (cli.error) console.error(cli.error.message);
 if (cli.status !== 0) {
   process.exit(cli.status ?? 1);
 }
