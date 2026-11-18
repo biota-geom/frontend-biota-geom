@@ -1,16 +1,10 @@
 import { Outlet } from 'react-router-dom';
-import { APP_ROUTES } from '../../app/router/routes';
-import { AppHeader, type AppNavigationItem } from './AppHeader';
-
-const adminNavItems: AppNavigationItem[] = [
-  { label: 'Empresas', to: APP_ROUTES.admin.companies },
-  { label: 'Indicadores', to: APP_ROUTES.admin.indicators },
-];
+import { AppHeader } from './AppHeader';
 
 export function AdminLayout() {
   return (
     <>
-      <AppHeader navItems={adminNavItems} />
+      <AppHeader />
       <Outlet />
     </>
   );
