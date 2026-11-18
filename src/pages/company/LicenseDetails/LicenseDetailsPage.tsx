@@ -240,7 +240,12 @@ export function LicenseDetailsPage() {
       });
       setToastMessage('Legislação atualizada com sucesso.');
     } else {
-      await addLicenseLegislation(licenseId, result);
+      await addLicenseLegislation(licenseId, {
+        ...(result.legislationId
+          ? { legislationId: result.legislationId }
+          : { legislation: result.legislation }),
+        citedExcerpt: result.citedExcerpt,
+      });
       setToastMessage('Legislação adicionada ao radar.');
     }
 
