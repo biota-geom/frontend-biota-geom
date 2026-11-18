@@ -22,6 +22,7 @@ import type {
 } from '../../../../features/licenses/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { renewLicense } from '../../../../services/api/licensesApi';
+import { useRefreshAlerts } from '../../../../features/alerts/useAlerts';
 import { ConditionFulfillmentList } from './ConditionFulfillmentList';
 
 const GENERIC_ERROR_MESSAGE =
@@ -78,6 +79,7 @@ export function RenewLicenseModal({
   >({});
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const refreshAlerts = useRefreshAlerts();
 
   // Step 2 only exists when the previous license has conditions to decide on.
   // Everything below is derived from the current list, so answers about a
@@ -223,6 +225,8 @@ export function RenewLicenseModal({
         documentFile: form.file,
         conditions: buildConditionDecisions(),
       });
+      // Renewing resolves the alerts of the old license and its conditions.
+      void refreshAlerts();
       closeAndReset();
       onRenewed(renewed);
     } catch (caught) {

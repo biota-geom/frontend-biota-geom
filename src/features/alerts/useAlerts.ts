@@ -26,3 +26,13 @@ export function useAlerts(): AlertsContextValue {
   if (!context) throw new Error('useAlerts must be used within AlertsProvider');
   return context;
 }
+
+const noRefresh = (): Promise<void> => Promise.resolve();
+
+/**
+ * Refreshes the bell after a change that resolves alerts on the backend.
+ * Outside an AlertsProvider (no signed-in bell) there is nothing to refresh.
+ */
+export function useRefreshAlerts(): () => Promise<void> {
+  return useContext(AlertsContext)?.refreshAlerts ?? noRefresh;
+}
