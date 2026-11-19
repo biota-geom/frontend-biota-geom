@@ -44,3 +44,11 @@ export function formatConditionType(conditionType: string | null): string {
 export function formatConditionPeriodicity(periodicity: string | null): string {
   return translateEnum(periodicity, PERIODICITY_LABELS);
 }
+
+/*
+ * The API sends the raw enum, but parts of the UI already carry the translated
+ * label, so both forms reach this check.
+ */
+export function isConditionFulfilled(status: string | null): boolean {
+  return status === 'FULFILLED' || status === STATUS_LABELS.FULFILLED;
+}

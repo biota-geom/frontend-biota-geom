@@ -16,6 +16,7 @@ import { ApiError } from '../../services/api/apiError';
 vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
   getLicenseHistory: vi.fn(),
+  saveConditionsFulfillment: vi.fn(),
   renewLicense: vi.fn(),
 }));
 vi.mock('../../services/api/legislationsApi', async (importOriginal) => ({
@@ -221,10 +222,10 @@ describe('LicenseDetailsPage', () => {
     expect(
       screen.getByRole('columnheader', { name: 'Descritor ambiental' })
     ).toBeInTheDocument();
-    expect(screen.getByText('Atendida')).toBeInTheDocument();
+    expect(screen.getByText('Atendida em 12/03/2024')).toBeInTheDocument();
     expect(
       within(screen.getByRole('row', { name: /1\.1/ })).getAllByRole('cell')
-    ).toHaveLength(11);
+    ).toHaveLength(12);
 
     fireEvent.change(
       screen.getByRole('searchbox', {
@@ -271,7 +272,7 @@ describe('LicenseDetailsPage', () => {
     expect(await screen.findByText('Regular')).toBeInTheDocument();
     expect(screen.getByText('Periódico')).toBeInTheDocument();
     expect(screen.getByText('Mensal')).toBeInTheDocument();
-    expect(screen.getByText('Atendida')).toBeInTheDocument();
+    expect(screen.getByText('Atendida em 12/03/2024')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.getByText('1 de 1 atendidas')).toBeInTheDocument();
   });
@@ -1332,6 +1333,130 @@ describe('LicenseDetailsPage', () => {
     expect(
       within(radar).getByRole('button', { name: 'Adicionar legislação' })
     ).toBeInTheDocument();
+  });
+
+  const PENDING_CONDITION = {
+    id: 'condition-1-2',
+    itemNumber: '1.2',
+    isEnvironmentalDescriptor: false,
+    environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
+    name: 'Relatório semestral',
+    description: 'Entregar o relatório semestral.',
+    conditionType: 'Periódico',
+    periodicity: 'Semestral',
+    deadline: '2026-12-31T00:00:00.000Z',
+    status: 'Em andamento',
+    completionDate: null,
+    responsibleName: 'Ana Souza',
+    hasDelivery: false,
+    isViolated: false,
+  };
+
+  function withPendingCondition() {
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [...DETAILS.conditions, PENDING_CONDITION],
+    });
+  }
+
+  it('marks a pending condition as fulfilled and reloads the details', async () => {
+    const user = userEvent.setup();
+    withPendingCondition();
+    vi.mocked(licensesApi.saveConditionsFulfillment).mockResolvedValue();
+    renderDetailsPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Marcar como cumprida' })
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Marcar como cumprida' });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Marcar como cumprida' })
+    );
+
+    await waitFor(() =>
+      expect(licensesApi.saveConditionsFulfillment).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        [{ conditionId: 'condition-1-2', fulfilled: true }]
+      )
+    );
+    // Reloaded so the badge and the status the backend chose reach the screen.
+    await waitFor(() =>
+      expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(2)
+    );
+  });
+
+  it('keeps the condition untouched when the confirmation is dismissed', async () => {
+    const user = userEvent.setup();
+    withPendingCondition();
+    renderDetailsPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Marcar como cumprida' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    await waitFor(() =>
+      expect(licensesApi.saveConditionsFulfillment).not.toHaveBeenCalled()
+    );
+  });
+
+  it('undoes the fulfillment of a condition already met', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.saveConditionsFulfillment).mockResolvedValue();
+    renderDetailsPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Desfazer cumprimento' })
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Desfazer cumprimento' });
+    expect(
+      within(dialog).getByText(
+        'A condicionante volta a ser cobrada. Se o prazo já passou, ela fica como vencida.'
+      )
+    ).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Desfazer' }));
+
+    await waitFor(() =>
+      expect(licensesApi.saveConditionsFulfillment).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        [{ conditionId: 'condition-1-1', fulfilled: false }]
+      )
+    );
+  });
+
+  it('shows the API message and keeps the listing when saving fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.saveConditionsFulfillment).mockRejectedValue(
+      new ApiError(404, 'Licença não encontrada.')
+    );
+    renderDetailsPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Desfazer cumprimento' })
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Desfazer cumprimento' });
+    await user.click(within(dialog).getByRole('button', { name: 'Desfazer' }));
+
+    expect(
+      await screen.findByText('Licença não encontrada.')
+    ).toBeInTheDocument();
+    expect(licensesApi.getLicenseDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no fulfillment action on a descriptor row', async () => {
+    renderDetailsPage();
+
+    const descriptorRow = await screen.findByRole('row', { name: /1\.0|^1\s/ });
+    expect(
+      within(descriptorRow).queryByRole('button', {
+        name: /cumprida|cumprimento/i,
+      })
+    ).toBeNull();
   });
 
   describe('manual radar entries', () => {

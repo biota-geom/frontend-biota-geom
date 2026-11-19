@@ -368,3 +368,32 @@ export async function listLicenses(customerId: string): Promise<LicensesPanel> {
     licenses: wire.licenses.map(toLicensePanelItem),
   };
 }
+
+export interface ConditionFulfillmentInput {
+  conditionId: string;
+  fulfilled: boolean;
+}
+
+/**
+ * Marks or unmarks conditions as fulfilled outside the renewal flow. Undoing
+ * past the due date reopens the condition as overdue, which the backend
+ * decides.
+ */
+export async function saveConditionsFulfillment(
+  customerId: string,
+  licenseId: string,
+  items: ConditionFulfillmentInput[]
+): Promise<void> {
+  await request<void>(
+    `/api/customers/${customerId}/licenses/${licenseId}/conditions/fulfillment`,
+    {
+      method: 'PATCH',
+      body: {
+        items: items.map((item) => ({
+          condition_id: item.conditionId,
+          fulfilled: item.fulfilled,
+        })),
+      },
+    }
+  );
+}

@@ -8,8 +8,8 @@ import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { buildCompanyRoutes } from '../../../app/router/routes';
 import {
   formatConditionPeriodicity,
-  formatConditionStatus,
   formatConditionType,
+  isConditionFulfilled,
   formatLicenseStatus,
 } from '../../../features/licenses/licenseDetailsFormatting';
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
@@ -37,6 +37,10 @@ import {
 } from '../../../services/api/legislationsApi';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
 import { AddLicenseConditionsModal } from './components/AddLicenseConditionsModal';
+import {
+  ConditionFulfillmentDialog,
+  type FulfillmentIntent,
+} from './components/ConditionFulfillmentDialog';
 import { ConditionStatusBadge } from './components/ConditionStatusBadge';
 import { LegislationImpactBadge } from './components/LegislationImpactBadge';
 import { LegislationImpactSelect } from './components/LegislationImpactSelect';
@@ -84,7 +88,19 @@ function toLegislationInput({
   return { issuingBody, number, summary, type, year };
 }
 
-function ConditionRow({ condition }: { condition: LicenseConditionDetail }) {
+function ConditionRow({
+  condition,
+  onFulfillmentChange,
+}: {
+  condition: LicenseConditionDetail;
+  onFulfillmentChange: (intent: FulfillmentIntent) => void;
+}) {
+  const isFulfilled = isConditionFulfilled(condition.status);
+  // A descriptor row groups the conditions under it and has no id of its own,
+  // so there is nothing to mark.
+  const canChangeFulfillment =
+    !condition.isEnvironmentalDescriptor && condition.id !== null;
+
   return (
     <tr
       className={
@@ -135,7 +151,10 @@ function ConditionRow({ condition }: { condition: LicenseConditionDetail }) {
       </td>
       <td className="px-3 py-3 align-top">
         {condition.status ? (
-          <ConditionStatusBadge status={condition.status} />
+          <ConditionStatusBadge
+            completionDate={condition.completionDate}
+            status={condition.status}
+          />
         ) : (
           '—'
         )}
@@ -147,6 +166,21 @@ function ConditionRow({ condition }: { condition: LicenseConditionDetail }) {
         {condition.isEnvironmentalDescriptor
           ? 'Descritor ambiental'
           : condition.responsibleName || '—'}
+      </td>
+      <td className="px-3 py-3 align-top">
+        {canChangeFulfillment ? (
+          <button
+            className="whitespace-nowrap border-0 bg-transparent p-0 text-xs font-extrabold text-primary-strong hover:underline hover:underline-offset-[3px]"
+            onClick={() =>
+              onFulfillmentChange({ condition, fulfilled: !isFulfilled })
+            }
+            type="button"
+          >
+            {isFulfilled ? 'Desfazer cumprimento' : 'Marcar como cumprida'}
+          </button>
+        ) : (
+          '—'
+        )}
       </td>
     </tr>
   );
@@ -161,6 +195,8 @@ export function LicenseDetailsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [fulfillmentIntent, setFulfillmentIntent] =
+    useState<FulfillmentIntent | null>(null);
   const [legislationForm, setLegislationForm] =
     useState<LegislationFormState>(null);
   const [legislationToRemove, setLegislationToRemove] =
@@ -199,8 +235,7 @@ export function LicenseDetailsPage() {
   );
   const fulfilledCount = complianceConditions.filter(
     (condition) =>
-      condition.status !== null &&
-      formatConditionStatus(condition.status) === 'Atendida'
+      condition.status !== null && isConditionFulfilled(condition.status)
   ).length;
   const isArchived = details?.status === 'Renovada/Arquivada';
   const canRenew =
@@ -268,6 +303,19 @@ export function LicenseDetailsPage() {
 
   function handleConditionDeleted(conditionName: string) {
     setToastMessage(`Condicionante "${conditionName}" excluída com sucesso.`);
+    refetch();
+  }
+
+  function handleFulfillmentSaved({ condition, fulfilled }: FulfillmentIntent) {
+    const name = condition.name ?? condition.environmentalDescriptor;
+    setToastMessage(
+      fulfilled
+        ? `Condicionante "${name}" marcada como cumprida.`
+        : `Cumprimento de "${name}" desfeito.`
+    );
+    setFulfillmentIntent(null);
+    // Reloads the badge, the completion date and the status the backend chose
+    // when reopening, without a page refresh.
     refetch();
   }
 
@@ -398,6 +446,7 @@ export function LicenseDetailsPage() {
                       'Status',
                       'Data Cumpr.',
                       'Responsável',
+                      'Cumprimento',
                     ].map((heading) => (
                       <th className="px-3 py-3" key={heading} scope="col">
                         {heading}
@@ -410,13 +459,14 @@ export function LicenseDetailsPage() {
                     <ConditionRow
                       condition={condition}
                       key={condition.id ?? `descriptor-${condition.itemNumber}`}
+                      onFulfillmentChange={setFulfillmentIntent}
                     />
                   ))}
                   {filteredConditions.length === 0 ? (
                     <tr>
                       <td
                         className="px-4 py-8 text-center text-sm text-text-secondary"
-                        colSpan={11}
+                        colSpan={12}
                       >
                         {conditions.length === 0
                           ? 'Nenhuma condicionante cadastrada para esta licença.'
@@ -516,6 +566,18 @@ export function LicenseDetailsPage() {
           onOpenChange={setIsRenewModalOpen}
           onRenewed={handleRenewed}
           open={isRenewModalOpen}
+        />
+      ) : null}
+
+      {companyId && licenseId ? (
+        <ConditionFulfillmentDialog
+          companyId={companyId}
+          intent={fulfillmentIntent}
+          licenseId={licenseId}
+          onOpenChange={(open) => {
+            if (!open) setFulfillmentIntent(null);
+          }}
+          onSaved={handleFulfillmentSaved}
         />
       ) : null}
 
