@@ -52,6 +52,11 @@ export function ConditionCard({
 }) {
   const style = RISK_STYLES[condition.riskLevel];
   const StatusIcon = style.symbol;
+  const isFulfilled =
+    condition.isFulfilled ??
+    (condition.conditionStatus === 'FULFILLED' ||
+      condition.conditionStatus === 'Atendida' ||
+      Boolean(condition.completionDate));
 
   return (
     <article
@@ -75,6 +80,17 @@ export function ConditionCard({
           >
             {style.label}
           </span>
+          {condition.hasDelivery ? (
+            <span
+              className={`rounded-control px-2 py-0.5 text-[11px] leading-[1.2] font-extrabold ${
+                isFulfilled
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              {isFulfilled ? 'Entregue' : 'Não entregue'}
+            </span>
+          ) : null}
           {condition.isViolated ? (
             <span className="rounded-control bg-rose-100 px-2 py-0.5 text-[11px] leading-[1.2] font-extrabold text-rose-700">
               Violada

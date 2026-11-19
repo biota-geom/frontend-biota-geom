@@ -8,8 +8,10 @@ vi.mock('../../services/api/http', () => ({
 const { request } = await import('../../services/api/http');
 const {
   addLicenseLegislation,
+  createLicenseLegislationsBatch,
   getLicenseLegislations,
   removeLicenseLegislation,
+  searchLegislationCatalog,
   updateLicenseLegislation,
 } = await import('../../services/api/legislationsApi');
 
@@ -138,6 +140,83 @@ describe('legislationsApi', () => {
     expect(created.id).toBe(MOCK_LICENSE_LEGISLATIONS[2].id);
     expect(created.legislation.issuingBody).toBe(
       MOCK_LICENSE_LEGISLATIONS[2].legislation.issuing_body
+    );
+  });
+
+  it('searchLegislationCatalog() searches and maps catalog acts', async () => {
+    vi.mocked(request).mockResolvedValue([
+      MOCK_LICENSE_LEGISLATIONS[0].legislation,
+    ]);
+
+    const result = await searchLegislationCatalog('12.305');
+
+    expect(request).toHaveBeenCalledWith('/api/legislations?search=12.305');
+    expect(result[0].number).toBe('12.305');
+  });
+
+  it('searchLegislationCatalog() accepts a data envelope', async () => {
+    vi.mocked(request).mockResolvedValue({
+      data: [MOCK_LICENSE_LEGISLATIONS[0].legislation],
+    });
+
+    const result = await searchLegislationCatalog('12.305');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(MOCK_LICENSE_LEGISLATIONS[0].legislation.id);
+  });
+
+  it('searchLegislationCatalog() preserves up to 10 returned acts', async () => {
+    vi.mocked(request).mockResolvedValue(
+      Array.from({ length: 10 }, (_, index) => ({
+        ...MOCK_LICENSE_LEGISLATIONS[0].legislation,
+        id: `legislation-${index + 1}`,
+        number: String(index + 1),
+      }))
+    );
+
+    const result = await searchLegislationCatalog('lei');
+
+    expect(result).toHaveLength(10);
+    expect(result[9].id).toBe('legislation-10');
+  });
+
+  it('createLicenseLegislationsBatch() posts catalog and manual acts', async () => {
+    vi.mocked(request).mockResolvedValue(MOCK_LICENSE_LEGISLATIONS);
+
+    await createLicenseLegislationsBatch('license-1', [
+      {
+        legislationId: 'legislation-1',
+        citedExcerpt: null,
+        source: 'MANUAL',
+      },
+      {
+        legislation: ACT,
+        citedExcerpt: 'art. 3º',
+        source: 'SCAN',
+        impact: 'MODERATE',
+      },
+    ]);
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/licenses/license-1/legislations/batch',
+      {
+        method: 'POST',
+        body: {
+          legislations: [
+            {
+              legislation_id: 'legislation-1',
+              cited_excerpt: null,
+              source: 'MANUAL',
+            },
+            {
+              legislation: ACT_WIRE,
+              cited_excerpt: 'art. 3º',
+              source: 'SCAN',
+              impact: 'MODERATE',
+            },
+          ],
+        },
+      }
     );
   });
 

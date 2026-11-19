@@ -12,10 +12,14 @@ export interface LicenseCondition {
   environmentalDescriptor: string;
   responsibleAgency: string | null;
   dueDate: string;
+  alertDate: string | null;
   status: LicenseConditionStatus;
   hasDelivery: boolean;
   isViolated: boolean;
   riskLevel: LicenseConditionRiskLevel;
+  conditionStatus?: string | null;
+  completionDate?: string | null;
+  isFulfilled?: boolean;
 }
 
 export interface LicenseConditionsCompliance {

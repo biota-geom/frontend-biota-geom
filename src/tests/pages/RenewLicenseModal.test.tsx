@@ -5,6 +5,10 @@ import type {
   LicenseConditionDetail,
   LicenseDetails,
 } from '../../features/licenses/types';
+import {
+  AlertsContext,
+  type AlertsContextValue,
+} from '../../features/alerts/useAlerts';
 import { RenewLicenseModal } from '../../pages/company/LicenseDetails/components/RenewLicenseModal';
 import { ApiError } from '../../services/api/apiError';
 
@@ -69,12 +73,13 @@ function renderModal(
     onConditionsOutdated: () => void;
     onOpenChange: (open: boolean) => void;
     onRenewed: (license: { id: string }) => void;
+    refreshAlerts: () => Promise<void>;
   }> = {}
 ) {
   const onConditionsOutdated = overrides.onConditionsOutdated ?? vi.fn();
   const onOpenChange = overrides.onOpenChange ?? vi.fn();
   const onRenewed = overrides.onRenewed ?? vi.fn();
-  const modal = (license: LicenseDetails) => (
+  const renewModal = (license: LicenseDetails) => (
     <RenewLicenseModal
       legislationCount={overrides.legislationCount ?? 3}
       license={license}
@@ -84,6 +89,16 @@ function renderModal(
       open
     />
   );
+  const modal = (license: LicenseDetails) =>
+    overrides.refreshAlerts ? (
+      <AlertsContext.Provider
+        value={{ refreshAlerts: overrides.refreshAlerts } as AlertsContextValue}
+      >
+        {renewModal(license)}
+      </AlertsContext.Provider>
+    ) : (
+      renewModal(license)
+    );
 
   const { rerender } = render(modal(overrides.license ?? LICENSE));
 
@@ -245,6 +260,38 @@ describe('RenewLicenseModal', () => {
       previousLicenseId: 'license-1',
       status: 'Regular',
     });
+  });
+
+  it('refreshes the notification bell after renewing', async () => {
+    const user = userEvent.setup();
+    const refreshAlerts = vi.fn().mockResolvedValue(undefined);
+    const onRenewed = vi.fn();
+    renderModal({ onRenewed, refreshAlerts });
+
+    const dialog = await fillRequiredFields(user);
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Renovar Licença' })
+    );
+
+    await waitFor(() => expect(onRenewed).toHaveBeenCalled());
+    expect(refreshAlerts).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refresh the notification bell when renewal fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licensesApi.renewLicense).mockRejectedValue(
+      new ApiError(400, 'Licença já renovada/arquivada.')
+    );
+    const refreshAlerts = vi.fn().mockResolvedValue(undefined);
+    renderModal({ refreshAlerts });
+
+    const dialog = await fillRequiredFields(user);
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Renovar Licença' })
+    );
+
+    await within(dialog).findByText('Licença já renovada/arquivada.');
+    expect(refreshAlerts).not.toHaveBeenCalled();
   });
 
   it('keeps the modal open and shows an API error when renewal fails', async () => {

@@ -29,6 +29,8 @@ export interface LicenseConditionDetail {
   conditionType: string | null;
   periodicity: string;
   deadline: string | null;
+  dueDate?: string | null;
+  alertDate?: string | null;
   status: string | null;
   completionDate: string | null;
   responsibleName: string | null;

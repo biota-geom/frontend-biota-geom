@@ -14,6 +14,7 @@ describe('ConditionCard', () => {
           environmentalDescriptor: 'Emissões',
           responsibleAgency: 'FEPAM',
           dueDate: '2026-02-11T00:00:00.000Z',
+          alertDate: null,
           status: 'Regular',
           hasDelivery: true,
           isViolated: true,
@@ -27,6 +28,7 @@ describe('ConditionCard', () => {
       screen.getByRole('article', { name: 'Automonitoramento Atmosférico' })
     ).toHaveClass('border-rose-500');
     expect(screen.getByText('RISCO')).toBeInTheDocument();
+    expect(screen.getByText('Não entregue')).toBeInTheDocument();
     expect(screen.getByText('11/02/2026')).toBeInTheDocument();
     expect(
       screen.getByText('Descritor ambiental:').nextElementSibling
@@ -44,7 +46,7 @@ describe('ConditionCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the attention label in PT-BR', () => {
+  it('renders the attention label in PT-BR and omits delivery tag when hasDelivery is false', () => {
     render(
       <ConditionCard
         condition={{
@@ -55,6 +57,7 @@ describe('ConditionCard', () => {
           environmentalDescriptor: 'Consumo de Água',
           responsibleAgency: 'FEPAM',
           dueDate: '2026-04-01T00:00:00.000Z',
+          alertDate: null,
           status: 'Atenção',
           hasDelivery: false,
           isViolated: false,
@@ -65,5 +68,68 @@ describe('ConditionCard', () => {
     );
 
     expect(screen.getByText('ATENÇÃO')).toBeInTheDocument();
+    expect(screen.queryByText('Entregue')).not.toBeInTheDocument();
+    expect(screen.queryByText('Não entregue')).not.toBeInTheDocument();
+  });
+
+  it('renders "Entregue" badge when condition has delivery and is fulfilled', () => {
+    render(
+      <ConditionCard
+        condition={{
+          id: 'condition-3',
+          licenseId: 'license-1',
+          name: 'Manifesto de Transporte de Resíduos - MTR',
+          description: 'Comprovantes de destinação de resíduos.',
+          environmentalDescriptor: 'Resíduos Sólidos',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-05-15T00:00:00.000Z',
+          alertDate: null,
+          status: 'Regular',
+          hasDelivery: true,
+          isViolated: false,
+          riskLevel: 'REGULAR',
+          isFulfilled: true,
+          conditionStatus: 'FULFILLED',
+          completionDate: '2026-05-10T14:30:00.000Z',
+        }}
+        onEdit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('REGULAR')).toBeInTheDocument();
+    const deliveredBadge = screen.getByText('Entregue');
+    expect(deliveredBadge).toBeInTheDocument();
+    expect(deliveredBadge).toHaveClass('bg-emerald-100', 'text-emerald-800');
+    expect(screen.queryByText('Não entregue')).not.toBeInTheDocument();
+  });
+
+  it('renders "Não entregue" badge when condition has delivery and is pending', () => {
+    render(
+      <ConditionCard
+        condition={{
+          id: 'condition-4',
+          licenseId: 'license-1',
+          name: 'Laudo de Emissões Atmosféricas',
+          description: 'Laudo semestral de chaminés.',
+          environmentalDescriptor: 'Emissões',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-06-20T00:00:00.000Z',
+          alertDate: null,
+          status: 'Regular',
+          hasDelivery: true,
+          isViolated: false,
+          riskLevel: 'REGULAR',
+          isFulfilled: false,
+          conditionStatus: 'IN_PROGRESS',
+        }}
+        onEdit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('REGULAR')).toBeInTheDocument();
+    const notDeliveredBadge = screen.getByText('Não entregue');
+    expect(notDeliveredBadge).toBeInTheDocument();
+    expect(notDeliveredBadge).toHaveClass('bg-slate-100', 'text-slate-700');
+    expect(screen.queryByText('Entregue')).not.toBeInTheDocument();
   });
 });

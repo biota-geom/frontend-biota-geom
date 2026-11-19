@@ -5,11 +5,53 @@ import type {
 } from '../../features/legislation/types';
 import { request } from './http';
 import type {
+  BatchLicenseLegislationRequestWire,
   AddLicenseLegislationRequestWire,
   LegislationInputWire,
+  LegislationWire,
   LicenseLegislationWire,
   UpdateLicenseLegislationRequestWire,
 } from './types';
+
+export async function searchLegislationCatalog(
+  search: string
+): Promise<import('../../features/legislation/types').Legislation[]> {
+  const query = encodeURIComponent(search.trim());
+  const response = await request<
+    | LegislationWire[]
+    | {
+        data?: LegislationWire[];
+        legislations?: LegislationWire[];
+        results?: LegislationWire[];
+        items?: LegislationWire[];
+      }
+  >(`/api/legislations?search=${query}`);
+
+  const wire = ((): LegislationWire[] => {
+    if (Array.isArray(response)) return response;
+
+    for (const key of ['data', 'legislations', 'results', 'items'] as const) {
+      const value = response[key];
+      if (Array.isArray(value)) return value;
+    }
+
+    return [];
+  })();
+
+  return wire.slice(0, 10).map((item) => {
+    const catalogItem = item as LegislationWire & {
+      issuingBody?: string;
+    };
+    return {
+      id: catalogItem.id,
+      type: catalogItem.type,
+      number: catalogItem.number,
+      year: catalogItem.year,
+      issuingBody: catalogItem.issuing_body ?? catalogItem.issuingBody ?? '',
+      summary: catalogItem.summary,
+    };
+  });
+}
 
 export function toLicenseLegislation(
   wire: LicenseLegislationWire
@@ -81,18 +123,62 @@ function toLegislationInputWire(input: LegislationInput): LegislationInputWire {
  */
 export async function addLicenseLegislation(
   licenseId: string,
-  input: { legislation: LegislationInput; citedExcerpt: string | null }
+  input:
+    | { legislation: LegislationInput; citedExcerpt: string | null }
+    | { legislationId: string; citedExcerpt: string | null }
 ): Promise<LicenseLegislation> {
-  const body: AddLicenseLegislationRequestWire = {
-    legislation: toLegislationInputWire(input.legislation),
-    cited_excerpt: input.citedExcerpt,
-  };
+  const body: AddLicenseLegislationRequestWire =
+    'legislationId' in input
+      ? {
+          legislation_id: input.legislationId,
+          cited_excerpt: input.citedExcerpt,
+        }
+      : {
+          legislation: toLegislationInputWire(input.legislation),
+          cited_excerpt: input.citedExcerpt,
+        };
   const wire = await request<LicenseLegislationWire>(
     `/api/licenses/${licenseId}/legislations`,
     { method: 'POST', body }
   );
 
   return toLicenseLegislation(wire);
+}
+
+export interface BatchLicenseLegislationInput {
+  legislationId?: string;
+  legislation?: LegislationInput;
+  citedExcerpt?: string | null;
+  source: 'MANUAL' | 'SCAN';
+  impact?: LegislationImpact | null;
+}
+
+export async function createLicenseLegislationsBatch(
+  licenseId: string,
+  legislations: BatchLicenseLegislationInput[]
+): Promise<LicenseLegislation[]> {
+  const body: BatchLicenseLegislationRequestWire = {
+    legislations: legislations.map((item) => {
+      const common = {
+        cited_excerpt: item.citedExcerpt ?? null,
+        source: item.source,
+        ...(item.impact ? { impact: item.impact } : {}),
+      };
+      return item.legislationId
+        ? { ...common, legislation_id: item.legislationId }
+        : {
+            ...common,
+            legislation: toLegislationInputWire(
+              item.legislation as LegislationInput
+            ),
+          };
+    }),
+  };
+  const wire = await request<LicenseLegislationWire[]>(
+    `/api/licenses/${licenseId}/legislations/batch`,
+    { method: 'POST', body }
+  );
+  return wire.map(toLicenseLegislation);
 }
 
 /**

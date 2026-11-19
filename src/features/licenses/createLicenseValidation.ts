@@ -15,6 +15,16 @@ export const FILE_TOO_LARGE_MESSAGE = 'O arquivo não pode ultrapassar 5MB.';
 export const FILE_REQUIRED_MESSAGE = 'Anexe o documento em PDF.';
 export const INVALID_DATE_RANGE_MESSAGE =
   'A data de validade deve ser posterior à data de emissão.';
+export const ALERT_DATE_AFTER_DUE_DATE_MESSAGE =
+  'A data de alerta não pode ser posterior à data de vencimento.';
+
+/* Both values are `YYYY-MM-DD`, so the string order is the date order. */
+export function isAlertDateAfterDueDate(
+  alertDate: string | undefined,
+  dueDate: string
+): boolean {
+  return Boolean(alertDate && dueDate && alertDate > dueDate);
+}
 
 export const licenseConditionRowSchema = z
   .object({
@@ -39,6 +49,7 @@ export const licenseConditionRowSchema = z
       ),
     periodicity: z.string(),
     deadline: z.string().min(1, 'Informe o prazo.'),
+    alertDate: z.string().optional(),
     responsibleName: z
       .string()
       .trim()
@@ -59,6 +70,13 @@ export const licenseConditionRowSchema = z
         path: ['periodicity'],
       });
     }
+    if (isAlertDateAfterDueDate(condition.alertDate, condition.deadline)) {
+      context.addIssue({
+        code: 'custom',
+        message: ALERT_DATE_AFTER_DUE_DATE_MESSAGE,
+        path: ['alertDate'],
+      });
+    }
   });
 
 export type LicenseConditionRow = {
@@ -68,6 +86,8 @@ export type LicenseConditionRow = {
   conditionType: string;
   periodicity: string;
   deadline: string;
+  /* Optional reminder date (`YYYY-MM-DD`); empty means no reminder. */
+  alertDate?: string;
   responsibleName: string;
   hasDelivery: boolean;
 };
@@ -127,6 +147,7 @@ export const EMPTY_CONDITION_ROW: LicenseConditionRow = {
   conditionType: '',
   periodicity: '',
   deadline: '',
+  alertDate: '',
   responsibleName: '',
   hasDelivery: true,
 };
@@ -174,6 +195,7 @@ export function toLicenseConditionBatchItem(
     conditionType: row.conditionType,
     periodicity: row.periodicity || undefined,
     deadline: toUtcIsoDate(row.deadline),
+    alertDate: row.alertDate ? toUtcIsoDate(row.alertDate) : undefined,
     responsibleName: row.responsibleName,
     hasDelivery: row.hasDelivery,
   };

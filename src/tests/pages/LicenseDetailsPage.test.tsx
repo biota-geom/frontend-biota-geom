@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LicenseDetails } from '../../features/licenses/types';
 import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
 import { MOCK_LICENSE_LEGISLATIONS } from '../../features/legislation/legislations.mock';
@@ -24,6 +24,7 @@ vi.mock('../../services/api/legislationsApi', async (importOriginal) => ({
   >()),
   getLicenseLegislations: vi.fn(),
   addLicenseLegislation: vi.fn(),
+  searchLegislationCatalog: vi.fn().mockResolvedValue([]),
   updateLicenseLegislation: vi.fn(),
   removeLicenseLegislation: vi.fn(),
 }));
@@ -118,7 +119,8 @@ async function openAddConditionsModal(
 
 async function fillConditionRow(
   user: ReturnType<typeof userEvent.setup>,
-  parentCondition?: string
+  parentCondition?: string,
+  { alertDate, submit = true }: { alertDate?: string; submit?: boolean } = {}
 ) {
   await user.click(
     screen.getByRole('button', { name: 'Adicionar Descritor Ambiental' })
@@ -169,11 +171,20 @@ async function fillConditionRow(
       await screen.findByRole('option', { name: parentCondition })
     );
   }
-  await user.click(
-    within(conditionDialog).getByRole('button', {
-      name: 'Adicionar Condicionante',
-    })
-  );
+  if (alertDate) {
+    await user.type(
+      within(conditionDialog).getByLabelText('Data de alerta (opcional)'),
+      alertDate
+    );
+  }
+  if (submit) {
+    await user.click(
+      within(conditionDialog).getByRole('button', {
+        name: 'Adicionar Condicionante',
+      })
+    );
+  }
+  return conditionDialog;
 }
 
 /*
@@ -182,11 +193,16 @@ async function fillConditionRow(
  * right at the global 10s testTimeout. Those flows pass 20_000 instead.
  */
 describe('LicenseDetailsPage', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(DETAILS);
     vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([]);
     vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue([]);
+    vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([]);
     vi.mocked(licensesApi.renewLicense).mockResolvedValue({
       id: 'license-2',
       previousLicenseId: 'license-1',
@@ -259,6 +275,55 @@ describe('LicenseDetailsPage', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.getByText('1 de 1 atendidas')).toBeInTheDocument();
   });
+
+  it('rejects an alert date after the deadline and sends a valid one', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.createLicenseConditions).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    const conditionDialog = await fillConditionRow(user, undefined, {
+      alertDate: '2026-10-31',
+      submit: false,
+    });
+    const addButton = within(conditionDialog).getByRole('button', {
+      name: 'Adicionar Condicionante',
+    });
+    await user.click(addButton);
+
+    expect(
+      within(conditionDialog).getByText(
+        'A data de alerta não pode ser posterior à data de vencimento.'
+      )
+    ).toBeInTheDocument();
+
+    const alertDate = within(conditionDialog).getByLabelText(
+      'Data de alerta (opcional)'
+    );
+    await user.clear(alertDate);
+    await user.type(alertDate, '2026-10-15');
+    await user.click(addButton);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Adicionar novas condicionantes',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.createLicenseConditions).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        [
+          expect.objectContaining({
+            deadline: '2026-10-30T00:00:00.000Z',
+            alertDate: '2026-10-15T00:00:00.000Z',
+          }),
+        ]
+      )
+    );
+  }, 20_000);
 
   it('adds conditions to the license and reloads the details', async () => {
     const user = userEvent.setup();
@@ -512,6 +577,55 @@ describe('LicenseDetailsPage', () => {
         expect.objectContaining({ parentConditionId: 'condition-1-1' })
       )
     );
+  });
+
+  it('uses the effective due date and omits unchanged dates when editing', async () => {
+    const user = userEvent.setup();
+    const withAlert = {
+      ...DETAILS.conditions[1],
+      id: 'condition-1-2',
+      itemNumber: '1.2',
+      description: 'Enviar relatório anual.',
+      deadline: '2026-10-30T00:00:00.000Z',
+      dueDate: '2026-10-25T00:00:00.000Z',
+      alertDate: '2026-10-01T00:00:00.000Z',
+    };
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [...DETAILS.conditions, withAlert],
+    });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Editar condicionante 1.2' })
+    );
+    const editDialog = screen.getByRole('dialog', {
+      name: 'Editar Condicionante',
+    });
+    expect(
+      within(editDialog).getByLabelText('Data de alerta (opcional)')
+    ).toHaveValue('2026-10-01');
+    expect(within(editDialog).getByLabelText('Data de Vencimento')).toHaveValue(
+      '2026-10-25'
+    );
+    await user.click(
+      within(editDialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        'condition-1-2',
+        expect.any(Object)
+      )
+    );
+    const update = vi.mocked(licenseConditionsApi.updateLicenseCondition).mock
+      .lastCall?.[1];
+    expect(update).not.toHaveProperty('dueDate');
+    expect(update).not.toHaveProperty('alertDate');
   });
 
   it('keeps the modal open with the API error when saving fails', async () => {
@@ -1233,6 +1347,16 @@ describe('LicenseDetailsPage', () => {
       vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
         RADAR[2]
       );
+      vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([
+        {
+          id: RADAR[2].legislation.id,
+          type: RADAR[2].legislation.type,
+          number: RADAR[2].legislation.number,
+          year: RADAR[2].legislation.year,
+          issuingBody: RADAR[2].legislation.issuingBody,
+          summary: RADAR[2].legislation.summary,
+        },
+      ]);
       const user = userEvent.setup();
       renderDetailsPage();
 
@@ -1243,15 +1367,67 @@ describe('LicenseDetailsPage', () => {
         })
       );
       const dialog = await screen.findByRole('dialog');
+      await user.type(
+        within(dialog).getByLabelText('Pesquisar no catálogo (opcional)'),
+        '9.605'
+      );
+      await user.click(
+        await within(dialog).findByRole('option', {
+          name: /Lei nº 9\.605\/1998/,
+        })
+      );
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Adicionar legislação' })
+      );
+
+      expect(
+        await screen.findByText('Legislação adicionada ao radar.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.addLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        {
+          legislationId: RADAR[2].legislation.id,
+          citedExcerpt: null,
+        }
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }, 20_000);
+
+    it('creates a new legislation when the catalog has no match', async () => {
+      vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
+        RADAR[2]
+      );
+      vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Adicionar legislação',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      await user.type(
+        within(dialog).getByLabelText('Pesquisar no catálogo (opcional)'),
+        'Resolução ambiental'
+      );
+      await within(dialog).findByText(
+        'Nenhuma legislação encontrada no catálogo. Preencha os dados abaixo para cadastrar uma nova.'
+      );
+
       await user.click(
         within(dialog).getByRole('combobox', { name: 'Tipo da legislação' })
       );
-      await user.click(screen.getByRole('option', { name: 'Lei' }));
-      await user.type(within(dialog).getByLabelText('Número *'), '9.605');
-      await user.type(within(dialog).getByLabelText('Ano *'), '1998');
+      await user.click(
+        await screen.findByRole('option', { name: 'Resolução' })
+      );
+      await user.type(within(dialog).getByLabelText('Número *'), '237');
+      await user.type(within(dialog).getByLabelText('Ano *'), '1997');
       await user.type(
         within(dialog).getByLabelText('Órgão emissor *'),
-        'Governo Federal'
+        'CONAMA'
       );
       await user.click(
         within(dialog).getByRole('button', { name: 'Adicionar legislação' })
@@ -1264,17 +1440,15 @@ describe('LicenseDetailsPage', () => {
         'license-1',
         {
           legislation: {
-            type: 'LEI',
-            number: '9.605',
-            year: 1998,
-            issuingBody: 'Governo Federal',
+            type: 'RESOLUCAO',
+            number: '237',
+            year: 1997,
+            issuingBody: 'CONAMA',
             summary: null,
           },
           citedExcerpt: null,
         }
       );
-      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     }, 20_000);
 
     it('edits only the excerpt when the act data is untouched', async () => {
