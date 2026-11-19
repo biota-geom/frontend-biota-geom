@@ -42,8 +42,8 @@ export interface UpdateLicenseConditionInput {
   environmentalDescriptor: string;
   parentConditionId?: string | null;
   responsibleAgency?: string;
-  dueDate: string;
-  alertDate: string | null;
+  dueDate?: string;
+  alertDate?: string | null;
   hasDelivery: boolean;
   isViolated: boolean;
   description?: string;

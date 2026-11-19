@@ -466,8 +466,6 @@ describe('CompanyConditionsPage', () => {
           name: condition.name,
           environmentalDescriptor: condition.environmentalDescriptor,
           responsibleAgency: condition.responsibleAgency,
-          dueDate: condition.dueDate,
-          alertDate: null,
           hasDelivery: true,
           isViolated: true,
           description: condition.description,

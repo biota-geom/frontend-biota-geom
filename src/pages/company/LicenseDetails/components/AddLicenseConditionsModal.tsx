@@ -561,8 +561,7 @@ function toEditableCondition(
     description: condition.description,
     environmentalDescriptor: condition.environmentalDescriptor,
     responsibleAgency: condition.responsibleName,
-    dueDate: condition.deadline ?? '',
-    // Keeps the reminder: the edit modal sends it back on save.
+    dueDate: condition.dueDate ?? condition.deadline ?? '',
     alertDate: condition.alertDate ?? null,
     status,
     hasDelivery: condition.hasDelivery ?? false,

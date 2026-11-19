@@ -172,13 +172,21 @@ export function EditConditionModal({
     if (!condition) return;
 
     try {
+      const originalDates = valuesFromCondition(condition);
       await updateLicenseCondition(condition.id, {
         name: values.name,
         environmentalDescriptor: values.environmentalDescriptor,
         responsibleAgency: values.responsibleAgency || undefined,
-        dueDate: toUtcIsoDate(values.dueDate),
-        // Empty clears a previously set reminder.
-        alertDate: values.alertDate ? toUtcIsoDate(values.alertDate) : null,
+        ...(values.dueDate !== originalDates.dueDate
+          ? { dueDate: toUtcIsoDate(values.dueDate) }
+          : {}),
+        ...(values.alertDate !== originalDates.alertDate
+          ? {
+              alertDate: values.alertDate
+                ? toUtcIsoDate(values.alertDate)
+                : null,
+            }
+          : {}),
         hasDelivery: values.hasDelivery,
         isViolated: values.isViolated,
         description: values.description || undefined,

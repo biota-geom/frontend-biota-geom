@@ -195,6 +195,7 @@ export interface LicenseConditionDetailsWire {
   condition_type: string | null;
   periodicity: string;
   deadline: string | null;
+  due_date?: string | null;
   alert_date?: string | null;
   status: string | null;
   completion_date: string | null;

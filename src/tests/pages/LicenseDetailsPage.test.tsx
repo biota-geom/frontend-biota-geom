@@ -573,7 +573,7 @@ describe('LicenseDetailsPage', () => {
     );
   });
 
-  it('keeps the alert date when editing an existing condition', async () => {
+  it('uses the effective due date and omits unchanged dates when editing', async () => {
     const user = userEvent.setup();
     const withAlert = {
       ...DETAILS.conditions[1],
@@ -581,6 +581,7 @@ describe('LicenseDetailsPage', () => {
       itemNumber: '1.2',
       description: 'Enviar relatório anual.',
       deadline: '2026-10-30T00:00:00.000Z',
+      dueDate: '2026-10-25T00:00:00.000Z',
       alertDate: '2026-10-01T00:00:00.000Z',
     };
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
@@ -602,6 +603,9 @@ describe('LicenseDetailsPage', () => {
     expect(
       within(editDialog).getByLabelText('Data de alerta (opcional)')
     ).toHaveValue('2026-10-01');
+    expect(within(editDialog).getByLabelText('Data de Vencimento')).toHaveValue(
+      '2026-10-25'
+    );
     await user.click(
       within(editDialog).getByRole('button', { name: 'Salvar Alterações' })
     );
@@ -609,9 +613,13 @@ describe('LicenseDetailsPage', () => {
     await waitFor(() =>
       expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
         'condition-1-2',
-        expect.objectContaining({ alertDate: '2026-10-01T00:00:00.000Z' })
+        expect.any(Object)
       )
     );
+    const update = vi.mocked(licenseConditionsApi.updateLicenseCondition).mock
+      .lastCall?.[1];
+    expect(update).not.toHaveProperty('dueDate');
+    expect(update).not.toHaveProperty('alertDate');
   });
 
   it('keeps the modal open with the API error when saving fails', async () => {
