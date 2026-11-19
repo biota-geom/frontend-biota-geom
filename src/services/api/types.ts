@@ -199,9 +199,27 @@ export interface SuggestedConditionWire {
   due_date: string | null;
 }
 
+/**
+ * A law the license cites. Same shape as one item of the radar's batch route
+ * (`POST /licenses/:id/legislations/batch`), so a kept suggestion is sent as is.
+ */
+export interface SuggestedLegislationWire {
+  legislation: {
+    type: LegislationTypeWire;
+    number: string;
+    year: number;
+    issuing_body: string;
+    summary: string | null;
+  };
+  cited_excerpt: string | null;
+  source: 'SCAN';
+  impact: LegislationImpactWire | null;
+}
+
 export interface LicenseExtractionWire {
   extracted_data: ExtractedLicenseDataWire;
   suggested_conditions: SuggestedConditionWire[];
+  suggested_legislations: SuggestedLegislationWire[];
 }
 
 export interface StartLicenseExtractionWire {

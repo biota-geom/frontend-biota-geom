@@ -1,3 +1,5 @@
+import type { LegislationImpact, LegislationInput } from '../legislation/types';
+
 export interface IssuingAgency {
   id: string;
   name: string;
@@ -125,9 +127,21 @@ export interface SuggestedCondition {
   dueDate: string | null;
 }
 
+/**
+ * A law the license cites, with the impact the AI suggests. The user reviews
+ * it: nothing is linked to the license unless it is kept.
+ */
+export interface SuggestedLegislation {
+  legislation: LegislationInput;
+  citedExcerpt: string | null;
+  source: 'SCAN';
+  impact: LegislationImpact | null;
+}
+
 export interface LicenseExtraction {
   extractedData: ExtractedLicenseData;
   suggestedConditions: SuggestedCondition[];
+  suggestedLegislations: SuggestedLegislation[];
 }
 
 /** What the renewal decides for each condition of the previous license. */

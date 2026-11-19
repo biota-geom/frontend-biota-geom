@@ -40,6 +40,20 @@ describe('licensesApi', () => {
           due_date: null,
         },
       ],
+      suggested_legislations: [
+        {
+          legislation: {
+            type: 'LEI',
+            number: '12.305',
+            year: 2010,
+            issuing_body: 'Governo Federal',
+            summary: 'Institui a PNRS.',
+          },
+          cited_excerpt: '…conforme a Lei nº 12.305/2010…',
+          source: 'SCAN',
+          impact: 'HIGH',
+        },
+      ],
     };
     const POLL = { pollIntervalMs: 1 };
 
@@ -89,7 +103,38 @@ describe('licensesApi', () => {
             dueDate: null,
           },
         ],
+        suggestedLegislations: [
+          {
+            legislation: {
+              type: 'LEI',
+              number: '12.305',
+              year: 2010,
+              issuingBody: 'Governo Federal',
+              summary: 'Institui a PNRS.',
+            },
+            citedExcerpt: '…conforme a Lei nº 12.305/2010…',
+            source: 'SCAN',
+            impact: 'HIGH',
+          },
+        ],
       });
+    });
+
+    it('answers no suggested legislations when the backend omits the field', async () => {
+      const { suggested_legislations: _omitted, ...withoutLegislations } =
+        WIRE_RESULT;
+      void _omitted;
+      vi.mocked(request)
+        .mockResolvedValueOnce({ job_id: 'job-1' })
+        .mockResolvedValueOnce({
+          status: 'DONE',
+          result: withoutLegislations,
+          error: null,
+        });
+
+      const result = await extractLicenseData(pdf(), POLL);
+
+      expect(result.suggestedLegislations).toEqual([]);
     });
 
     it('keeps any license type as printed, since the field is free text', async () => {
