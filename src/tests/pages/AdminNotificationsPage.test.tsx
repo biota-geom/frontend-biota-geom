@@ -240,6 +240,47 @@ describe('AdminNotificationsPage', () => {
     });
   });
 
+  it('goes back a page when resolving the last item of the last page empties it', async () => {
+    const user = userEvent.setup();
+    // 11 alerts: ten on page 1 and one on page 2.
+    let remaining = 11;
+    vi.mocked(listAlerts).mockImplementation(
+      async (options): Promise<AlertsPage> => {
+        const page = options?.page ?? 1;
+        const start = (page - 1) * 10;
+        const count = Math.max(0, Math.min(10, remaining - start));
+        return {
+          items: Array.from({ length: count }, (_, index) => ({
+            ...ALERT,
+            id: `alert-${start + index}`,
+            title: `Alerta ${start + index + 1}`,
+          })),
+          total: remaining,
+          page,
+          pageSize: 10,
+        };
+      }
+    );
+    vi.mocked(updateAlertStatus).mockImplementation(async (_id, status) => {
+      remaining -= 1;
+      return { ...ALERT, status };
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Próxima' }));
+    expect(await screen.findByText('Página 2 de 2')).toBeVisible();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Marcar como resolvida' })
+    );
+
+    expect(await screen.findByText('Página 1 de 1')).toBeVisible();
+    expect(screen.getAllByRole('listitem')).toHaveLength(10);
+    expect(listAlerts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1 })
+    );
+  });
+
   it('marks an unread notification as read before opening its license', async () => {
     const user = userEvent.setup();
     renderPage();

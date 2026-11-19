@@ -121,6 +121,17 @@ export function AdminNotificationsPage() {
         pageSize: PAGE_SIZE,
       });
       if (requestId !== requestSequence.current) return;
+      /*
+       * Resolving or reading the last item of a page leaves it empty, and the
+       * pagination controls only render with items. Go back to the last page
+       * that still has some instead of stranding the user on an empty one.
+       */
+      if (result.items.length === 0 && page > 1) {
+        setPage(
+          Math.max(1, Math.min(page - 1, Math.ceil(result.total / PAGE_SIZE)))
+        );
+        return;
+      }
       setItems(result.items);
       setTotal(result.total);
       setLoadStatus('success');
