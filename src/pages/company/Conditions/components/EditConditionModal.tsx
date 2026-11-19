@@ -51,6 +51,7 @@ function valuesFromCondition(
     environmentalDescriptor: condition.environmentalDescriptor,
     responsibleAgency: condition.responsibleAgency ?? '',
     dueDate: condition.dueDate.slice(0, 10),
+    alertDate: condition.alertDate?.slice(0, 10) ?? '',
     hasDelivery: condition.hasDelivery,
     isViolated: condition.isViolated,
     description: condition.description ?? '',
@@ -92,6 +93,7 @@ export function EditConditionModal({
       environmentalDescriptor: '',
       responsibleAgency: '',
       dueDate: '',
+      alertDate: '',
       hasDelivery: true,
       isViolated: false,
       description: '',
@@ -172,11 +174,21 @@ export function EditConditionModal({
     if (!condition) return;
 
     try {
+      const originalDates = valuesFromCondition(condition);
       await updateLicenseCondition(condition.id, {
         name: values.name,
         environmentalDescriptor: values.environmentalDescriptor,
         responsibleAgency: values.responsibleAgency || undefined,
-        dueDate: toUtcIsoDate(values.dueDate),
+        ...(values.dueDate !== originalDates.dueDate
+          ? { dueDate: toUtcIsoDate(values.dueDate) }
+          : {}),
+        ...(values.alertDate !== originalDates.alertDate
+          ? {
+              alertDate: values.alertDate
+                ? toUtcIsoDate(values.alertDate)
+                : null,
+            }
+          : {}),
         hasDelivery: values.hasDelivery,
         isViolated: values.isViolated,
         description: values.description || undefined,
@@ -337,9 +349,22 @@ export function EditConditionModal({
             label="Data de Vencimento"
           >
             <Input
-              {...register('dueDate')}
+              {...register('dueDate', { deps: ['alertDate'] })}
               aria-invalid={Boolean(errors.dueDate)}
               id="edit-condition-due-date"
+              type="date"
+            />
+          </EditTextField>
+
+          <EditTextField
+            error={errors.alertDate?.message}
+            id="edit-condition-alert-date"
+            label="Data de alerta (opcional)"
+          >
+            <Input
+              {...register('alertDate', { deps: ['dueDate'] })}
+              aria-invalid={Boolean(errors.alertDate)}
+              id="edit-condition-alert-date"
               type="date"
             />
           </EditTextField>

@@ -119,7 +119,8 @@ async function openAddConditionsModal(
 
 async function fillConditionRow(
   user: ReturnType<typeof userEvent.setup>,
-  parentCondition?: string
+  parentCondition?: string,
+  { alertDate, submit = true }: { alertDate?: string; submit?: boolean } = {}
 ) {
   await user.click(
     screen.getByRole('button', { name: 'Adicionar Descritor Ambiental' })
@@ -170,11 +171,20 @@ async function fillConditionRow(
       await screen.findByRole('option', { name: parentCondition })
     );
   }
-  await user.click(
-    within(conditionDialog).getByRole('button', {
-      name: 'Adicionar Condicionante',
-    })
-  );
+  if (alertDate) {
+    await user.type(
+      within(conditionDialog).getByLabelText('Data de alerta (opcional)'),
+      alertDate
+    );
+  }
+  if (submit) {
+    await user.click(
+      within(conditionDialog).getByRole('button', {
+        name: 'Adicionar Condicionante',
+      })
+    );
+  }
+  return conditionDialog;
 }
 
 /*
@@ -265,6 +275,55 @@ describe('LicenseDetailsPage', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.getByText('1 de 1 atendidas')).toBeInTheDocument();
   });
+
+  it('rejects an alert date after the deadline and sends a valid one', async () => {
+    const user = userEvent.setup();
+    vi.mocked(licenseConditionsApi.createLicenseConditions).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    const conditionDialog = await fillConditionRow(user, undefined, {
+      alertDate: '2026-10-31',
+      submit: false,
+    });
+    const addButton = within(conditionDialog).getByRole('button', {
+      name: 'Adicionar Condicionante',
+    });
+    await user.click(addButton);
+
+    expect(
+      within(conditionDialog).getByText(
+        'A data de alerta não pode ser posterior à data de vencimento.'
+      )
+    ).toBeInTheDocument();
+
+    const alertDate = within(conditionDialog).getByLabelText(
+      'Data de alerta (opcional)'
+    );
+    await user.clear(alertDate);
+    await user.type(alertDate, '2026-10-15');
+    await user.click(addButton);
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Adicionar novas condicionantes',
+      })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.createLicenseConditions).toHaveBeenCalledWith(
+        'customer-1',
+        'license-1',
+        [
+          expect.objectContaining({
+            deadline: '2026-10-30T00:00:00.000Z',
+            alertDate: '2026-10-15T00:00:00.000Z',
+          }),
+        ]
+      )
+    );
+  }, 20_000);
 
   it('adds conditions to the license and reloads the details', async () => {
     const user = userEvent.setup();
@@ -518,6 +577,55 @@ describe('LicenseDetailsPage', () => {
         expect.objectContaining({ parentConditionId: 'condition-1-1' })
       )
     );
+  });
+
+  it('uses the effective due date and omits unchanged dates when editing', async () => {
+    const user = userEvent.setup();
+    const withAlert = {
+      ...DETAILS.conditions[1],
+      id: 'condition-1-2',
+      itemNumber: '1.2',
+      description: 'Enviar relatório anual.',
+      deadline: '2026-10-30T00:00:00.000Z',
+      dueDate: '2026-10-25T00:00:00.000Z',
+      alertDate: '2026-10-01T00:00:00.000Z',
+    };
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [...DETAILS.conditions, withAlert],
+    });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue(
+      undefined
+    );
+    renderDetailsPage();
+
+    const dialog = await openAddConditionsModal(user);
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Editar condicionante 1.2' })
+    );
+    const editDialog = screen.getByRole('dialog', {
+      name: 'Editar Condicionante',
+    });
+    expect(
+      within(editDialog).getByLabelText('Data de alerta (opcional)')
+    ).toHaveValue('2026-10-01');
+    expect(within(editDialog).getByLabelText('Data de Vencimento')).toHaveValue(
+      '2026-10-25'
+    );
+    await user.click(
+      within(editDialog).getByRole('button', { name: 'Salvar Alterações' })
+    );
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        'condition-1-2',
+        expect.any(Object)
+      )
+    );
+    const update = vi.mocked(licenseConditionsApi.updateLicenseCondition).mock
+      .lastCall?.[1];
+    expect(update).not.toHaveProperty('dueDate');
+    expect(update).not.toHaveProperty('alertDate');
   });
 
   it('keeps the modal open with the API error when saving fails', async () => {

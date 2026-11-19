@@ -94,6 +94,8 @@ function toLicenseDetails(wire: LicenseDetailsWire): LicenseDetails {
       conditionType: condition.condition_type,
       periodicity: condition.periodicity,
       deadline: condition.deadline,
+      dueDate: condition.due_date ?? condition.deadline,
+      alertDate: condition.alert_date ?? null,
       status: condition.status,
       completionDate: condition.completion_date,
       responsibleName: condition.responsible_name,
