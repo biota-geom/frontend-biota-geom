@@ -75,7 +75,7 @@ export async function markAlertAsRead(alertId: string): Promise<Alert> {
 
 export async function updateAlertStatus(
   alertId: string,
-  status: AlertStatus
+  status: Exclude<AlertStatus, 'OPEN'>
 ): Promise<Alert> {
   const wire = await request<AlertWire>(`/api/alerts/${alertId}`, {
     method: 'PATCH',

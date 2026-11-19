@@ -656,20 +656,15 @@ describe('AdminCompaniesPage', () => {
     );
   });
 
-  it('renders the admin navigation with the current section highlighted', async () => {
+  it('omits the admin navigation and keeps the logo link to companies', () => {
     vi.mocked(customersApi.listCompanies).mockResolvedValue(COMPANIES);
     renderAppRoutes();
 
-    const companiesLink = screen.getByRole('link', { name: 'Empresas' });
-    const indicatorsLink = screen.getByRole('link', { name: 'Indicadores' });
-
-    expect(companiesLink).toHaveAttribute('href', APP_ROUTES.admin.companies);
-    expect(indicatorsLink).toHaveAttribute('href', APP_ROUTES.admin.indicators);
-    expect(companiesLink.className).toContain('border-primary-strong');
-    expect(indicatorsLink.className).not.toContain('border-primary-strong');
-    expect(
-      screen.queryByRole('link', { name: 'Legislação' })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'BiotaGeom' })).toHaveAttribute(
+      'href',
+      APP_ROUTES.admin.companies
+    );
   });
 
   it('renders the "Nova Empresa" action button', async () => {

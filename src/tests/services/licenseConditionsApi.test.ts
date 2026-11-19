@@ -48,6 +48,8 @@ describe('licenseConditionsApi', () => {
           has_delivery: true,
           is_violated: true,
           risk_level: 'RISK',
+          condition_status: 'FULFILLED',
+          completion_date: '2026-02-10T00:00:00.000Z',
         },
       ],
     });
@@ -59,6 +61,9 @@ describe('licenseConditionsApi', () => {
           environmentalDescriptor: 'Emissões',
           hasDelivery: true,
           isViolated: true,
+          conditionStatus: 'FULFILLED',
+          completionDate: '2026-02-10T00:00:00.000Z',
+          isFulfilled: true,
         }),
       ],
     });
@@ -98,6 +103,7 @@ describe('licenseConditionsApi', () => {
       name: 'MTR',
       environmentalDescriptor: 'Resíduos sólidos',
       dueDate: '2027-05-20T00:00:00.000Z',
+      alertDate: '2027-05-01T00:00:00.000Z',
       hasDelivery: false,
       isViolated: true,
     });
@@ -107,6 +113,7 @@ describe('licenseConditionsApi', () => {
       expect.objectContaining({
         method: 'PUT',
         body: expect.objectContaining({
+          alert_date: '2027-05-01T00:00:00.000Z',
           environmental_descriptor: 'Resíduos sólidos',
           has_delivery: false,
           is_violated: true,
@@ -185,6 +192,61 @@ describe('licenseConditionsApi', () => {
         },
       }
     );
+  });
+
+  it('posts the optional alert date in the batch', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await createLicenseConditions('customer-1', 'license-1', [
+      {
+        environmentalDescriptor: 'Resíduos sólidos',
+        description: 'Apresentar laudos',
+        conditionType: 'INFORMATIVE',
+        deadline: '2025-12-15T00:00:00.000Z',
+        alertDate: '2025-12-01T00:00:00.000Z',
+        responsibleName: 'Julia Costa',
+        hasDelivery: true,
+      },
+    ]);
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions',
+      expect.objectContaining({
+        body: {
+          conditions: [
+            expect.objectContaining({
+              alert_date: '2025-12-01T00:00:00.000Z',
+            }),
+          ],
+        },
+      })
+    );
+  });
+
+  it('maps the alert date of a listed condition', async () => {
+    vi.mocked(request).mockResolvedValue({
+      total: 1,
+      data: [
+        {
+          id: 'condition-1',
+          license_id: 'license-1',
+          name: 'MTR',
+          description: null,
+          environmental_descriptor: 'Resíduos',
+          responsible_agency: null,
+          due_date: '2026-02-11T00:00:00.000Z',
+          alert_date: '2026-02-01T00:00:00.000Z',
+          status: 'Regular',
+          has_delivery: true,
+          is_violated: false,
+          risk_level: 'REGULAR',
+        },
+      ],
+    });
+
+    const result = await listLicenseConditions('customer-1', 'all');
+
+    expect(result.conditions[0]?.alertDate).toBe('2026-02-01T00:00:00.000Z');
   });
 
   it('deletes a condition through its customer and license route', async () => {

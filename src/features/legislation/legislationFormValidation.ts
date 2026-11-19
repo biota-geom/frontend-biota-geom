@@ -16,7 +16,7 @@ export const legislationFormSchema = z.object({
   number: z
     .string()
     .trim()
-    .min(1, 'Informe o número da legislação.')
+    .min(1, 'Informe o número, ano ou ementa da legislação.')
     .max(50, 'O número deve ter no máximo 50 caracteres.'),
   // One message at a time: an empty year should not also read as malformed.
   year: z
@@ -57,6 +57,7 @@ export type ParsedLegislationForm = z.output<typeof legislationFormSchema>;
 export interface LegislationFormResult {
   legislation: LegislationInput;
   citedExcerpt: string | null;
+  legislationId?: string;
 }
 
 export const EMPTY_LEGISLATION_FORM: LegislationFormValues = {

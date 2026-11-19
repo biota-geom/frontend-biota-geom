@@ -126,10 +126,9 @@ export function AdminNotificationsPage() {
        * pagination controls only render with items. Go back to the last page
        * that still has some instead of stranding the user on an empty one.
        */
-      if (result.items.length === 0 && page > 1) {
-        setPage(
-          Math.max(1, Math.min(page - 1, Math.ceil(result.total / PAGE_SIZE)))
-        );
+      const lastPage = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+      if (page > lastPage) {
+        setPage(lastPage);
         return;
       }
       setItems(result.items);
@@ -159,7 +158,8 @@ export function AdminNotificationsPage() {
     setActionError(null);
     try {
       await markAllAlertsAsRead(customerId || undefined);
-      await Promise.all([refreshAlerts(), loadPage()]);
+      setReloadVersion((version) => version + 1);
+      await refreshAlerts();
     } catch (error) {
       setActionError(
         errorMessage(
@@ -201,7 +201,8 @@ export function AdminNotificationsPage() {
     setActionError(null);
     try {
       await updateAlertStatus(alert.id, 'RESOLVED');
-      await Promise.all([refreshAlerts(), loadPage()]);
+      setReloadVersion((version) => version + 1);
+      await refreshAlerts();
     } catch (error) {
       setActionError(
         errorMessage(error, 'Não foi possível resolver a notificação.')
@@ -221,7 +222,7 @@ export function AdminNotificationsPage() {
         {
           icon: 'none',
           label: 'Marcar todas como lidas',
-          disabled: bulkPending,
+          disabled: bulkPending || pendingAlertId !== null,
           onClick: () => void handleMarkAllRead(),
         },
       ]}
@@ -379,7 +380,6 @@ export function AdminNotificationsPage() {
           >
             {items.map((alert) => {
               const Icon = SEVERITY_ICONS[alert.severity];
-              const isPending = pendingAlertId === alert.id;
               return (
                 <li
                   className="rounded-panel border border-border bg-surface p-5"
@@ -429,7 +429,7 @@ export function AdminNotificationsPage() {
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       <Button
-                        disabled={isPending || bulkPending}
+                        disabled={pendingAlertId !== null || bulkPending}
                         onClick={() => void handleOpen(alert)}
                         type="button"
                         variant="subtle"
@@ -438,7 +438,7 @@ export function AdminNotificationsPage() {
                       </Button>
                       {alert.status !== 'RESOLVED' && (
                         <Button
-                          disabled={isPending || bulkPending}
+                          disabled={pendingAlertId !== null || bulkPending}
                           onClick={() => void handleResolve(alert)}
                           type="button"
                           variant="subtle"

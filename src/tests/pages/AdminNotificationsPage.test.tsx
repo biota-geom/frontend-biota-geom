@@ -423,6 +423,25 @@ describe('AdminNotificationsPage', () => {
     expect(markAsRead).not.toHaveBeenCalled();
   });
 
+  it('returns to the last available page after resolving its only alert', async () => {
+    const user = userEvent.setup();
+    vi.mocked(listAlerts).mockImplementation(async ({ page = 1 } = {}) => ({
+      items: apiState.resolved && page === 2 ? [] : [ALERT],
+      total: apiState.resolved ? 10 : 11,
+      page,
+      pageSize: 10,
+    }));
+
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /pr.xima/i }));
+    expect(await screen.findByText(/2 de 2/)).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'Marcar como resolvida' })
+    );
+
+    expect(await screen.findByText(/1 de 1/)).toBeInTheDocument();
+  });
+
   it('marks an unread notification as read before opening its license', async () => {
     const user = userEvent.setup();
     renderPage();

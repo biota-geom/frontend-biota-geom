@@ -20,7 +20,7 @@ type AppHeaderProps = {
   companiesError?: string | null;
   contextLabel?: string;
   isLoadingCompanies?: boolean;
-  navItems: AppNavigationItem[];
+  navItems?: AppNavigationItem[];
 };
 
 function getInitials(name: string): string {
@@ -36,7 +36,7 @@ export function AppHeader({
   companiesError = null,
   contextLabel,
   isLoadingCompanies = false,
-  navItems,
+  navItems = [],
 }: AppHeaderProps) {
   const user = useAuth((state) => state.user);
   const logout = useAuth((state) => state.logout);
@@ -51,28 +51,30 @@ export function AppHeader({
           <BiotaLogo />
         </Link>
 
-        <nav
-          aria-label="Navegação principal"
-          className="flex min-w-0 items-center gap-[26px] max-[980px]:order-3 max-[980px]:w-full max-[980px]:overflow-x-auto"
-        >
-          {navItems.map((item) => (
-            <NavLink
-              className={({ isActive }) =>
-                [
-                  'inline-flex min-h-[72px] items-center border-b-2 border-transparent text-[15px] font-medium text-text-secondary no-underline hover:text-primary-strong max-[980px]:min-h-11 max-[980px]:shrink-0',
-                  isActive ? 'border-primary-strong text-primary-strong' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')
-              }
-              end={item.end}
-              key={item.to}
-              to={item.to}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+        {navItems.length > 0 && (
+          <nav
+            aria-label="Navegação principal"
+            className="flex min-w-0 items-center gap-[26px] max-[980px]:order-3 max-[980px]:w-full max-[980px]:overflow-x-auto"
+          >
+            {navItems.map((item) => (
+              <NavLink
+                className={({ isActive }) =>
+                  [
+                    'inline-flex min-h-[72px] items-center border-b-2 border-transparent text-[15px] font-medium text-text-secondary no-underline hover:text-primary-strong max-[980px]:min-h-11 max-[980px]:shrink-0',
+                    isActive ? 'border-primary-strong text-primary-strong' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
+                }
+                end={item.end}
+                key={item.to}
+                to={item.to}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
 
         <div className="ml-auto flex items-center gap-4 max-[640px]:gap-2.5">
           {activeCompanyId || contextLabel || companies.length > 0 ? (

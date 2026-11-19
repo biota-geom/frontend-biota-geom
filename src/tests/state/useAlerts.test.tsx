@@ -2,7 +2,7 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AlertsProvider } from '../../features/alerts/AlertsProvider';
-import { useAlerts } from '../../features/alerts/useAlerts';
+import { useAlerts, useRefreshAlerts } from '../../features/alerts/useAlerts';
 import type { Alert, AlertsPage } from '../../features/alerts/types';
 import { MOCK_NOTIFICATIONS } from '../mocks/alerts.mock';
 import { useAuth } from '../../features/auth/useAuth';
@@ -63,6 +63,27 @@ describe('useAlerts', () => {
     expect(() => renderHook(useAlerts)).toThrow(
       'useAlerts must be used within AlertsProvider'
     );
+  });
+
+  it('refreshes the bell count after a change that resolves alerts', async () => {
+    const { result } = renderHook(
+      () => ({ alerts: useAlerts(), refresh: useRefreshAlerts() }),
+      { wrapper }
+    );
+    await settle();
+    expect(result.current.alerts.unreadCount).toBe(3);
+
+    vi.mocked(getUnreadAlertsCount).mockResolvedValue(2);
+    await act(async () => result.current.refresh());
+
+    expect(result.current.alerts.unreadCount).toBe(2);
+  });
+
+  it('makes the bell refresh a no-op outside the provider', async () => {
+    const { result } = renderHook(useRefreshAlerts);
+
+    await expect(result.current()).resolves.toBeUndefined();
+    expect(getUnreadAlertsCount).not.toHaveBeenCalled();
   });
 
   it('loads the count initially and fetches the list only when opened', async () => {
