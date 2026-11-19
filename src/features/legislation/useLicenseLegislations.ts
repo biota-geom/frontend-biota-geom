@@ -5,9 +5,9 @@ import type { LegislationImpact, LicenseLegislation } from './types';
 
 type LicenseLegislationsStatus = 'idle' | 'loading' | 'success' | 'error';
 
-/** The fields of an entry that impact and "read" change in place. */
+/** The fields of an entry that impact, "read" and the analysis change in place. */
 export type LicenseLegislationPatch = Partial<
-  Pick<LicenseLegislation, 'impact' | 'readAt'>
+  Pick<LicenseLegislation, 'impact' | 'readAt' | 'technicalAnalysis'>
 >;
 
 /*

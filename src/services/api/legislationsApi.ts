@@ -86,6 +86,8 @@ export interface LicenseLegislationUpdate {
   /** The backend only accepts `true`: an entry can't go back to unread. */
   read?: true;
   citedExcerpt?: string | null;
+  /** How the act affects the license (up to 10,000 characters); `null` clears it. */
+  technicalAnalysis?: string | null;
   /** Only editable while no other license cites the act (409 otherwise). */
   legislation?: LegislationInput;
 }
@@ -183,7 +185,7 @@ export async function createLicenseLegislationsBatch(
 
 /**
  * Updates a radar entry: classifies its impact, marks it as read, edits the
- * cited excerpt, and/or updates the manual legislation act data.
+ * cited excerpt, writes the technical analysis, and/or updates the manual legislation act data.
  */
 export async function updateLicenseLegislation(
   licenseId: string,
@@ -198,6 +200,9 @@ export async function updateLicenseLegislation(
       ? { legislation: toLegislationInputWire(input.legislation) }
       : {}),
     ...(input.impact !== undefined ? { impact: input.impact } : {}),
+    ...(input.technicalAnalysis !== undefined
+      ? { technical_analysis: input.technicalAnalysis }
+      : {}),
     ...(input.read !== undefined ? { read: input.read } : {}),
   };
   const wire = await request<LicenseLegislationWire>(

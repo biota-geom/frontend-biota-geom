@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Button } from '@/components/ui/shadcn/button';
 import { ErrorToast } from '../../../components/feedback/ErrorToast';
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { LegislationFormModal } from '../../../components/legislation/LegislationFormModal';
@@ -48,6 +49,7 @@ import { LegislationRadar } from './components/LegislationRadar';
 import { LicenseSummaryCard } from './components/LicenseSummaryCard';
 import { LicenseVersionHistory } from './components/LicenseVersionHistory';
 import { RemoveLegislationDialog } from './components/RemoveLegislationDialog';
+import { TechnicalAnalysisModal } from './components/TechnicalAnalysisModal';
 import { RenewLicenseModal } from './components/RenewLicenseModal';
 
 function formatDate(value: string | null): string {
@@ -201,6 +203,7 @@ export function LicenseDetailsPage() {
     useState<LegislationFormState>(null);
   const [legislationToRemove, setLegislationToRemove] =
     useState<LicenseLegislation | null>(null);
+  const [analysisItemId, setAnalysisItemId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { details, error, refetch, status } = useLicenseDetails(
     companyId,
@@ -212,6 +215,8 @@ export function LicenseDetailsPage() {
   );
   const radar = useLicenseLegislations(licenseId, impactFilter);
   const radarUpdates = useLegislationUpdates(licenseId, radar.patchLegislation);
+  const analysisItem =
+    radar.legislations.find((item) => item.id === analysisItemId) ?? null;
   const breadcrumbs = useCompanyBreadcrumbs('Detalhes da licença', {
     parent: { label: 'Licenças', to: buildCompanyRoutes.licenses },
   });
@@ -285,6 +290,16 @@ export function LicenseDetailsPage() {
     }
 
     radar.refetch();
+  }
+
+  function handleTechnicalAnalysisSaved(
+    item: LicenseLegislation,
+    technicalAnalysis: string | null
+  ) {
+    radar.patchLegislation(item.id, { technicalAnalysis });
+    setToastMessage(
+      technicalAnalysis ? 'Análise técnica salva.' : 'Análise técnica removida.'
+    );
   }
 
   function handleLegislationRemoved() {
@@ -499,16 +514,30 @@ export function LicenseDetailsPage() {
               isArchived ? undefined : setLegislationToRemove
             }
             onRetry={radar.refetch}
-            renderActions={(item) => (
-              <LegislationImpactSelect
-                disabled={radarUpdates.savingIds.has(item.id)}
-                impact={item.impact}
-                legislationName={`${formatLegislationType(item.legislation.type)} ${formatLegislationNumber(item.legislation)}`}
-                onChange={(impact) =>
-                  void radarUpdates.changeImpact(item.id, impact)
-                }
-              />
-            )}
+            renderActions={(item) => {
+              const legislationName = `${formatLegislationType(item.legislation.type)} ${formatLegislationNumber(item.legislation)}`;
+
+              return (
+                <>
+                  <LegislationImpactSelect
+                    disabled={radarUpdates.savingIds.has(item.id)}
+                    impact={item.impact}
+                    legislationName={legislationName}
+                    onChange={(impact) =>
+                      void radarUpdates.changeImpact(item.id, impact)
+                    }
+                  />
+                  <Button
+                    aria-label={`Ver análise técnica de ${legislationName}`}
+                    onClick={() => setAnalysisItemId(item.id)}
+                    type="button"
+                    variant="subtle"
+                  >
+                    Ver análise técnica
+                  </Button>
+                </>
+              );
+            }}
             renderTags={(item) => (
               <LegislationImpactBadge impact={item.impact} />
             )}
@@ -545,6 +574,15 @@ export function LicenseDetailsPage() {
             }}
             onSubmit={handleLegislationSubmit}
             open={legislationForm !== null}
+          />
+          <TechnicalAnalysisModal
+            canEdit={!isArchived}
+            item={analysisItem}
+            licenseId={licenseId}
+            onOpenChange={(open) => {
+              if (!open) setAnalysisItemId(null);
+            }}
+            onSaved={handleTechnicalAnalysisSaved}
           />
           <RemoveLegislationDialog
             item={legislationToRemove}

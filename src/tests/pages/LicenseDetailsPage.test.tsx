@@ -1171,6 +1171,74 @@ describe('LicenseDetailsPage', () => {
       expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(1);
     });
 
+    describe('technical analysis', () => {
+      it('shows the empty state and writes a new analysis that reopens saved', async () => {
+        vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
+          ...RADAR[0],
+          technicalAnalysis: 'Exige novo plano de resíduos.',
+        });
+        renderDetailsPage();
+        const item = within(await findRadar()).getAllByRole('listitem')[0];
+
+        await userEvent.click(
+          within(item).getByRole('button', {
+            name: 'Ver análise técnica de Lei nº 12.305/2010',
+          })
+        );
+        expect(
+          await screen.findByText('Nenhuma análise técnica registrada')
+        ).toBeInTheDocument();
+
+        await userEvent.click(
+          screen.getByRole('button', { name: 'Escrever análise' })
+        );
+        await userEvent.type(
+          screen.getByLabelText('Texto da análise'),
+          'Exige novo plano de resíduos.'
+        );
+        await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+        expect(legislationsApi.updateLicenseLegislation).toHaveBeenCalledWith(
+          'license-1',
+          RADAR[0].id,
+          { technicalAnalysis: 'Exige novo plano de resíduos.' }
+        );
+        expect(
+          await screen.findByText('Exige novo plano de resíduos.')
+        ).toBeInTheDocument();
+        expect(await screen.findByText('Análise técnica salva.')).toBeVisible();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+        await userEvent.click(
+          within(item).getByRole('button', {
+            name: 'Ver análise técnica de Lei nº 12.305/2010',
+          })
+        );
+        expect(
+          await screen.findByText('Exige novo plano de resíduos.')
+        ).toBeInTheDocument();
+        expect(
+          screen.queryByText('Nenhuma análise técnica registrada')
+        ).not.toBeInTheDocument();
+      });
+
+      it('shows the analysis already recorded for an entry', async () => {
+        renderDetailsPage();
+        const item = within(await findRadar()).getAllByRole('listitem')[2];
+
+        await userEvent.click(
+          within(item).getByRole('button', {
+            name: /^Ver análise técnica de/,
+          })
+        );
+
+        expect(
+          await screen.findByText(RADAR[2].technicalAnalysis as string)
+        ).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Editar' })).toBeVisible();
+      });
+    });
+
     it('clears the classification', async () => {
       vi.mocked(legislationsApi.updateLicenseLegislation).mockResolvedValue({
         ...RADAR[0],
