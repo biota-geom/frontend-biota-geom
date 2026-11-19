@@ -222,6 +222,20 @@ function toLicenseExtraction(wire: LicenseExtractionWire): LicenseExtraction {
       periodicity: condition.periodicity,
       dueDate: condition.due_date,
     })),
+    suggestedLegislations: (wire.suggested_legislations ?? []).map(
+      (suggestion) => ({
+        legislation: {
+          type: suggestion.legislation.type,
+          number: suggestion.legislation.number,
+          year: suggestion.legislation.year,
+          issuingBody: suggestion.legislation.issuing_body,
+          summary: suggestion.legislation.summary,
+        },
+        citedExcerpt: suggestion.cited_excerpt,
+        source: suggestion.source,
+        impact: suggestion.impact,
+      })
+    ),
   };
 }
 

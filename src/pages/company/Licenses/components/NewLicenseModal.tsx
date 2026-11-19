@@ -25,6 +25,7 @@ import { mergeSuggestedConditions } from '../../../../features/licenses/licenseE
 import type {
   License,
   LicenseExtraction,
+  SuggestedLegislation,
 } from '../../../../features/licenses/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { createLicenseConditions } from '../../../../services/api/licenseConditionsApi';
@@ -39,8 +40,12 @@ import {
   formatLegislationNumber,
   formatLegislationType,
 } from '../../../../features/legislation/legislationFormatting';
+import { isSameLegislation } from '../../../../features/legislation/legislationIdentity';
+import type { LegislationImpact } from '../../../../features/legislation/types';
 import { createLicenseLegislationsBatch } from '../../../../services/api/legislationsApi';
+import { SuggestedLegislationsList } from './SuggestedLegislationsList';
 
+const INCOMPLETE_FORM_MESSAGE = 'Preencha o restante das informações.';
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível cadastrar a licença. Tente novamente mais tarde.';
 const CONDITIONS_ERROR_PREFIX =
@@ -54,6 +59,24 @@ const EXTRACTION_ERROR_FALLBACK =
 type ExtractionState =
   | { status: 'idle' | 'loading' | 'success' }
   | { status: 'error'; message: string };
+
+/*
+ * A legislation on its way to the license: typed in by hand, or kept from the
+ * ones the scan found (then it carries the AI's suggested impact).
+ */
+type LegislationDraft = LegislationFormResult & {
+  source: 'MANUAL' | 'SCAN';
+  impact?: LegislationImpact | null;
+};
+
+function toSuggestedDraft(suggestion: SuggestedLegislation): LegislationDraft {
+  return {
+    legislation: suggestion.legislation,
+    citedExcerpt: suggestion.citedExcerpt,
+    source: suggestion.source,
+    impact: suggestion.impact,
+  };
+}
 
 type ExtractableField =
   'type' | 'processNumber' | 'issuingAgency' | 'issueDate' | 'expirationDate';
@@ -73,7 +96,11 @@ export function NewLicenseModal({
 }: NewLicenseModalProps) {
   /* Set after step 1 succeeds so a retry never creates the license twice. */
   const [createdLicense, setCreatedLicense] = useState<License | null>(null);
-  const [legislations, setLegislations] = useState<LegislationFormResult[]>([]);
+  const [legislations, setLegislations] = useState<LegislationDraft[]>([]);
+  /* What the scan found; `legislations` holds the ones kept. */
+  const [foundLegislations, setFoundLegislations] = useState<
+    SuggestedLegislation[]
+  >([]);
   const [isLegislationModalOpen, setIsLegislationModalOpen] = useState(false);
   const [conditionsSaved, setConditionsSaved] = useState(false);
   const [legislationsSaved, setLegislationsSaved] = useState(false);
@@ -121,6 +148,7 @@ export function NewLicenseModal({
     setCreatedLicense(null);
     setExtraction({ status: 'idle' });
     setLegislations([]);
+    setFoundLegislations([]);
     setIsLegislationModalOpen(false);
     setConditionsSaved(false);
     setLegislationsSaved(false);
@@ -187,6 +215,7 @@ export function NewLicenseModal({
   function applyExtraction({
     extractedData,
     suggestedConditions,
+    suggestedLegislations,
   }: LicenseExtraction) {
     const suggestions: Record<ExtractableField, string | null> = {
       type: extractedData.type,
@@ -209,7 +238,69 @@ export function NewLicenseModal({
       mergeSuggestedConditions(getValues('conditions'), suggestedConditions),
       { shouldDirty: true, shouldValidate: true }
     );
+
+    /*
+     * Every law found starts kept, but only goes to the license when it is
+     * saved. A new reading replaces what the previous one suggested and leaves
+     * the laws typed in by hand alone.
+     */
+    setFoundLegislations(suggestedLegislations);
+    setLegislations((current) => {
+      const manual = current.filter((item) => item.source === 'MANUAL');
+      const scanned = suggestedLegislations
+        .filter(
+          (suggestion) =>
+            !manual.some((item) =>
+              isSameLegislation(item.legislation, suggestion.legislation)
+            )
+        )
+        .map(toSuggestedDraft);
+
+      return [...manual, ...scanned];
+    });
   }
+
+  function isLegislationKept(suggestion: SuggestedLegislation) {
+    return legislations.some((item) =>
+      isSameLegislation(item.legislation, suggestion.legislation)
+    );
+  }
+
+  function handleToggleSuggestedLegislation(
+    suggestion: SuggestedLegislation,
+    keep: boolean
+  ) {
+    setLegislations((current) => {
+      const withoutIt = current.filter(
+        (item) => !isSameLegislation(item.legislation, suggestion.legislation)
+      );
+
+      return keep ? [...withoutIt, toSuggestedDraft(suggestion)] : withoutIt;
+    });
+  }
+
+  function handleSuggestedLegislationImpact(
+    suggestion: SuggestedLegislation,
+    impact: LegislationImpact | null
+  ) {
+    setFoundLegislations((current) =>
+      current.map((item) =>
+        isSameLegislation(item.legislation, suggestion.legislation)
+          ? { ...item, impact }
+          : item
+      )
+    );
+    setLegislations((current) =>
+      current.map((item) =>
+        item.source === 'SCAN' &&
+        isSameLegislation(item.legislation, suggestion.legislation)
+          ? { ...item, impact }
+          : item
+      )
+    );
+  }
+
+  const isIncomplete = !isValid && !createdLicense;
 
   const submit = handleSubmit(async (values) => {
     let license = createdLicense;
@@ -267,7 +358,8 @@ export function NewLicenseModal({
               ? { legislationId: item.legislationId }
               : { legislation: item.legislation }),
             citedExcerpt: item.citedExcerpt,
-            source: 'MANUAL' as const,
+            source: item.source,
+            impact: item.impact,
           }))
         );
         setLegislationsSaved(true);
@@ -392,6 +484,14 @@ export function NewLicenseModal({
 
           <LicenseConditionsTable control={control} disabled={isSubmitting} />
 
+          <SuggestedLegislationsList
+            disabled={isSubmitting}
+            isSelected={isLegislationKept}
+            onImpactChange={handleSuggestedLegislationImpact}
+            onToggle={handleToggleSuggestedLegislation}
+            suggestions={foundLegislations}
+          />
+
           <section
             aria-label="Legislações"
             className="col-span-2 flex flex-col gap-3 rounded-panel border border-border p-4 max-[560px]:col-span-1"
@@ -425,9 +525,16 @@ export function NewLicenseModal({
                     }
                   >
                     <div className="min-w-0">
-                      <p className="m-0 text-xs font-bold text-text-primary">
-                        {formatLegislationType(item.legislation.type)}{' '}
-                        {formatLegislationNumber(item.legislation)}
+                      <p className="m-0 flex items-center gap-2 text-xs font-bold text-text-primary">
+                        <span>
+                          {formatLegislationType(item.legislation.type)}{' '}
+                          {formatLegislationNumber(item.legislation)}
+                        </span>
+                        {item.source === 'SCAN' ? (
+                          <span className="rounded-control bg-blue-100 px-2 py-0.5 text-[11px] text-blue-800">
+                            IA
+                          </span>
+                        ) : null}
                       </p>
                       {item.legislation.summary ? (
                         <p className="m-0 truncate text-xs text-text-secondary">
@@ -480,13 +587,24 @@ export function NewLicenseModal({
             >
               Cancelar
             </Button>
-            <Button
-              disabled={(!isValid && !createdLicense) || isSubmitting}
-              type="submit"
-              variant="dialogPrimary"
-            >
-              {isSubmitting ? 'Salvando...' : 'Salvar Licença'}
-            </Button>
+            {/* A disabled button gets no hover events, so the wrapper carries the hint. */}
+            <span className="group relative inline-flex">
+              <Button
+                disabled={isIncomplete || isSubmitting}
+                type="submit"
+                variant="dialogPrimary"
+              >
+                {isSubmitting ? 'Salvando...' : 'Salvar Licença'}
+              </Button>
+              {isIncomplete ? (
+                <span
+                  className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 hidden w-max max-w-[260px] rounded-sm border border-[#fedf89] bg-[#fffaeb] px-3 py-2 text-[13px] font-semibold text-[#b54708] shadow-md group-hover:block"
+                  role="tooltip"
+                >
+                  {INCOMPLETE_FORM_MESSAGE}
+                </span>
+              ) : null}
+            </span>
           </DialogFooter>
         </form>
 
@@ -503,7 +621,12 @@ export function NewLicenseModal({
                   item.legislation.issuingBody ===
                     result.legislation.issuingBody
             );
-            if (!duplicate) setLegislations((current) => [...current, result]);
+            if (!duplicate) {
+              setLegislations((current) => [
+                ...current,
+                { ...result, source: 'MANUAL' },
+              ]);
+            }
           }}
           open={isLegislationModalOpen}
         />

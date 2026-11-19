@@ -49,6 +49,7 @@ const EXTRACTION: LicenseExtraction = {
       dueDate: '2026-12-31',
     },
   ],
+  suggestedLegislations: [],
 };
 
 const CREATED_LICENSE = {
