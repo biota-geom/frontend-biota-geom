@@ -2,9 +2,8 @@ export const ALERT_MESSAGES = {
   title: 'Notificações',
   viewAll: 'Ver todas',
   centralTitle: 'Central de notificações',
-  centralPlaceholder:
-    'A Central de notificações está em preparação. Consulte os alertas pendentes pelo sino no cabeçalho.',
   description: 'Alertas pendentes das suas empresas.',
+  centralDescription: 'Histórico de notificações de todas as suas empresas.',
   empty: 'Nenhuma notificação pendente',
   loading: 'Carregando notificações...',
   updating: 'Atualizando notificações...',
