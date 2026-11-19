@@ -2,11 +2,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ALERT_MESSAGES } from '../../features/alerts/alertMessages';
 import { AlertsContext } from '../../features/alerts/useAlerts';
 import type { Alert, AlertsPage } from '../../features/alerts/types';
 import { useCompanies } from '../../features/companies/useCompanies';
 import type { CompanyListItem } from '../../features/companies/types';
 import { AdminNotificationsPage } from '../../pages/admin/Notifications/AdminNotificationsPage';
+import { ApiError } from '../../services/api/apiError';
 import {
   listAlerts,
   markAllAlertsAsRead,
@@ -61,7 +63,9 @@ function LocationProbe() {
   return <p data-testid="location">{pathname}</p>;
 }
 
-function renderPage() {
+function renderPage(
+  markAsRead = vi.fn().mockResolvedValue({ ...ALERT, status: 'READ' })
+) {
   return render(
     <AlertsContext.Provider
       value={{
@@ -76,7 +80,7 @@ function renderPage() {
         refreshAlerts: vi.fn().mockResolvedValue(undefined),
         pendingReadIds: [],
         readErrors: {},
-        markAsRead: vi.fn().mockResolvedValue({ ...ALERT, status: 'READ' }),
+        markAsRead,
       }}
     >
       <MemoryRouter initialEntries={['/admin/notifications']}>
@@ -279,6 +283,144 @@ describe('AdminNotificationsPage', () => {
     expect(listAlerts).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 1 })
     );
+  });
+
+  it('pages through the results and disables the buttons at both ends', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText('Página 1 de 3')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Próxima' }));
+    expect(await screen.findByText('Página 2 de 3')).toBeVisible();
+    expect(listAlerts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2, pageSize: 10 })
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Próxima' }));
+    expect(await screen.findByText('Página 3 de 3')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Próxima' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Anterior' }));
+    expect(await screen.findByText('Página 2 de 3')).toBeVisible();
+  });
+
+  it('goes back to the first page when a tab or filter changes', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Próxima' }));
+    expect(await screen.findByText('Página 2 de 3')).toBeVisible();
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Filtrar por severidade' }),
+      'LOW'
+    );
+
+    expect(await screen.findByText('Página 1 de 3')).toBeVisible();
+    expect(listAlerts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, severity: ['LOW'] })
+    );
+  });
+
+  it.each([
+    ['Lidas', 'Não há notificações lidas.'],
+    ['Resolvidas', 'Não há notificações resolvidas.'],
+    ['Todas', 'Nenhuma notificação encontrada.'],
+  ])('shows the empty state of the %s tab', async (tabName, message) => {
+    const user = userEvent.setup();
+    vi.mocked(listAlerts).mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 10,
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('tab', { name: tabName }));
+
+    expect(await screen.findByText(message)).toBeVisible();
+    expect(
+      screen.queryByRole('navigation', { name: 'Paginação das notificações' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the API error and reloads the list on "Tentar novamente"', async () => {
+    const user = userEvent.setup();
+    vi.mocked(listAlerts).mockRejectedValueOnce(
+      new ApiError(500, 'Falha ao carregar.')
+    );
+    renderPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Falha ao carregar.'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+
+    expect(
+      await screen.findByRole('heading', { name: ALERT.title })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the generic message for an unexpected load failure', async () => {
+    vi.mocked(listAlerts).mockRejectedValueOnce(new Error('boom'));
+    renderPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      ALERT_MESSAGES.listError
+    );
+  });
+
+  it('shows the error and keeps the notification when resolving fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(updateAlertStatus).mockRejectedValue(
+      new ApiError(404, 'Notificação não encontrada.')
+    );
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Marcar como resolvida' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Notificação não encontrada.'
+    );
+    expect(
+      screen.getByRole('heading', { name: ALERT.title })
+    ).toBeInTheDocument();
+  });
+
+  it('shows a message when marking everything as read fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(markAllAlertsAsRead).mockRejectedValue(new Error('boom'));
+    renderPage();
+    await screen.findByRole('heading', { name: ALERT.title });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Marcar todas como lidas' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível marcar as notificações como lidas.'
+    );
+  });
+
+  it('opens an already read notification without marking it as read again', async () => {
+    const user = userEvent.setup();
+    const markAsRead = vi.fn();
+    renderPage(markAsRead);
+    await user.click(await screen.findByRole('tab', { name: 'Lidas' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Abrir' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/companies/company-1/licenses/license-1'
+      );
+    });
+    expect(markAsRead).not.toHaveBeenCalled();
   });
 
   it('marks an unread notification as read before opening its license', async () => {
