@@ -27,12 +27,18 @@ vi.mock('../../services/api/licensesApi', () => ({
   getLicenseDetails: vi.fn(),
   listLicenses: vi.fn(),
 }));
+vi.mock('../../services/api/alertsApi', () => ({
+  getUnreadAlertsCount: vi.fn(),
+  listAlerts: vi.fn(),
+  markAlertAsRead: vi.fn(),
+}));
 
 const companiesApi = await import('../../services/api/companiesApi');
 const customersApi = await import('../../services/api/customersApi');
 const licenseConditionsApi =
   await import('../../services/api/licenseConditionsApi');
 const licensesApi = await import('../../services/api/licensesApi');
+const alertsApi = await import('../../services/api/alertsApi');
 
 const COMPANY_ID = 'customer-1';
 
@@ -59,6 +65,7 @@ describe('CompanyConditionsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     useCompanyContext.getState().clearCompany();
+    vi.mocked(alertsApi.getUnreadAlertsCount).mockResolvedValue(0);
     vi.mocked(companiesApi.getCompanyById).mockResolvedValue(
       COMPANY_IN_CONTEXT
     );
@@ -478,6 +485,84 @@ describe('CompanyConditionsPage', () => {
         screen.getByRole('article', { name: condition.name })
       ).findByText('Violada')
     ).toBeInTheDocument();
+    // Saving may resolve the condition alerts, so the bell count is reloaded.
+    await waitFor(() =>
+      expect(alertsApi.getUnreadAlertsCount).toHaveBeenCalledTimes(2)
+    );
+  });
+
+  it('renders "Entregue", "Não entregue" and omits delivery tag according to hasDelivery and isFulfilled', async () => {
+    vi.mocked(licenseConditionsApi.listLicenseConditions).mockResolvedValue({
+      total: 3,
+      conditions: [
+        {
+          id: 'cond-delivered',
+          licenseId: 'license-1',
+          name: 'Automonitoramento Atmosférico',
+          description: 'Avaliação periódica de emissões.',
+          environmentalDescriptor: 'Emissões',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-02-11T00:00:00.000Z',
+          status: 'Regular',
+          hasDelivery: true,
+          isViolated: false,
+          riskLevel: 'REGULAR',
+          isFulfilled: true,
+        },
+        {
+          id: 'cond-pending',
+          licenseId: 'license-1',
+          name: 'Relatório Semestral de Efluentes Líquidos',
+          description: 'Laudos de análises.',
+          environmentalDescriptor: 'Recursos Hídricos',
+          responsibleAgency: 'FEPAM',
+          dueDate: '2026-04-01T00:00:00.000Z',
+          status: 'Atenção',
+          hasDelivery: true,
+          isViolated: false,
+          riskLevel: 'ATTENTION',
+          isFulfilled: false,
+        },
+        {
+          id: 'cond-no-delivery',
+          licenseId: 'license-1',
+          name: 'Manutenção de Cerca',
+          description: 'Cerca da servidão.',
+          environmentalDescriptor: 'Biodiversidade',
+          responsibleAgency: 'IBAMA',
+          dueDate: '2026-06-01T00:00:00.000Z',
+          status: 'Regular',
+          hasDelivery: false,
+          isViolated: false,
+          riskLevel: 'REGULAR',
+        },
+      ],
+    });
+
+    renderConditionsPage();
+
+    const deliveredCard = await screen.findByRole('article', {
+      name: 'Automonitoramento Atmosférico',
+    });
+    expect(within(deliveredCard).getByText('REGULAR')).toBeInTheDocument();
+    expect(within(deliveredCard).getByText('Entregue')).toBeInTheDocument();
+
+    const pendingCard = await screen.findByRole('article', {
+      name: 'Relatório Semestral de Efluentes Líquidos',
+    });
+    expect(within(pendingCard).getByText('ATENÇÃO')).toBeInTheDocument();
+    expect(within(pendingCard).getByText('Não entregue')).toBeInTheDocument();
+
+    const noDeliveryCard = await screen.findByRole('article', {
+      name: 'Manutenção de Cerca',
+    });
+    expect(within(noDeliveryCard).getByText('REGULAR')).toBeInTheDocument();
+    expect(
+      within(noDeliveryCard).queryByText('Entregue')
+    ).not.toBeInTheDocument();
+    expect(
+      within(noDeliveryCard).queryByText('Não entregue')
+    ).not.toBeInTheDocument();
   });
 
   it('lets the company conditions editor assign a same-descriptor parent', async () => {

@@ -5,6 +5,7 @@ export const APP_ROUTES = {
   admin: {
     root: '/admin',
     companies: '/admin/companies',
+    notifications: '/admin/notifications',
     indicators: '/admin/indicators',
   },
   company: {

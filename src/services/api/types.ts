@@ -1,7 +1,38 @@
+import type {
+  AlertSeverity,
+  AlertStatus,
+  AlertType,
+} from '../../features/alerts/types';
+
 /*
  * Wire shapes match the backend contract exactly (snake_case) — never rename
  * these fields, they're what actually crosses the network.
  */
+export interface AlertWire {
+  id: string;
+  type: AlertType;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  title: string;
+  message: string;
+  due_date: string;
+  customer: { id: string; name: string };
+  license: { id: string; type: string; process_number: string };
+  condition: { id: string; name: string } | null;
+  created_at: string;
+}
+
+export interface AlertsPageWire {
+  items: AlertWire[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface UnreadAlertsCountWire {
+  count: number;
+}
+
 export interface UserWire {
   id: string;
   name: string;
@@ -342,6 +373,8 @@ export interface LicenseConditionWire {
   has_delivery: boolean;
   is_violated: boolean;
   risk_level: 'REGULAR' | 'ATTENTION' | 'RISK';
+  condition_status?: string | null;
+  completion_date?: string | null;
 }
 
 export interface LicenseConditionsResponseWire {
@@ -488,6 +521,23 @@ export interface LegislationInputWire {
 export type AddLicenseLegislationRequestWire =
   | { legislation_id: string; cited_excerpt?: string | null }
   | { legislation: LegislationInputWire; cited_excerpt?: string | null };
+
+export interface BatchLicenseLegislationRequestWire {
+  legislations: Array<
+    | {
+        legislation_id: string;
+        cited_excerpt?: string | null;
+        source: 'MANUAL' | 'SCAN';
+        impact?: LegislationImpactWire;
+      }
+    | {
+        legislation: LegislationInputWire;
+        cited_excerpt?: string | null;
+        source: 'MANUAL' | 'SCAN';
+        impact?: LegislationImpactWire;
+      }
+  >;
+}
 
 export interface UpdateLicenseLegislationRequestWire {
   cited_excerpt?: string | null;

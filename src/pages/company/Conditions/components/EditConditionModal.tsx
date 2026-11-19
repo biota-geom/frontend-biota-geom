@@ -30,6 +30,7 @@ import {
 import type { LicenseCondition } from '../../../../features/licenseConditions/types';
 import { ApiError } from '../../../../services/api/apiError';
 import { updateLicenseCondition } from '../../../../services/api/licenseConditionsApi';
+import { useRefreshAlerts } from '../../../../features/alerts/useAlerts';
 
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível atualizar a condicionante. Tente novamente mais tarde.';
@@ -68,6 +69,7 @@ export function EditConditionModal({
   onUpdated,
   open,
 }: EditConditionModalProps) {
+  const refreshAlerts = useRefreshAlerts();
   const [parentData, setParentData] = useState<{
     conditionId: string;
     conditions: LicenseConditionDetail[];
@@ -197,6 +199,8 @@ export function EditConditionModal({
                 parentConditionId === 'none' ? null : parentConditionId,
             }),
       });
+      // A new due date or fulfillment resolves the condition's alerts.
+      void refreshAlerts();
       onUpdated(values.name);
       setParentData(null);
       setParentSelection(null);

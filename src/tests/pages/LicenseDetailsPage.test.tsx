@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LicenseDetails } from '../../features/licenses/types';
 import { LicenseDetailsPage } from '../../pages/company/LicenseDetails/LicenseDetailsPage';
 import { MOCK_LICENSE_LEGISLATIONS } from '../../features/legislation/legislations.mock';
@@ -24,6 +24,7 @@ vi.mock('../../services/api/legislationsApi', async (importOriginal) => ({
   >()),
   getLicenseLegislations: vi.fn(),
   addLicenseLegislation: vi.fn(),
+  searchLegislationCatalog: vi.fn().mockResolvedValue([]),
   updateLicenseLegislation: vi.fn(),
   removeLicenseLegislation: vi.fn(),
 }));
@@ -192,11 +193,16 @@ async function fillConditionRow(
  * right at the global 10s testTimeout. Those flows pass 20_000 instead.
  */
 describe('LicenseDetailsPage', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue(DETAILS);
     vi.mocked(licensesApi.getLicenseHistory).mockResolvedValue([]);
     vi.mocked(legislationsApi.getLicenseLegislations).mockResolvedValue([]);
+    vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([]);
     vi.mocked(licensesApi.renewLicense).mockResolvedValue({
       id: 'license-2',
       previousLicenseId: 'license-1',
@@ -1341,6 +1347,16 @@ describe('LicenseDetailsPage', () => {
       vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
         RADAR[2]
       );
+      vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([
+        {
+          id: RADAR[2].legislation.id,
+          type: RADAR[2].legislation.type,
+          number: RADAR[2].legislation.number,
+          year: RADAR[2].legislation.year,
+          issuingBody: RADAR[2].legislation.issuingBody,
+          summary: RADAR[2].legislation.summary,
+        },
+      ]);
       const user = userEvent.setup();
       renderDetailsPage();
 
@@ -1351,15 +1367,67 @@ describe('LicenseDetailsPage', () => {
         })
       );
       const dialog = await screen.findByRole('dialog');
+      await user.type(
+        within(dialog).getByLabelText('Pesquisar no catálogo (opcional)'),
+        '9.605'
+      );
+      await user.click(
+        await within(dialog).findByRole('option', {
+          name: /Lei nº 9\.605\/1998/,
+        })
+      );
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Adicionar legislação' })
+      );
+
+      expect(
+        await screen.findByText('Legislação adicionada ao radar.')
+      ).toBeInTheDocument();
+      expect(legislationsApi.addLicenseLegislation).toHaveBeenCalledWith(
+        'license-1',
+        {
+          legislationId: RADAR[2].legislation.id,
+          citedExcerpt: null,
+        }
+      );
+      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }, 20_000);
+
+    it('creates a new legislation when the catalog has no match', async () => {
+      vi.mocked(legislationsApi.addLicenseLegislation).mockResolvedValue(
+        RADAR[2]
+      );
+      vi.mocked(legislationsApi.searchLegislationCatalog).mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderDetailsPage();
+
+      const radar = await findRadar();
+      await user.click(
+        await within(radar).findByRole('button', {
+          name: 'Adicionar legislação',
+        })
+      );
+      const dialog = await screen.findByRole('dialog');
+      await user.type(
+        within(dialog).getByLabelText('Pesquisar no catálogo (opcional)'),
+        'Resolução ambiental'
+      );
+      await within(dialog).findByText(
+        'Nenhuma legislação encontrada no catálogo. Preencha os dados abaixo para cadastrar uma nova.'
+      );
+
       await user.click(
         within(dialog).getByRole('combobox', { name: 'Tipo da legislação' })
       );
-      await user.click(screen.getByRole('option', { name: 'Lei' }));
-      await user.type(within(dialog).getByLabelText('Número *'), '9.605');
-      await user.type(within(dialog).getByLabelText('Ano *'), '1998');
+      await user.click(
+        await screen.findByRole('option', { name: 'Resolução' })
+      );
+      await user.type(within(dialog).getByLabelText('Número *'), '237');
+      await user.type(within(dialog).getByLabelText('Ano *'), '1997');
       await user.type(
         within(dialog).getByLabelText('Órgão emissor *'),
-        'Governo Federal'
+        'CONAMA'
       );
       await user.click(
         within(dialog).getByRole('button', { name: 'Adicionar legislação' })
@@ -1372,17 +1440,15 @@ describe('LicenseDetailsPage', () => {
         'license-1',
         {
           legislation: {
-            type: 'LEI',
-            number: '9.605',
-            year: 1998,
-            issuingBody: 'Governo Federal',
+            type: 'RESOLUCAO',
+            number: '237',
+            year: 1997,
+            issuingBody: 'CONAMA',
             summary: null,
           },
           citedExcerpt: null,
         }
       );
-      expect(legislationsApi.getLicenseLegislations).toHaveBeenCalledTimes(2);
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     }, 20_000);
 
     it('edits only the excerpt when the act data is untouched', async () => {

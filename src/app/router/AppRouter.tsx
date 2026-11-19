@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import {
   BrowserRouter,
   Navigate,
+  Outlet,
   Route,
   Routes,
   useParams,
@@ -10,8 +11,10 @@ import { FullPageLoader } from '../../components/feedback/FullPageLoader';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { CompanyLayout } from '../../components/layout/CompanyLayout';
 import { useAuth } from '../../features/auth/useAuth';
+import { AlertsProvider } from '../../features/alerts/AlertsProvider';
 import { useInactivityLogout } from '../../features/auth/useInactivityLogout';
 import { AdminCompaniesPage } from '../../pages/admin/Companies/AdminCompaniesPage';
+import { AdminNotificationsPage } from '../../pages/admin/Notifications/AdminNotificationsPage';
 import { AdminIndicatorsPage } from '../../pages/admin/Indicators/AdminIndicatorsPage';
 import { CompanyDashboardPage } from '../../pages/company/Dashboard/CompanyDashboardPage';
 import { CompanyConditionsPage } from '../../pages/company/Conditions/CompanyConditionsPage';
@@ -79,36 +82,47 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
-        <Route path={APP_ROUTES.admin.root} element={<AdminLayout />}>
-          <Route
-            index
-            element={<Navigate to={APP_ROUTES.admin.companies} replace />}
-          />
-          <Route path="companies" element={<AdminCompaniesPage />} />
-          <Route path="indicators" element={<AdminIndicatorsPage />} />
-        </Route>
-
-        <Route path={APP_ROUTES.company.root} element={<CompanyLayout />}>
-          <Route index element={<CompanyRootRedirect />} />
-          <Route path="dashboard" element={<CompanyDashboardPage />} />
-          <Route path="licenses" element={<CompanyLicensesPage />} />
-          <Route path="licenses/:licenseId" element={<LicenseDetailsPage />} />
-          <Route path="conditions" element={<CompanyConditionsPage />} />
-          {/*
-           * A página "Legislação" da Empresa saiu (US31): o radar agora vive
-           * nos detalhes de cada licença. A URL antiga continua válida e leva
-           * para o painel da Empresa em vez de cair no catch-all.
-           */}
-          <Route path="legislation" element={<CompanyRootRedirect />} />
-          <Route path="indicators" element={<CompanyIndicatorsPage />} />
-          <Route path="esg" element={<CompanyIndicatorsPage />} />
-          <Route path="documents" element={<CompanyDocumentsPage />} />
-        </Route>
-
         <Route
-          path={APP_ROUTES.customer.esg}
-          element={<CustomerEsgRedirect />}
-        />
+          element={
+            <AlertsProvider>
+              <Outlet />
+            </AlertsProvider>
+          }
+        >
+          <Route path={APP_ROUTES.admin.root} element={<AdminLayout />}>
+            <Route
+              index
+              element={<Navigate to={APP_ROUTES.admin.companies} replace />}
+            />
+            <Route path="companies" element={<AdminCompaniesPage />} />
+            <Route
+              path={APP_ROUTES.admin.notifications}
+              element={<AdminNotificationsPage />}
+            />
+            <Route path="indicators" element={<AdminIndicatorsPage />} />
+          </Route>
+
+          <Route path={APP_ROUTES.company.root} element={<CompanyLayout />}>
+            <Route index element={<CompanyRootRedirect />} />
+            <Route path="dashboard" element={<CompanyDashboardPage />} />
+            <Route path="licenses" element={<CompanyLicensesPage />} />
+            <Route
+              path="licenses/:licenseId"
+              element={<LicenseDetailsPage />}
+            />
+            <Route path="conditions" element={<CompanyConditionsPage />} />
+            {/* US31 moved legislation to license details; keep legacy URLs valid. */}
+            <Route path="legislation" element={<CompanyRootRedirect />} />
+            <Route path="indicators" element={<CompanyIndicatorsPage />} />
+            <Route path="esg" element={<CompanyIndicatorsPage />} />
+            <Route path="documents" element={<CompanyDocumentsPage />} />
+          </Route>
+
+          <Route
+            path={APP_ROUTES.customer.esg}
+            element={<CustomerEsgRedirect />}
+          />
+        </Route>
       </Route>
 
       <Route path="*" element={<Navigate to={APP_ROUTES.root} replace />} />
