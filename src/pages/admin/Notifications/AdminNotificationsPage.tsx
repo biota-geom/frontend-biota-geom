@@ -23,12 +23,11 @@ import {
 
 const PAGE_SIZE = 10;
 
-type NotificationTab = AlertStatus | 'UNRESOLVED' | 'ALL';
+type NotificationTab = AlertStatus | 'ALL';
 
 const TABS: Array<{ label: string; value: NotificationTab }> = [
   { label: 'Não lidas', value: 'OPEN' },
   { label: 'Lidas', value: 'READ' },
-  { label: 'Não resolvidas', value: 'UNRESOLVED' },
   { label: 'Resolvidas', value: 'RESOLVED' },
   { label: 'Todas', value: 'ALL' },
 ];
@@ -54,7 +53,6 @@ const SEVERITY_CLASSES: Record<AlertSeverity, string> = {
 const EMPTY_MESSAGES: Record<NotificationTab, string> = {
   OPEN: 'Não há notificações não lidas.',
   READ: 'Não há notificações lidas.',
-  UNRESOLVED: 'Não há notificações não resolvidas.',
   RESOLVED: 'Não há notificações resolvidas.',
   ALL: 'Nenhuma notificação encontrada.',
 };
@@ -72,10 +70,7 @@ function formatCreationDate(value: string): string {
 }
 
 function statusesForTab(tab: NotificationTab): AlertStatus[] {
-  if (tab === 'ALL') return ['OPEN', 'READ', 'RESOLVED'];
-  if (tab === 'UNRESOLVED') return ['OPEN', 'READ'];
-  if (tab === 'READ') return ['READ', 'RESOLVED'];
-  return [tab];
+  return tab === 'ALL' ? ['OPEN', 'READ', 'RESOLVED'] : [tab];
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -107,7 +102,6 @@ export function AdminNotificationsPage() {
   const [pendingAlertId, setPendingAlertId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const requestSequence = useRef(0);
-  const shouldFallbackToUnresolved = useRef(true);
 
   useEffect(() => {
     void fetchCompanies();
@@ -127,20 +121,6 @@ export function AdminNotificationsPage() {
         pageSize: PAGE_SIZE,
       });
       if (requestId !== requestSequence.current) return;
-      if (
-        shouldFallbackToUnresolved.current &&
-        tab === 'OPEN' &&
-        page === 1 &&
-        !customerId &&
-        !type &&
-        !severity &&
-        result.total === 0
-      ) {
-        shouldFallbackToUnresolved.current = false;
-        setTab('UNRESOLVED');
-        return;
-      }
-      shouldFallbackToUnresolved.current = false;
       setItems(result.items);
       setTotal(result.total);
       setLoadStatus('success');

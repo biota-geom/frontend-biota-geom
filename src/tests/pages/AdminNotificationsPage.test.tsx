@@ -121,21 +121,23 @@ describe('AdminNotificationsPage', () => {
     });
   });
 
-  it('defaults to unread, then switches to unresolved when there are no unread alerts', async () => {
+  it('lists the four tabs of the task and stays on the unread one even when it is empty', async () => {
     apiState.noUnread = true;
     renderPage();
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole('tab', { name: 'Não resolvidas' })
-      ).toHaveAttribute('aria-selected', 'true');
-    });
-    expect(listAlerts).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ status: ['OPEN'] })
+    expect(
+      (await screen.findAllByRole('tab')).map((tab) => tab.textContent)
+    ).toEqual(['Não lidas', 'Lidas', 'Resolvidas', 'Todas']);
+    expect(
+      await screen.findByText('Não há notificações não lidas.')
+    ).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Não lidas' })).toHaveAttribute(
+      'aria-selected',
+      'true'
     );
-    expect(listAlerts).toHaveBeenLastCalledWith(
-      expect.objectContaining({ status: ['OPEN', 'READ'] })
+    expect(listAlerts).toHaveBeenCalledTimes(1);
+    expect(listAlerts).toHaveBeenCalledWith(
+      expect.objectContaining({ status: ['OPEN'] })
     );
   });
 
@@ -193,7 +195,7 @@ describe('AdminNotificationsPage', () => {
     });
   });
 
-  it('shows resolved notifications in both resolved and read tabs', async () => {
+  it('moves a resolved notification to the resolved tab and keeps the read tab to READ only', async () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByRole('heading', { name: ALERT.title });
@@ -221,7 +223,7 @@ describe('AdminNotificationsPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Lidas' }));
     await waitFor(() => {
       expect(listAlerts).toHaveBeenLastCalledWith({
-        status: ['READ', 'RESOLVED'],
+        status: ['READ'],
         customerId: undefined,
         type: undefined,
         severity: undefined,
@@ -229,9 +231,13 @@ describe('AdminNotificationsPage', () => {
         pageSize: 10,
       });
     });
-    expect(
-      await screen.findByRole('heading', { name: ALERT.title })
-    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Todas' }));
+    await waitFor(() => {
+      expect(listAlerts).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: ['OPEN', 'READ', 'RESOLVED'] })
+      );
+    });
   });
 
   it('marks an unread notification as read before opening its license', async () => {
