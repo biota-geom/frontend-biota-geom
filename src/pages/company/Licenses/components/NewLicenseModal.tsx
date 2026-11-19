@@ -45,6 +45,7 @@ import type { LegislationImpact } from '../../../../features/legislation/types';
 import { createLicenseLegislationsBatch } from '../../../../services/api/legislationsApi';
 import { SuggestedLegislationsList } from './SuggestedLegislationsList';
 
+const INCOMPLETE_FORM_MESSAGE = 'Preencha o restante das informações.';
 const GENERIC_ERROR_MESSAGE =
   'Não foi possível cadastrar a licença. Tente novamente mais tarde.';
 const CONDITIONS_ERROR_PREFIX =
@@ -298,6 +299,8 @@ export function NewLicenseModal({
       )
     );
   }
+
+  const isIncomplete = !isValid && !createdLicense;
 
   const submit = handleSubmit(async (values) => {
     let license = createdLicense;
@@ -584,13 +587,24 @@ export function NewLicenseModal({
             >
               Cancelar
             </Button>
-            <Button
-              disabled={(!isValid && !createdLicense) || isSubmitting}
-              type="submit"
-              variant="dialogPrimary"
-            >
-              {isSubmitting ? 'Salvando...' : 'Salvar Licença'}
-            </Button>
+            {/* A disabled button gets no hover events, so the wrapper carries the hint. */}
+            <span className="group relative inline-flex">
+              <Button
+                disabled={isIncomplete || isSubmitting}
+                type="submit"
+                variant="dialogPrimary"
+              >
+                {isSubmitting ? 'Salvando...' : 'Salvar Licença'}
+              </Button>
+              {isIncomplete ? (
+                <span
+                  className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 hidden w-max max-w-[260px] rounded-sm border border-[#fedf89] bg-[#fffaeb] px-3 py-2 text-[13px] font-semibold text-[#b54708] shadow-md group-hover:block"
+                  role="tooltip"
+                >
+                  {INCOMPLETE_FORM_MESSAGE}
+                </span>
+              ) : null}
+            </span>
           </DialogFooter>
         </form>
 
