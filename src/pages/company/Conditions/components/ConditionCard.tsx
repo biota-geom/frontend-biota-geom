@@ -1,4 +1,5 @@
 import { AlertTriangle, Check, Pencil, Trash2, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { isInformativeConditionType } from '../../../../features/licenses/licenseDetailsFormatting';
 import type {
   LicenseCondition,
@@ -48,9 +49,11 @@ function formatDueDate(value: string | null): string {
 
 export function ConditionCard({
   condition,
+  licenseHref,
   onEdit,
 }: {
   condition: LicenseCondition;
+  licenseHref?: string;
   onEdit: (condition: LicenseCondition) => void;
 }) {
   const effectiveRiskLevel = isInformativeConditionType(condition.conditionType)
@@ -136,8 +139,17 @@ export function ConditionCard({
 
       <div
         aria-label="Ações da condicionante"
-        className="flex shrink-0 items-center gap-2"
+        className="flex shrink-0 items-center gap-2 max-[720px]:flex-wrap"
       >
+        {licenseHref ? (
+          <Link
+            aria-label={`Ver licença de ${condition.name}`}
+            className="mr-1 inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-bold text-primary-strong no-underline hover:underline hover:underline-offset-[3px]"
+            to={licenseHref}
+          >
+            Ver licença <span aria-hidden="true">→</span>
+          </Link>
+        ) : null}
         <button
           aria-label={`Editar ${condition.name}`}
           className="rounded-control flex h-7 w-7 items-center justify-center bg-surface-muted text-text-secondary"

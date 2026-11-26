@@ -158,9 +158,18 @@ describe('CompanyConditionsPage', () => {
     expect(
       screen.getByText('Automonitoramento Atmosférico')
     ).toBeInTheDocument();
+    const riskCard = screen.getByRole('article', {
+      name: 'Automonitoramento Atmosférico',
+    });
+    expect(riskCard).toHaveClass('border-rose-500');
     expect(
-      screen.getByRole('article', { name: 'Automonitoramento Atmosférico' })
-    ).toHaveClass('border-rose-500');
+      within(riskCard).getByRole('link', {
+        name: 'Ver licença de Automonitoramento Atmosférico',
+      })
+    ).toHaveAttribute(
+      'href',
+      buildCompanyRoutes.licenseDetails(COMPANY_ID, 'license-1')
+    );
     expect(
       screen.getByText('MTR - Manifesto de Transporte de Resíduos')
     ).toBeInTheDocument();
