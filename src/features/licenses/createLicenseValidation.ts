@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { LicenseConditionBatchItemInput } from '../../services/api/licenseConditionsApi';
+import { isInformativeConditionType } from './licenseDetailsFormatting';
 export const CONDITION_TYPES = ['INFORMATIVE', 'PERIODIC'] as const;
 export const CONDITION_PERIODICITIES = [
   'MONTHLY',
@@ -48,7 +49,7 @@ export const licenseConditionRowSchema = z
         'Selecione um tipo válido.'
       ),
     periodicity: z.string(),
-    deadline: z.string().min(1, 'Informe o prazo.'),
+    deadline: z.string(),
     alertDate: z.string().optional(),
     responsibleName: z
       .string()
@@ -68,6 +69,16 @@ export const licenseConditionRowSchema = z
         code: 'custom',
         message: 'Selecione uma periodicidade válida.',
         path: ['periodicity'],
+      });
+    }
+    if (
+      !isInformativeConditionType(condition.conditionType) &&
+      condition.deadline.trim().length === 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Informe o prazo.',
+        path: ['deadline'],
       });
     }
     if (isAlertDateAfterDueDate(condition.alertDate, condition.deadline)) {
@@ -194,7 +205,7 @@ export function toLicenseConditionBatchItem(
     description: row.description,
     conditionType: row.conditionType,
     periodicity: row.periodicity || undefined,
-    deadline: toUtcIsoDate(row.deadline),
+    ...(row.deadline ? { deadline: toUtcIsoDate(row.deadline) } : {}),
     alertDate: row.alertDate ? toUtcIsoDate(row.alertDate) : undefined,
     responsibleName: row.responsibleName,
     hasDelivery: row.hasDelivery,

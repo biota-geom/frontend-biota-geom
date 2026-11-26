@@ -223,6 +223,38 @@ describe('licenseConditionsApi', () => {
     );
   });
 
+  it('omits deadline in the batch when an informative condition has none', async () => {
+    vi.mocked(request).mockResolvedValue(undefined);
+
+    await createLicenseConditions('customer-1', 'license-1', [
+      {
+        environmentalDescriptor: 'Resíduos sólidos',
+        description: 'Manter registros disponíveis',
+        conditionType: 'INFORMATIVE',
+        responsibleName: 'Julia Costa',
+        hasDelivery: false,
+      },
+    ]);
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/customers/customer-1/licenses/license-1/conditions',
+      {
+        method: 'POST',
+        body: {
+          conditions: [
+            {
+              environmental_descriptor: 'Resíduos sólidos',
+              description: 'Manter registros disponíveis',
+              condition_type: 'INFORMATIVE',
+              responsible_name: 'Julia Costa',
+              has_delivery: false,
+            },
+          ],
+        },
+      }
+    );
+  });
+
   it('maps the alert date of a listed condition', async () => {
     vi.mocked(request).mockResolvedValue({
       total: 1,

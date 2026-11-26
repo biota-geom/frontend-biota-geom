@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createLicenseConditionSchema } from '../../features/licenseConditions/createLicenseConditionValidation';
+import {
+  createEditLicenseConditionSchema,
+  createLicenseConditionSchema,
+} from '../../features/licenseConditions/createLicenseConditionValidation';
 
 const schema = createLicenseConditionSchema(
   new Date('2026-09-29T12:00:00.000Z')
@@ -74,5 +77,29 @@ describe('createLicenseConditionSchema', () => {
       name: 'MTR',
       responsibleAgency: 'FEPAM',
     });
+  });
+});
+
+describe('createEditLicenseConditionSchema', () => {
+  const BASE = {
+    name: 'MTR',
+    environmentalDescriptor: 'Resíduos sólidos',
+    responsibleAgency: 'FEPAM',
+    dueDate: '',
+    alertDate: '',
+    hasDelivery: false,
+    isViolated: false,
+    description: '',
+  };
+
+  it('requires dueDate by default and allows omitting it when requireDueDate is false', () => {
+    expect(createEditLicenseConditionSchema().safeParse(BASE).success).toBe(
+      false
+    );
+    expect(
+      createEditLicenseConditionSchema({ requireDueDate: false }).safeParse(
+        BASE
+      ).success
+    ).toBe(true);
   });
 });

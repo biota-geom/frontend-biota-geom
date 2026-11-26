@@ -80,6 +80,41 @@ describe('createLicenseSchema', () => {
       }).success
     ).toBe(true);
   });
+
+  it('allows an informative condition without a deadline while still requiring one for periodic conditions', () => {
+    const informativeWithoutDeadline = {
+      environmentalDescriptor: 'Água',
+      description: 'Manter registros disponíveis',
+      conditionType: 'INFORMATIVE',
+      periodicity: '',
+      deadline: '',
+      responsibleName: 'Lucas Silva',
+      hasDelivery: false,
+    };
+
+    expect(
+      createLicenseSchema.safeParse({
+        ...VALID,
+        conditions: [informativeWithoutDeadline],
+      }).success
+    ).toBe(true);
+    expect(
+      toLicenseConditionBatchItem(informativeWithoutDeadline).deadline
+    ).toBeUndefined();
+
+    expect(
+      messages({
+        ...VALID,
+        conditions: [
+          {
+            ...informativeWithoutDeadline,
+            conditionType: 'PERIODIC',
+            periodicity: 'ANNUAL',
+          },
+        ],
+      })
+    ).toContain('Informe o prazo.');
+  });
 });
 
 describe('toUtcIsoDate', () => {

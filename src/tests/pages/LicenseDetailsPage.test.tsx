@@ -73,7 +73,7 @@ const DETAILS: LicenseDetails = {
       environmentalDescriptor: 'Monitoramento de Estacionamento e Serviços',
       name: 'Controle da frota',
       description: 'Manter registros de estacionamento da frota.',
-      conditionType: 'Informativo',
+      conditionType: 'Periódico',
       periodicity: 'NA',
       deadline: null,
       status: 'Atendida',
@@ -396,7 +396,7 @@ describe('LicenseDetailsPage', () => {
       await screen.findByRole('option', { name: 'Informativo' })
     );
     await user.type(
-      within(conditionDialog).getByLabelText('Prazo'),
+      within(conditionDialog).getByLabelText('Prazo (opcional)'),
       '2026-10-30'
     );
     await user.type(
@@ -465,6 +465,32 @@ describe('LicenseDetailsPage', () => {
     expect(await screen.findByText('0 de 1 atendidas')).toBeInTheDocument();
     expect(
       screen.getByRole('row', { name: /1\.1\.1.*análise complementar/i })
+    ).toBeInTheDocument();
+  });
+
+  it('does not count informative conditions as non-compliant in license totals', async () => {
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      ...DETAILS,
+      conditions: [
+        ...DETAILS.conditions,
+        {
+          ...DETAILS.conditions[1],
+          id: 'condition-1-2',
+          itemNumber: '1.2',
+          description: 'Manter registros informativos arquivados.',
+          conditionType: 'Informativo',
+          deadline: null,
+          status: 'Em andamento',
+          completionDate: null,
+        },
+      ],
+    });
+
+    renderDetailsPage();
+
+    expect(await screen.findByText('1 de 1 atendidas')).toBeInTheDocument();
+    expect(
+      screen.getByText('Manter registros informativos arquivados.')
     ).toBeInTheDocument();
   });
 

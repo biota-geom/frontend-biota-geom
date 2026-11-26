@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { buildCompanyRoutes } from '../../../app/router/routes';
 import { SuccessToast } from '../../../components/feedback/SuccessToast';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import type {
@@ -97,6 +98,14 @@ export function CompanyConditionsPage() {
             <ConditionCard
               condition={condition}
               key={condition.id}
+              licenseHref={
+                companyId
+                  ? buildCompanyRoutes.licenseDetails(
+                      companyId,
+                      condition.licenseId
+                    )
+                  : undefined
+              }
               onEdit={setConditionToEdit}
             />
           ))}

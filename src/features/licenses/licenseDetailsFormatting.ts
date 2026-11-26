@@ -52,3 +52,12 @@ export function formatConditionPeriodicity(periodicity: string | null): string {
 export function isConditionFulfilled(status: string | null): boolean {
   return status === 'FULFILLED' || status === STATUS_LABELS.FULFILLED;
 }
+
+export function isInformativeConditionType(
+  conditionType: string | null | undefined
+): boolean {
+  return (
+    conditionType === 'INFORMATIVE' ||
+    conditionType === CONDITION_TYPE_LABELS.INFORMATIVE
+  );
+}

@@ -498,6 +498,58 @@ describe('RenewLicenseModal', () => {
       expect(renewButton).toBeEnabled();
     });
 
+    it('allows copying an informative condition without a new due date', async () => {
+      const user = userEvent.setup();
+      const onRenewed = vi.fn();
+      renderModal({
+        license: {
+          ...LICENSE,
+          conditions: [
+            {
+              ...condition('condition-info', '1.1', 'Manter MTR disponível.'),
+              conditionType: 'Informativo',
+              periodicity: 'NA',
+            },
+          ],
+        },
+        onRenewed,
+      });
+
+      const dialog = await goToConditionsStep(user);
+      await markFulfillment(user, dialog, '1.1', 'Cumprida');
+      await user.click(
+        within(dialog).getByRole('checkbox', {
+          name: 'Copiar para a nova licença (condicionante 1.1)',
+        })
+      );
+
+      expect(
+        within(dialog).getByText('Novo vencimento (opcional)')
+      ).toBeInTheDocument();
+      const renewButton = within(dialog).getByRole('button', {
+        name: 'Renovar Licença',
+      });
+      expect(renewButton).toBeEnabled();
+
+      await user.click(renewButton);
+
+      await waitFor(() =>
+        expect(licensesApi.renewLicense).toHaveBeenCalledWith(
+          'license-1',
+          expect.objectContaining({
+            conditions: [
+              {
+                conditionId: 'condition-info',
+                fulfilled: true,
+                copyToNew: true,
+              },
+            ],
+          })
+        )
+      );
+      expect(onRenewed).toHaveBeenCalled();
+    });
+
     it('marks every condition to copy through the shortcut', async () => {
       const user = userEvent.setup();
       renderModal({ license: LICENSE_WITH_CONDITIONS });

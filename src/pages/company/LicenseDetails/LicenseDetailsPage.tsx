@@ -11,6 +11,7 @@ import {
   formatConditionPeriodicity,
   formatConditionType,
   isConditionFulfilled,
+  isInformativeConditionType,
   formatLicenseStatus,
 } from '../../../features/licenses/licenseDetailsFormatting';
 import { useLicenseDetails } from '../../../features/licenses/useLicenseDetails';
@@ -231,7 +232,9 @@ export function LicenseDetailsPage() {
       .filter((id): id is string => Boolean(id))
   );
   const complianceConditions = conditions.filter(
-    (condition) => !parentConditionIds.has(condition.id ?? '')
+    (condition) =>
+      !parentConditionIds.has(condition.id ?? '') &&
+      !isInformativeConditionType(condition.conditionType)
   );
   const filteredConditions = conditionRows.filter((condition) =>
     `${condition.itemNumber} ${condition.environmentalDescriptor} ${condition.description}`

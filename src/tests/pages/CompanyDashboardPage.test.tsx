@@ -103,8 +103,49 @@ beforeEach(() => {
     compliancePercentage: 100,
   });
   vi.mocked(listLicenses).mockResolvedValue({
-    summary: { total: 0, regular: 0, attention: 0, expired: 0 },
-    licenses: [],
+    summary: { total: 4, regular: 2, attention: 1, expired: 1 },
+    licenses: [
+      {
+        id: 'license-1',
+        type: 'LO',
+        processNumber: 'LO 118/2020',
+        issuingAgency: 'FEPAM',
+        issueDate: '2020-01-10',
+        expirationDate: '2026-09-01',
+        status: 'Vencida',
+        documentUrl: null,
+      },
+      {
+        id: 'license-2',
+        type: 'LI',
+        processNumber: 'LI 200/2023',
+        issuingAgency: 'FEPAM',
+        issueDate: '2023-01-10',
+        expirationDate: '2026-10-15',
+        status: 'Atenção',
+        documentUrl: null,
+      },
+      {
+        id: 'license-3',
+        type: 'LP',
+        processNumber: 'LP 300/2024',
+        issuingAgency: 'FEPAM',
+        issueDate: '2024-01-10',
+        expirationDate: '2029-01-10',
+        status: 'Regular',
+        documentUrl: null,
+      },
+      {
+        id: 'license-4',
+        type: 'LO',
+        processNumber: 'LO 400/2025',
+        issuingAgency: 'FEPAM',
+        issueDate: '2025-01-10',
+        expirationDate: '2030-01-10',
+        status: 'Regular',
+        documentUrl: null,
+      },
+    ],
   });
   vi.mocked(getEsgIndicatorsSummary).mockResolvedValue({
     reference_month: '2026-09',
@@ -233,6 +274,10 @@ describe('CompanyDashboardPage', () => {
       counts: { regular: 0, attention: 0, expired: 0 },
       critical: [],
     });
+    vi.mocked(listLicenses).mockResolvedValue({
+      summary: { total: 0, regular: 0, attention: 0, expired: 0 },
+      licenses: [],
+    });
 
     renderWithAuth(<AppRoutes />, {
       status: 'authenticated',
@@ -249,6 +294,85 @@ describe('CompanyDashboardPage', () => {
     expect(counts).toHaveTextContent('Regulares');
     expect(counts).toHaveTextContent('Atenção');
     expect(counts).toHaveTextContent('Vencidas');
+  });
+
+  it('syncs dashboard counts and critical statuses with the licenses panel, excluding archived licenses', async () => {
+    mockedGetCompanyById.mockResolvedValue(company);
+    mockedGetLicenseDashboard.mockResolvedValue({
+      header: { activeLicenses: 9, pendingItems: 3 },
+      counts: { regular: 1, attention: 4, expired: 4 },
+      critical: [
+        {
+          id: 'license-archived',
+          type: 'LO',
+          processNumber: 'LO 001/2018',
+          expirationDate: '2022-01-01',
+          status: 'Vencida',
+        },
+      ],
+    });
+    vi.mocked(listLicenses).mockResolvedValue({
+      summary: { total: 3, regular: 1, attention: 1, expired: 1 },
+      licenses: [
+        {
+          id: 'license-reg',
+          type: 'LP',
+          processNumber: 'LP 10/2025',
+          issuingAgency: 'FEPAM',
+          issueDate: '2025-01-01',
+          expirationDate: '2029-01-01',
+          status: 'Regular',
+          documentUrl: null,
+        },
+        {
+          id: 'license-att',
+          type: 'LO',
+          processNumber: 'LO 20/2023',
+          issuingAgency: 'FEPAM',
+          issueDate: '2023-01-01',
+          expirationDate: '2026-12-01',
+          status: 'Atenção',
+          documentUrl: null,
+        },
+        {
+          id: 'license-archived',
+          type: 'LO',
+          processNumber: 'LO 001/2018',
+          issuingAgency: 'FEPAM',
+          issueDate: '2018-01-01',
+          expirationDate: '2022-01-01',
+          status: 'Renovada/Arquivada',
+          documentUrl: null,
+        },
+      ],
+    });
+
+    renderWithAuth(<AppRoutes />, {
+      status: 'authenticated',
+      user: MOCK_AUTH_USER,
+      initialRoute: '/companies/company-1/dashboard',
+    });
+
+    expect(await screen.findByText('2 Licenças Ativas')).toBeInTheDocument();
+    expect(screen.getByText('3 Pendências')).toBeInTheDocument();
+    const counts = screen.getByRole('region', {
+      name: 'Contagem de licenças por situação',
+    });
+    expect(
+      within(counts).getByText('Regulares').parentElement
+    ).toHaveTextContent('1');
+    expect(within(counts).getByText('Atenção').parentElement).toHaveTextContent(
+      '1'
+    );
+    expect(
+      within(counts).getByText('Vencidas').parentElement
+    ).toHaveTextContent('0');
+    expect(
+      screen.getByRole('link', { name: 'LO 20/2023' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'LO 001/2018' })
+    ).not.toBeInTheDocument();
   });
 
   it('shows a not found state and links back to the company list', async () => {

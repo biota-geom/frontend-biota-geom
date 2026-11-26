@@ -367,6 +367,40 @@ describe('CompanyLicensesPage', () => {
     expect(expiredCard).toHaveTextContent('1');
   });
 
+  it('derives summary cards from active licenses so archived licenses never inflate totals', async () => {
+    vi.mocked(licensesApi.listLicenses).mockResolvedValue({
+      summary: { total: 4, regular: 2, attention: 1, expired: 1 },
+      licenses: [
+        ...LICENSES_PANEL.licenses,
+        {
+          id: 'license-archived',
+          type: 'Licença de Operação (LO)',
+          processNumber: 'LO nº 010/2018',
+          issuingAgency: 'FEPAM',
+          issueDate: '2018-01-10T00:00:00.000Z',
+          expirationDate: '2020-01-10T00:00:00.000Z',
+          status: 'Renovada/Arquivada',
+          documentUrl: null,
+        },
+      ],
+    });
+
+    renderLicensesPage();
+
+    const summaryRegion = await screen.findByRole('region', {
+      name: /resumo das licenças/i,
+    });
+    const totalCard = within(summaryRegion)
+      .getByText('Total de Licenças')
+      .closest('article');
+    const regularCard = within(summaryRegion)
+      .getByText('Regulares')
+      .closest('article');
+
+    expect(totalCard).toHaveTextContent('3');
+    expect(regularCard).toHaveTextContent('1');
+  });
+
   it('fetches the licenses of the company in the current route', async () => {
     renderLicensesPage();
 

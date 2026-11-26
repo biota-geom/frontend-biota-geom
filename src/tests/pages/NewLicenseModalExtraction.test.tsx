@@ -188,8 +188,8 @@ describe('NewLicenseModal — AI pre-fill', () => {
       screen.getByRole('button', { name: 'Remover condicionante 2.1' })
     ).toBeInTheDocument();
 
-    // No responsible (both) and no deadline (first) in the document.
-    expect(screen.getAllByText('Preencher')).toHaveLength(3);
+    // No responsible on both; informative condition does not require a deadline.
+    expect(screen.getAllByText('Preencher')).toHaveLength(2);
     expect(
       screen.getByText(/2 condicionantes estão com dados pendentes/i)
     ).toBeInTheDocument();
@@ -287,7 +287,9 @@ describe('NewLicenseModal — AI pre-fill', () => {
       within(dialog).getByRole('button', { name: 'Salvar Alterações' })
     );
 
-    expect(within(dialog).getByText('Informe o prazo.')).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText('Informe o prazo.')
+    ).not.toBeInTheDocument();
     expect(
       within(dialog).getByText('Informe o responsável.')
     ).toBeInTheDocument();
@@ -386,8 +388,8 @@ describe('NewLicenseModal — AI pre-fill', () => {
     );
 
     expect(screen.getAllByText('Equipe Ambiental')).toHaveLength(2);
-    expect(screen.getByText('31/01/2027')).toBeInTheDocument();
-    // The deadline read from the PDF is not replaced.
+    // The informative row keeps no deadline; the periodic deadline from the PDF is kept.
+    expect(screen.queryByText('31/01/2027')).not.toBeInTheDocument();
     expect(screen.getByText('31/12/2026')).toBeInTheDocument();
     expect(screen.queryByText(/dados pendentes/i)).not.toBeInTheDocument();
     expect(
