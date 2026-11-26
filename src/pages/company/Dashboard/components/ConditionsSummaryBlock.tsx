@@ -4,7 +4,10 @@ import { buildCompanyRoutes } from '../../../../app/router/routes';
 import { useConditions } from '../../../../features/licenseConditions/useConditions';
 import { useConditionsCompliance } from '../../../../features/licenseConditions/useConditionsCompliance';
 import { useLicensesPanel } from '../../../../features/licenses/useLicensesPanel';
-import { formatLicenseStatus } from '../../../../features/licenses/licenseDetailsFormatting';
+import {
+  formatLicenseStatus,
+  isInformativeConditionType,
+} from '../../../../features/licenses/licenseDetailsFormatting';
 import type { LicenseCondition } from '../../../../features/licenseConditions/types';
 import { ComplianceProgressBar } from '../../Conditions/components/ComplianceProgressBar';
 
@@ -12,13 +15,23 @@ type ConditionsSummaryBlockProps = {
   companyId: string;
 };
 
+function getEffectiveRiskLevel(
+  condition: LicenseCondition
+): LicenseCondition['riskLevel'] {
+  return isInformativeConditionType(condition.conditionType)
+    ? 'REGULAR'
+    : condition.riskLevel;
+}
+
 function getRiskOrder(condition: LicenseCondition): number {
-  if (condition.riskLevel === 'RISK') return 0;
-  if (condition.riskLevel === 'ATTENTION') return 1;
+  const riskLevel = getEffectiveRiskLevel(condition);
+  if (riskLevel === 'RISK') return 0;
+  if (riskLevel === 'ATTENTION') return 1;
   return 2;
 }
 
-function formatDueDate(value: string): string {
+function formatDueDate(value: string | null): string {
+  if (!value) return '—';
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? '—'
@@ -147,9 +160,9 @@ export function ConditionsSummaryBlock({
                 </p>
               </div>
               <span
-                className={`shrink-0 rounded-control px-2 py-1 text-[11px] font-bold ${getBadgeTone(condition.riskLevel)}`}
+                className={`shrink-0 rounded-control px-2 py-1 text-[11px] font-bold ${getBadgeTone(getEffectiveRiskLevel(condition))}`}
               >
-                {getBadgeLabel(condition.riskLevel)}
+                {getBadgeLabel(getEffectiveRiskLevel(condition))}
               </span>
             </li>
           ))}

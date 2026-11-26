@@ -15,6 +15,7 @@ import {
   getActionableConditions,
   type ActionableCondition,
 } from '../../../../features/licenses/actionableConditions';
+import { isInformativeConditionType } from '../../../../features/licenses/licenseDetailsFormatting';
 import type {
   LicenseDetails,
   LicenseRenewed,
@@ -106,7 +107,9 @@ export function RenewLicenseModal({
     !hasConditionsStep ||
     (isFulfillmentComplete &&
       copiedConditions.every(
-        (condition) => (copyChoices[condition.id]?.dueDate ?? '').length > 0
+        (condition) =>
+          isInformativeConditionType(condition.conditionType) ||
+          (copyChoices[condition.id]?.dueDate ?? '').length > 0
       ));
 
   const canSubmit =
@@ -178,7 +181,7 @@ export function RenewLicenseModal({
         // fulfilled is guaranteed to be boolean once the list is complete
         fulfilled: fulfillment[condition.id] as boolean,
         copyToNew,
-        ...(copyToNew ? { newDueDate: choice?.dueDate } : {}),
+        ...(copyToNew && choice?.dueDate ? { newDueDate: choice.dueDate } : {}),
       };
     });
   }
@@ -186,6 +189,9 @@ export function RenewLicenseModal({
   function hasInvalidCopyDueDate(): boolean {
     return copiedConditions.some((condition) => {
       const dueDate = copyChoices[condition.id]?.dueDate ?? '';
+      if (!dueDate && isInformativeConditionType(condition.conditionType)) {
+        return false;
+      }
       return dueDate < minCopyDueDate || dueDate > form.expirationDate;
     });
   }
@@ -267,7 +273,9 @@ export function RenewLicenseModal({
               className="text-xs font-semibold text-text-secondary"
               htmlFor={`renew-copy-due-date-${condition.id}`}
             >
-              Novo vencimento
+              {isInformativeConditionType(condition.conditionType)
+                ? 'Novo vencimento (opcional)'
+                : 'Novo vencimento'}
             </label>
             <div className="w-40">
               <InputGroup variant="field">

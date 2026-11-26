@@ -153,4 +153,27 @@ describe('ConditionsSummaryBlock', () => {
       '50'
     );
   });
+
+  it('treats informative conditions without due date as regular instead of risk', () => {
+    vi.mocked(useConditions).mockReturnValue({
+      conditions: [
+        {
+          ...makeCondition('info', 'RISK'),
+          conditionType: 'INFORMATIVE',
+          dueDate: null,
+        },
+      ],
+      error: null,
+      refetch: vi.fn(),
+      status: 'success',
+      total: 1,
+    });
+
+    renderBlock();
+
+    const item = screen.getByRole('listitem');
+    expect(item).toHaveTextContent('Vencimento: —');
+    expect(within(item).getByText('Regular')).toBeInTheDocument();
+    expect(within(item).queryByText('Risco')).not.toBeInTheDocument();
+  });
 });

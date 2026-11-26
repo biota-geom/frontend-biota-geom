@@ -385,7 +385,8 @@ export interface LicenseConditionWire {
   description: string | null;
   environmental_descriptor: string;
   responsible_agency: string | null;
-  due_date: string;
+  condition_type?: string | null;
+  due_date: string | null;
   alert_date: string | null;
   status: 'Regular' | 'Atenção' | 'Risco';
   has_delivery: boolean;
@@ -413,7 +414,8 @@ export interface LicenseConditionCreatedWire {
   description: string | null;
   environmental_descriptor: string;
   responsible_agency: string | null;
-  due_date: string;
+  condition_type?: string | null;
+  due_date: string | null;
   alert_date: string | null;
   status: 'Regular' | 'Atenção' | 'Risco';
   has_delivery: boolean;
@@ -427,7 +429,7 @@ export interface LicenseConditionBatchItemWire {
   description: string;
   condition_type: string;
   periodicity?: string;
-  deadline: string;
+  deadline?: string;
   alert_date?: string;
   responsible_name: string;
   has_delivery: boolean;

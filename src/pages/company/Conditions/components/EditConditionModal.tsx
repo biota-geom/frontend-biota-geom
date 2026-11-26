@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import { Button } from '@/components/ui/shadcn/button';
@@ -22,9 +22,10 @@ import {
   SelectValue,
 } from '@/components/ui/shadcn/select';
 import { getLicenseDetails } from '../../../../services/api/licensesApi';
+import { isInformativeConditionType } from '../../../../features/licenses/licenseDetailsFormatting';
 import type { LicenseConditionDetail } from '../../../../features/licenses/types';
 import {
-  editLicenseConditionSchema,
+  createEditLicenseConditionSchema,
   type EditLicenseConditionForm,
 } from '../../../../features/licenseConditions/createLicenseConditionValidation';
 import type { LicenseCondition } from '../../../../features/licenseConditions/types';
@@ -50,7 +51,7 @@ function valuesFromCondition(
     name: condition.name,
     environmentalDescriptor: condition.environmentalDescriptor,
     responsibleAgency: condition.responsibleAgency ?? '',
-    dueDate: condition.dueDate.slice(0, 10),
+    dueDate: condition.dueDate?.slice(0, 10) ?? '',
     alertDate: condition.alertDate?.slice(0, 10) ?? '',
     hasDelivery: condition.hasDelivery,
     isViolated: condition.isViolated,
@@ -72,6 +73,7 @@ export function EditConditionModal({
   const refreshAlerts = useRefreshAlerts();
   const [parentData, setParentData] = useState<{
     conditionId: string;
+    conditionType: string | null;
     conditions: LicenseConditionDetail[];
     parentConditionId: string;
     error: string | null;
@@ -80,6 +82,18 @@ export function EditConditionModal({
     conditionId: string;
     value: string;
   } | null>(null);
+  const currentParentData =
+    parentData?.conditionId === condition?.id ? parentData : null;
+  const isInformative = isInformativeConditionType(
+    condition?.conditionType ?? currentParentData?.conditionType
+  );
+  const editSchema = useMemo(
+    () =>
+      createEditLicenseConditionSchema({
+        requireDueDate: !isInformative,
+      }),
+    [isInformative]
+  );
   const {
     control,
     formState: { errors, isSubmitting, isValid },
@@ -87,6 +101,7 @@ export function EditConditionModal({
     register,
     reset,
     setError,
+    trigger,
   } = useForm<EditLicenseConditionForm>({
     defaultValues: {
       name: '',
@@ -99,7 +114,7 @@ export function EditConditionModal({
       description: '',
     },
     mode: 'onChange',
-    resolver: zodResolver(editLicenseConditionSchema),
+    resolver: zodResolver(editSchema),
   });
   const editedDescriptor = useWatch({
     control,
@@ -108,8 +123,6 @@ export function EditConditionModal({
   const isLoadingParents =
     Boolean(condition && open && customerId) &&
     parentData?.conditionId !== condition?.id;
-  const currentParentData =
-    parentData?.conditionId === condition?.id ? parentData : null;
   const licenseConditions = currentParentData?.conditions ?? [];
   const parentLoadError = currentParentData?.error ?? null;
   const parentConditionId =
@@ -124,6 +137,10 @@ export function EditConditionModal({
   }, [condition, open, reset]);
 
   useEffect(() => {
+    if (condition && open) void trigger('dueDate');
+  }, [condition, isInformative, open, trigger]);
+
+  useEffect(() => {
     if (!condition || !open || !customerId) return;
 
     let isCurrent = true;
@@ -135,6 +152,8 @@ export function EditConditionModal({
         );
         setParentData({
           conditionId: condition.id,
+          conditionType:
+            detailCondition?.conditionType ?? condition.conditionType ?? null,
           conditions: details.conditions,
           parentConditionId:
             detailCondition?.parentConditionId ??
@@ -147,6 +166,7 @@ export function EditConditionModal({
         if (!isCurrent) return;
         setParentData({
           conditionId: condition.id,
+          conditionType: condition.conditionType ?? null,
           conditions: [],
           parentConditionId: 'none',
           error:
@@ -180,7 +200,7 @@ export function EditConditionModal({
         environmentalDescriptor: values.environmentalDescriptor,
         responsibleAgency: values.responsibleAgency || undefined,
         ...(values.dueDate !== originalDates.dueDate
-          ? { dueDate: toUtcIsoDate(values.dueDate) }
+          ? { dueDate: values.dueDate ? toUtcIsoDate(values.dueDate) : null }
           : {}),
         ...(values.alertDate !== originalDates.alertDate
           ? {
@@ -346,7 +366,11 @@ export function EditConditionModal({
           <EditTextField
             error={errors.dueDate?.message}
             id="edit-condition-due-date"
-            label="Data de Vencimento"
+            label={
+              isInformative
+                ? 'Data de Vencimento (opcional)'
+                : 'Data de Vencimento'
+            }
           >
             <Input
               {...register('dueDate', { deps: ['alertDate'] })}

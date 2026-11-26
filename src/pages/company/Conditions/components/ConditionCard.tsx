@@ -1,4 +1,5 @@
 import { AlertTriangle, Check, Pencil, Trash2, X } from 'lucide-react';
+import { isInformativeConditionType } from '../../../../features/licenses/licenseDetailsFormatting';
 import type {
   LicenseCondition,
   LicenseConditionRiskLevel,
@@ -37,10 +38,12 @@ const RISK_STYLES: Record<
   },
 };
 
-function formatDueDate(value: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(
-    new Date(value)
-  );
+function formatDueDate(value: string | null): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(date);
 }
 
 export function ConditionCard({
@@ -50,7 +53,10 @@ export function ConditionCard({
   condition: LicenseCondition;
   onEdit: (condition: LicenseCondition) => void;
 }) {
-  const style = RISK_STYLES[condition.riskLevel];
+  const effectiveRiskLevel = isInformativeConditionType(condition.conditionType)
+    ? 'REGULAR'
+    : condition.riskLevel;
+  const style = RISK_STYLES[effectiveRiskLevel];
   const StatusIcon = style.symbol;
   const isFulfilled =
     condition.isFulfilled ??

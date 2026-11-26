@@ -20,7 +20,7 @@ export interface LicenseConditionBatchItemInput {
   description: string;
   conditionType: string;
   periodicity?: string;
-  deadline: string;
+  deadline?: string;
   alertDate?: string;
   responsibleName: string;
   hasDelivery: boolean;
@@ -42,7 +42,7 @@ export interface UpdateLicenseConditionInput {
   environmentalDescriptor: string;
   parentConditionId?: string | null;
   responsibleAgency?: string;
-  dueDate?: string;
+  dueDate?: string | null;
   alertDate?: string | null;
   hasDelivery: boolean;
   isViolated: boolean;
@@ -63,7 +63,8 @@ function toLicenseCondition(wire: LicenseConditionWire): LicenseCondition {
     description: wire.description,
     environmentalDescriptor: wire.environmental_descriptor,
     responsibleAgency: wire.responsible_agency,
-    dueDate: wire.due_date,
+    conditionType: wire.condition_type ?? null,
+    dueDate: wire.due_date ?? null,
     alertDate: wire.alert_date ?? null,
     status: wire.status,
     hasDelivery: wire.has_delivery,
@@ -162,7 +163,7 @@ export async function createLicenseConditions(
       description: condition.description,
       condition_type: condition.conditionType,
       ...(condition.periodicity ? { periodicity: condition.periodicity } : {}),
-      deadline: condition.deadline,
+      ...(condition.deadline ? { deadline: condition.deadline } : {}),
       ...(condition.alertDate ? { alert_date: condition.alertDate } : {}),
       responsible_name: condition.responsibleName,
       has_delivery: condition.hasDelivery,

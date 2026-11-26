@@ -752,4 +752,75 @@ describe('CompanyConditionsPage', () => {
       )
     );
   });
+
+  it('renders informative conditions as regular without due date and allows clearing dueDate in edit modal', async () => {
+    const user = userEvent.setup();
+    const informativeCondition = {
+      id: 'condition-info',
+      licenseId: 'license-1',
+      name: 'Manter MTR disponível',
+      description: 'Registro informativo.',
+      environmentalDescriptor: 'Resíduos sólidos',
+      responsibleAgency: 'FEPAM',
+      conditionType: 'INFORMATIVE',
+      dueDate: '2026-11-30T00:00:00.000Z',
+      alertDate: null,
+      status: 'Risco' as const,
+      hasDelivery: false,
+      isViolated: false,
+      riskLevel: 'RISK' as const,
+    };
+    vi.mocked(licenseConditionsApi.listLicenseConditions)
+      .mockResolvedValueOnce({ total: 1, conditions: [informativeCondition] })
+      .mockResolvedValue({
+        total: 1,
+        conditions: [{ ...informativeCondition, dueDate: null }],
+      });
+    vi.mocked(licenseConditionsApi.updateLicenseCondition).mockResolvedValue();
+    vi.mocked(licensesApi.getLicenseDetails).mockResolvedValue({
+      id: 'license-1',
+      processNumber: 'LO nº 118/2020',
+      type: 'LO',
+      issuingAgency: 'FEPAM',
+      issueDate: '2020-01-10T00:00:00.000Z',
+      expirationDate: '2099-01-10T00:00:00.000Z',
+      status: 'Regular',
+      conditions: [],
+    });
+
+    renderConditionsPage();
+
+    const card = await screen.findByRole('article', {
+      name: 'Manter MTR disponível',
+    });
+    expect(within(card).getByText('REGULAR')).toBeInTheDocument();
+    expect(card).toHaveClass('border-emerald-500');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Editar Manter MTR disponível' })
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Editar Condicionante' });
+    const dueDateInput = within(dialog).getByLabelText(
+      'Data de Vencimento (opcional)'
+    );
+    await user.clear(dueDateInput);
+
+    const saveButton = within(dialog).getByRole('button', {
+      name: 'Salvar Alterações',
+    });
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    await user.click(saveButton);
+
+    await waitFor(() =>
+      expect(licenseConditionsApi.updateLicenseCondition).toHaveBeenCalledWith(
+        informativeCondition.id,
+        expect.objectContaining({ dueDate: null })
+      )
+    );
+    expect(
+      await within(
+        screen.getByRole('article', { name: 'Manter MTR disponível' })
+      ).findByText('—')
+    ).toBeInTheDocument();
+  });
 });

@@ -59,40 +59,48 @@ export type CreateLicenseConditionForm = z.infer<
   ReturnType<typeof createLicenseConditionSchema>
 >;
 
-export const editLicenseConditionSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1, 'Informe o nome da condicionante.')
-      .max(160, 'O nome deve ter no máximo 160 caracteres.'),
-    environmentalDescriptor: z
-      .string()
-      .trim()
-      .min(1, 'Informe o descritor ambiental.')
-      .max(120, 'O descritor ambiental deve ter no máximo 120 caracteres.'),
-    responsibleAgency: z
-      .string()
-      .trim()
-      .max(150, 'O órgão responsável deve ter no máximo 150 caracteres.'),
-    dueDate: z.string().min(1, DUE_DATE_REQUIRED_MESSAGE),
-    alertDate: z.string(),
-    hasDelivery: z.boolean(),
-    isViolated: z.boolean(),
-    description: z
-      .string()
-      .trim()
-      .max(500, 'A descrição deve ter no máximo 500 caracteres.'),
-  })
-  .superRefine((condition, context) => {
-    if (isAlertDateAfterDueDate(condition.alertDate, condition.dueDate)) {
-      context.addIssue({
-        code: 'custom',
-        message: ALERT_DATE_AFTER_DUE_DATE_MESSAGE,
-        path: ['alertDate'],
-      });
-    }
-  });
+export function createEditLicenseConditionSchema({
+  requireDueDate = true,
+}: { requireDueDate?: boolean } = {}) {
+  return z
+    .object({
+      name: z
+        .string()
+        .trim()
+        .min(1, 'Informe o nome da condicionante.')
+        .max(160, 'O nome deve ter no máximo 160 caracteres.'),
+      environmentalDescriptor: z
+        .string()
+        .trim()
+        .min(1, 'Informe o descritor ambiental.')
+        .max(120, 'O descritor ambiental deve ter no máximo 120 caracteres.'),
+      responsibleAgency: z
+        .string()
+        .trim()
+        .max(150, 'O órgão responsável deve ter no máximo 150 caracteres.'),
+      dueDate: requireDueDate
+        ? z.string().min(1, DUE_DATE_REQUIRED_MESSAGE)
+        : z.string(),
+      alertDate: z.string(),
+      hasDelivery: z.boolean(),
+      isViolated: z.boolean(),
+      description: z
+        .string()
+        .trim()
+        .max(500, 'A descrição deve ter no máximo 500 caracteres.'),
+    })
+    .superRefine((condition, context) => {
+      if (isAlertDateAfterDueDate(condition.alertDate, condition.dueDate)) {
+        context.addIssue({
+          code: 'custom',
+          message: ALERT_DATE_AFTER_DUE_DATE_MESSAGE,
+          path: ['alertDate'],
+        });
+      }
+    });
+}
+
+export const editLicenseConditionSchema = createEditLicenseConditionSchema();
 
 export type EditLicenseConditionForm = z.infer<
   typeof editLicenseConditionSchema

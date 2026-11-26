@@ -31,6 +31,7 @@ import {
 import {
   formatConditionPeriodicity,
   formatConditionType,
+  isInformativeConditionType,
 } from '../../../../features/licenses/licenseDetailsFormatting';
 import type { LicenseConditionDetail } from '../../../../features/licenses/types';
 
@@ -116,7 +117,9 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
         responsibleName: condition.responsibleName.trim()
           ? condition.responsibleName
           : responsibleName,
-        deadline: condition.deadline || deadline,
+        deadline:
+          condition.deadline ||
+          (isInformativeConditionType(condition.conditionType) ? '' : deadline),
       }))
     );
     setIsBulkFillOpen(false);
@@ -400,7 +403,9 @@ export function LicenseConditionsTable<TForm extends ConditionsFormValues>({
 }
 
 function isUnassigned(condition: LicenseConditionRow) {
-  return !condition.responsibleName.trim() || !condition.deadline;
+  const missingDeadline =
+    !isInformativeConditionType(condition.conditionType) && !condition.deadline;
+  return !condition.responsibleName.trim() || missingDeadline;
 }
 
 function getDraftConditionItemNumber({
@@ -582,6 +587,8 @@ function EnvironmentalDescriptorRows({
             <td className="px-3 py-2.5 text-text-secondary">
               {condition.deadline ? (
                 formatDeadline(condition.deadline)
+              ) : isInformativeConditionType(condition.conditionType) ? (
+                '—'
               ) : (
                 <Pending />
               )}
@@ -775,12 +782,20 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
               Tipo
             </Label>
             <Select
-              onValueChange={(value) =>
+              onValueChange={(value) => {
                 updateCondition({
                   conditionType: value,
                   ...(value === 'INFORMATIVE' ? { periodicity: '' } : {}),
-                })
-              }
+                });
+                if (value === 'INFORMATIVE') {
+                  setErrors((current) => {
+                    if (!current.deadline) return current;
+                    const next = { ...current };
+                    delete next.deadline;
+                    return next;
+                  });
+                }
+              }}
               value={condition.conditionType}
             >
               <SelectTrigger
@@ -837,7 +852,11 @@ function ConditionDialog({ onClose, onSubmit, state }: ConditionDialogProps) {
           <DialogField
             error={errors.deadline}
             id="new-condition-deadline"
-            label="Prazo"
+            label={
+              isInformativeConditionType(condition.conditionType)
+                ? 'Prazo (opcional)'
+                : 'Prazo'
+            }
           >
             <Input
               id="new-condition-deadline"
