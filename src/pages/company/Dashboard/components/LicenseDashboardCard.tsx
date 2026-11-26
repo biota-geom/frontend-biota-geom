@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/shadcn/card';
 import { buildCompanyRoutes } from '../../../../app/router/routes';
 import type { LicenseDashboard } from '../../../../features/licenses/types';
+import { formatLicenseStatus } from '../../../../features/licenses/licenseDetailsFormatting';
 import { getLicenseStatusBadgeTone } from '../../../../features/licenses/licenseStatusFormatting';
 import { cn } from '../../../../utils/cn';
 
@@ -82,7 +83,7 @@ export function LicenseDashboardCard({
                     getLicenseStatusBadgeTone(license.status)
                   )}
                 >
-                  {license.status} · Validade:{' '}
+                  {formatLicenseStatus(license.status)} · Validade:{' '}
                   {formatDashboardDate(license.expirationDate)}
                 </span>
               </li>

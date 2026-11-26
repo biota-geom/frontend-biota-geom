@@ -7,6 +7,7 @@ import {
   filterLicenses,
   listAgencyOptions,
 } from '../../../features/licenses/licenseFilters';
+import { summarizeLicenses } from '../../../features/licenses/licenseSummary';
 import type { License } from '../../../features/licenses/types';
 import { useLicensesPanel } from '../../../features/licenses/useLicensesPanel';
 import { useCompanyBreadcrumbs } from '../useCompanyBreadcrumbs';
@@ -32,6 +33,7 @@ export function CompanyLicensesPage() {
   }, [companyId, loadLicenses]);
 
   const agencyOptions = useMemo(() => listAgencyOptions(licenses), [licenses]);
+  const alignedSummary = useMemo(() => summarizeLicenses(licenses), [licenses]);
   const visibleLicenses = useMemo(
     () => filterLicenses(licenses, filters),
     [licenses, filters]
@@ -81,7 +83,7 @@ export function CompanyLicensesPage() {
 
       {status === 'success' && summary ? (
         <>
-          <LicensesSummaryCards summary={summary} />
+          <LicensesSummaryCards summary={alignedSummary} />
 
           <LicensesFilters
             agencyOptions={agencyOptions}

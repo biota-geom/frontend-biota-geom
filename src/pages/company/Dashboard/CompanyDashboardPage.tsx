@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/shadcn/button';
 import type { Company } from '@/features/companies/types';
 import { FullPageLoader } from '../../../components/feedback/FullPageLoader';
 import { PageScaffold } from '../../../components/layout/PageScaffold';
 import { useCompanyContext } from '../../../features/companies/useCompanyContext';
+import { alignDashboardWithLicenses } from '../../../features/licenses/licenseSummary';
 import type { LicenseDashboard } from '../../../features/licenses/types';
+import { useLicensesPanel } from '../../../features/licenses/useLicensesPanel';
 import { ApiError } from '../../../services/api/apiError';
 import { downloadCompanyReport } from '../../../services/api/companiesApi';
 import { getLicenseDashboard } from '../../../services/api/licensesApi';
@@ -77,6 +79,11 @@ function CompanyDashboardContent({
   const [retryCount, setRetryCount] = useState(0);
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const panelLicenses = useLicensesPanel((state) => state.licenses);
+  const panelStatus = useLicensesPanel((state) => state.status);
+  const panelCustomerId = useLicensesPanel(
+    (state) => state.requestedCustomerId
+  );
 
   async function handleExportReport() {
     if (!companyId) return;
@@ -130,13 +137,24 @@ function CompanyDashboardContent({
     };
   }, [company, retryCount]);
 
-  if (isLoading || !company) return <FullPageLoader />;
   const currentResult =
-    result?.companyId === company.id && result.attempt === retryCount
+    company && result?.companyId === company.id && result.attempt === retryCount
       ? result
       : null;
-  const dashboard = currentResult?.dashboard ?? null;
+  const rawDashboard = currentResult?.dashboard ?? null;
   const error = currentResult?.error ?? null;
+  const isPanelForCompany = Boolean(company && panelCustomerId === company.id);
+  const isPanelSettled =
+    isPanelForCompany && (panelStatus === 'success' || panelStatus === 'error');
+  const dashboard = useMemo(() => {
+    if (!rawDashboard || !isPanelSettled) return null;
+    if (panelStatus === 'success') {
+      return alignDashboardWithLicenses(rawDashboard, panelLicenses);
+    }
+    return rawDashboard;
+  }, [isPanelSettled, panelLicenses, panelStatus, rawDashboard]);
+
+  if (isLoading || !company) return <FullPageLoader />;
 
   return (
     <PageScaffold

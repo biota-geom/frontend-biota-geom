@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { buildCompanyRoutes } from '../../../../app/router/routes';
 import { ErrorToast } from '../../../../components/feedback/ErrorToast';
 import { ArrowRightIcon, FileIcon } from '../../../../components/ui/icons';
+import { formatLicenseStatus } from '../../../../features/licenses/licenseDetailsFormatting';
 import { getLicenseStatusBadgeTone } from '../../../../features/licenses/licenseStatusFormatting';
 import type { LicensePanelItem } from '../../../../features/licenses/types';
 import { useOpenLicenseDocument } from '../../../../features/licenses/useOpenLicenseDocument';
@@ -118,7 +119,7 @@ export function LicensesTable({ companyId, licenses }: LicensesTableProps) {
                     getLicenseStatusBadgeTone(license.status)
                   )}
                 >
-                  {license.status}
+                  {formatLicenseStatus(license.status)}
                 </span>
               </td>
               <td className="px-5 py-4">
